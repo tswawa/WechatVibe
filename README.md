@@ -2,6 +2,9 @@
 
 微信聊天情感分析客户端，支持意图识别、情绪感知、人物画像、群聊画像、好感度分析和 MBTI 聊天推测。
 
+- **分析模型**：[Laya](https://github.com/NandhaKishorM/laya)，用于聊天情绪和意图分析，采用 [mizchi 的多语言 ONNX 版本](https://huggingface.co/mizchi/laya-multilingual-onnx)。
+- **微信数据读取**：基于 [wechatauto-replica](https://github.com/fanyuantaier/wechatauto-replica)，读取微信本地会话和聊天记录。
+
 项目适合想回看聊天中的情绪变化、了解日常交流方式的用户。单聊中可查看对方消息的情绪、意图和人物画像；群聊中可查看整体氛围、互动特点及成员画像。
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
