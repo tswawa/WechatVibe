@@ -154,7 +154,7 @@ npm run catalog:generate
 
 ## 交流与建议
 
-QQ 交流群：**921170374**
+QQ 交流群：**921170374** 对项目有改进建议，或者想交流使用经验欢迎加入本群
 
 <img src="docs/assets/readme/community-qq.jpg" alt="WechatVibe QQ 交流群二维码" width="320">
 
