@@ -63,6 +63,13 @@ def _regular(path):
     return True
 
 
+def _same_checked_directory(left, right):
+    """Compare directory identities only after rejecting reparse points in both paths."""
+    _check_root(left)
+    _check_root(right)
+    return left.resolve() == right.resolve()
+
+
 class AccountStore:
     def __init__(self, data_dir, snapshot_root=None, stable_keys_dir=None):
         self.data_dir = Path(os.path.abspath(data_dir))
@@ -85,11 +92,12 @@ class AccountStore:
             return [], []
         if _reparse(workdir) or not workdir.is_dir():
             raise AccountConflict("账号缓存路径不安全")
+        resolved_workdir = workdir.resolve()
         files, directories, pending = [], [workdir], [workdir]
         while pending:
             directory = pending.pop()
             for path in directory.iterdir():
-                if _reparse(path) or not path.resolve().is_relative_to(workdir):
+                if _reparse(path) or not path.resolve().is_relative_to(resolved_workdir):
                     raise AccountConflict("账号缓存路径不安全")
                 if path.is_dir():
                     directories.append(path)
@@ -165,7 +173,16 @@ class AccountStore:
             if not _safe_account(account) or item.get("accountId") != account_id(account):
                 continue
             expected = self._workdir(account)
-            if item.get("workdir") != str(expected):
+            stored = item.get("workdir")
+            if not isinstance(stored, str):
+                continue
+            try:
+                stored_path = Path(stored)
+                if not stored_path.is_absolute() or ".." in stored_path.parts:
+                    continue
+                if not _same_checked_directory(stored_path, expected):
+                    continue
+            except (AccountConflict, OSError, RuntimeError, ValueError):
                 continue
             found[item["accountId"]] = {
                 "accountId": item["accountId"], "account": account,
@@ -231,7 +248,8 @@ class AccountStore:
     def register(self, account, workdir, wechat_id="", nickname=""):
         with self.lock:
             expected = self._workdir(account)
-            if Path(os.path.abspath(workdir)) != expected:
+            provided = Path(os.path.abspath(workdir))
+            if not _same_checked_directory(provided, expected):
                 raise AccountConflict("账号缓存路径不安全")
             records = self._discover()
             identifier = account_id(account)

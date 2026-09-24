@@ -1,6 +1,9 @@
 import gc
+import ctypes
 import http.client
 import json
+import os
+import subprocess
 import tempfile
 import threading
 import time
@@ -15,6 +18,42 @@ from real_backend import Backend, ResultStore
 from test_real_backend import SyntheticSource, SyntheticAnalyzer
 from real_http import make_handler
 from http.server import ThreadingHTTPServer
+
+
+def short_directory_alias(path):
+    if os.name != 'nt':
+        raise unittest.SkipTest('Windows 8.3 paths only')
+    from ctypes import wintypes
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    short_path = kernel32.GetShortPathNameW
+    short_path.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    short_path.restype = wintypes.DWORD
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = short_path(str(path), buffer, len(buffer))
+    if not length or length >= len(buffer) or buffer.value == str(path):
+        raise unittest.SkipTest('8.3 alias unavailable for temporary directory')
+    alias = Path(buffer.value)
+    if not os.path.samefile(alias, path):
+        raise AssertionError('8.3 alias does not identify the same temporary directory')
+    return alias
+
+
+def directory_reparse_alias(target, alias):
+    try:
+        os.symlink(target, alias, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        if os.name != 'nt':
+            raise unittest.SkipTest('directory reparse alias unavailable')
+        environment = os.environ.copy()
+        environment['ACCOUNT_TEST_LINK'] = str(alias)
+        environment['ACCOUNT_TEST_TARGET'] = str(target)
+        dollar = chr(36)
+        script = ('New-Item -ItemType Junction -Path ' + dollar + 'env:ACCOUNT_TEST_LINK -Target ' +
+                  dollar + 'env:ACCOUNT_TEST_TARGET | Out-Null')
+        result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
+                                env=environment, capture_output=True, text=True)
+        if result.returncode or not getattr(os.path, 'isjunction', lambda _path: False)(alias):
+            raise unittest.SkipTest('directory junction unavailable')
 
 
 class AccountManagementTests(unittest.TestCase):
@@ -54,6 +93,66 @@ class AccountManagementTests(unittest.TestCase):
         self.source.current = account
         self.api.observe({'account': account, 'self': {'username': account[:-5], 'name': 'Same nickname'}})
         return self.data / (account_id(account) + '.sqlite3')
+
+    def test_windows_short_path_register_and_legacy_registry(self):
+        account = 'wxid_long_account_abcd'
+        workdir = self.cache / account
+        workdir.mkdir()
+        short_workdir = short_directory_alias(workdir)
+        store = AccountStore(self.data, self.cache, self.stable_keys)
+        identifier = store.register(account, short_workdir, 'wxid_long_account', 'Fixture name')
+        self.assertEqual(identifier, account_id(account))
+        registry = json.loads(store.registry.read_text(encoding='utf-8'))
+        registry['accounts'][0]['workdir'] = str(short_workdir)
+        store.registry.write_text(json.dumps(registry), encoding='utf-8')
+        record = store._read_registry()[identifier]
+        self.assertEqual(record['workdir'], str(workdir))
+        self.assertEqual(record['nickname'], 'Fixture name')
+        self.assertEqual([item['accountId'] for item in store.list()['accounts']], [identifier])
+
+    def test_windows_short_root_owned_tree_stays_with_selected_account(self):
+        a, b = 'wxid_first_account_abcd', 'wxid_second_account_efgh'
+        workdir_a, workdir_b = self.cache / a, self.cache / b
+        workdir_a.mkdir()
+        workdir_b.mkdir()
+        file_a = workdir_a / 'message__message_0.db'
+        file_b = workdir_b / 'message__message_0.db'
+        file_a.write_bytes(b'first app snapshot')
+        file_b.write_bytes(b'second app snapshot')
+        short_root = short_directory_alias(self.cache)
+        store = AccountStore(self.data, short_root, self.stable_keys)
+        with self.assertRaises(AccountConflict):
+            store.register(a, short_directory_alias(workdir_b))
+        identifier_a = store.register(a, workdir_a)
+        identifier_b = store.register(b, workdir_b)
+        files, _ = store._owned_tree(a)
+        self.assertEqual({path.resolve() for path in files}, {file_a.resolve()})
+        self.assertEqual(store.delete(identifier_a, guard=lambda owned: self.assertEqual(owned, a),
+                                      forget=lambda _workdir: True), {'deleted': identifier_a})
+        self.assertFalse(file_a.exists())
+        self.assertEqual(file_b.read_bytes(), b'second app snapshot')
+        self.assertEqual([item['accountId'] for item in store.list()['accounts']], [identifier_b])
+
+    def test_resolved_alias_still_rejects_reparse_paths(self):
+        account = 'wxid_first_account_abcd'
+        workdir = self.cache / account
+        workdir.mkdir()
+        alias = self.root / 'linked-cache'
+        directory_reparse_alias(self.cache, alias)
+        store = AccountStore(self.data, self.cache, self.stable_keys)
+        with self.assertRaises(AccountConflict):
+            store.register(account, alias / account)
+        identifier = store.register(account, workdir)
+        registry = json.loads(store.registry.read_text(encoding='utf-8'))
+        registry['accounts'][0]['workdir'] = str(alias / account)
+        store.registry.write_text(json.dumps(registry), encoding='utf-8')
+        self.assertNotIn(identifier, store._read_registry())
+        nested = workdir / 'linked-other-account'
+        other = self.cache / 'wxid_second_account_efgh'
+        other.mkdir()
+        directory_reparse_alias(other, nested)
+        with self.assertRaises(AccountConflict):
+            store._owned_tree(account)
 
     def test_two_accounts_reuse_and_delete_only_inactive_derived_files(self):
         a, b = 'wxid_a_abcd', 'wxid_b_efgh'

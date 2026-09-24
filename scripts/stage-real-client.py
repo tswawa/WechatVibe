@@ -72,8 +72,10 @@ def main():
             shutil.copy2(original, target)
         results.append({'file':relative.as_posix(), 'bytes':target.stat().st_size, 'sha256':digest(target)})
     metadata = output/'package.json'
-    content = json.dumps({'name':'wechatvibe-runtime', 'version':'0.1.0', 'private':True, 'type':'module'},indent=2)+'\n'
-    if metadata.exists() and metadata.read_text(encoding='utf-8') != content:
+    version = json.loads((source/'package.json').read_text(encoding='utf-8'))['version']
+    content = json.dumps({'name':'wechatvibe-runtime', 'version':version, 'private':True, 'type':'module'},indent=2)+'\n'
+    if (metadata.exists() and metadata.read_text(encoding='utf-8') != content and
+            digest(metadata) != expected.get('package.json')):
         raise SystemExit('Unmanaged runtime package.json differs')
     metadata.write_text(content, encoding='utf-8')
     results.append({'file':'package.json','bytes':metadata.stat().st_size,'sha256':digest(metadata)})

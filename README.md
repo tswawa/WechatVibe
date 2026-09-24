@@ -89,12 +89,14 @@
 
 ## 下载安装
 
-当前版本为 **[WechatVibe 0.1.0](https://github.com/tswawa/WechatVibe/releases/tag/v0.1.0)**。
+当前版本为 **[WechatVibe 1.0.1](https://github.com/tswawa/WechatVibe/releases/tag/v1.0.1)**。
+
+1.0.1 修复了 Windows 长路径与 8.3 短路径被误判为不同缓存目录，导致「会话读取失败」的问题。原有目录、链接和账号边界检查保留。
 
 | 文件 | 用途 |
 | --- | --- |
-| [WechatVibe-0.1.0-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v0.1.0/WechatVibe-0.1.0-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |
-| [WechatVibe-0.1.0-source.zip](https://github.com/tswawa/WechatVibe/releases/download/v0.1.0/WechatVibe-0.1.0-source.zip) | 干净源码，用于查看、修改或自行构建。 |
+| [WechatVibe-1.0.1-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.1/WechatVibe-1.0.1-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |
+| [WechatVibe-1.0.1-source.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.1/WechatVibe-1.0.1-source.zip) | 干净源码，用于查看、修改或自行构建。 |
 
 ### 运行要求
 
