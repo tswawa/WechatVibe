@@ -1,0 +1,39 @@
+{
+  "appId": "com.local.wechatvibe.real-client",
+  "productName": "WechatVibe",
+  "directories": {
+    "output": "release-real-client"
+  },
+  "electronDist": "node_modules/electron/dist",
+  "extraMetadata": {
+    "name": "wechatvibe",
+    "author": "tswawa",
+    "description": "WechatVibe local chat analysis and portraits",
+    "main": "scripts/desktop-main.cjs"
+  },
+  "files": [
+    "scripts/desktop-main.cjs",
+    "scripts/real-client-shell.cjs",
+    "scripts/real-client-preload.cjs",
+    "scripts/real-client-recovery.cjs",
+    "package.json",
+    "!node_modules/**"
+  ],
+  "extraResources": [
+    {
+      "from": ".local/real-client-package/client",
+      "to": "client",
+      "filter": ["**/*", "!.local/**", "!wechatauto_logs/**", "!**/__pycache__/**", "!**/*.pyc"]
+    },
+    {
+      "from": ".local/real-client-package/client/node_modules",
+      "to": "client/node_modules",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": ["dir"],
+    "icon": "chatui/assets/wechatvibe-icon.ico",
+    "executableName": "WechatVibe"
+  }
+}

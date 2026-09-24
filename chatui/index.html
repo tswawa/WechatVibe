@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WechatVibe</title>
+  <link rel="icon" type="image/png" href="/assets/wechatvibe-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="startup-overlay" id="startupOverlay" role="status" aria-live="polite">
+  <div class="startup-card">
+    <div class="startup-brand"><img src="/assets/wechatvibe-icon.png" alt=""><strong>WechatVibe</strong></div>
+    <div class="startup-steps" aria-hidden="true">
+      <div class="startup-step active" data-step="account">连接当前微信账号</div>
+      <div class="startup-step" data-step="sessions">读取会话列表</div>
+      <div class="startup-step" data-step="messages">准备全部会话消息</div>
+    </div>
+    <div class="startup-status" id="startupStatus">正在连接当前微信账号…</div>
+    <div class="startup-actions">
+      <button type="button" class="startup-retry" id="startupRetry" hidden>重试</button>
+      <button type="button" class="startup-continue" id="startupContinue" hidden>进入空界面</button>
+    </div>
+  </div>
+</div>
+
+<div class="desktop-titlebar" aria-hidden="true"></div>
+<div class="app-window" id="appWindow" inert>
+
+  <!-- ================= COLUMN 1: LEFT NAVIGATION RAIL ================= -->
+  <aside class="nav-rail">
+    <!-- Top User Avatar -->
+    <div class="user-avatar-wrap" title="个人信息">
+      <span id="selfAvatarFallback" class="avatar-fallback self-avatar-fallback">我</span>
+      <img id="selfAvatar" alt="" class="user-avatar">
+    </div>
+
+    <!-- Main Navigation Icons (仅保留：聊天、人物画像) -->
+    <div class="nav-icons-main">
+      <!-- Chat (Active) -->
+      <div class="nav-item active" title="聊天" data-tab="chat" id="navChat">
+        <svg viewBox="0 0 24 24">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+        </svg>
+      </div>
+
+      <!-- Persona / 人格画像 (AI) -->
+      <div class="nav-item" title="人物画像" data-tab="persona" id="navPersona">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5zm0 12c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4zm7.5-9.5l.94 2.06 2.06.94-2.06.94-.94 2.06-.94-2.06-2.06-.94 2.06-.94.94-2.06z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Bottom Action Icons (仅保留三个横杠：设置) -->
+    <div class="nav-icons-bottom">
+      <div class="nav-item" title="设置" id="btnSettings">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+        </svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= COLUMN 2: MIDDLE SESSION LIST ================= -->
+  <section class="session-pane">
+    <!-- Top Search Header -->
+    <div class="search-header">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="搜索">
+      </div>
+      <button class="btn-add-chat" id="btnAddChat" title="不支持发起聊天" disabled>
+        <svg viewBox="0 0 24 24">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Session Items Container -->
+    <div class="session-list" id="sessionList">
+      <div class="ui-state">正在读取会话…</div>
+    </div>
+  </section>
+
+  <!-- ================= COLUMN 3: RIGHT MAIN CHAT PANE ================= -->
+  <main class="chat-pane">
+    <!-- VIEW 1: CHAT VIEW -->
+    <div class="pane-view active" id="chatView">
+      <!-- Chat Header Bar -->
+    <header class="chat-header">
+      <div class="chat-title-group">
+        <h2 class="chat-title" id="chatTitle">聊天</h2>
+        <span class="chat-status-pill" id="chatStatusPill" style="display:none">
+          <span class="header-mood-label" id="headerMoodLabel"></span>
+          <span class="kaomoji-pill-icon" id="headerMoodKaomoji"></span>
+        </span>
+        <span class="analysis-status" id="analysisStatus"></span>
+      </div>
+      <div class="chat-history-actions">
+        <button type="button" class="chat-history-action" id="btnReturnLatest" hidden>返回最新</button>
+        <button type="button" class="chat-history-action" id="btnChatHistory" aria-expanded="false" aria-controls="historySearchPanel">聊天记录</button>
+      </div>
+    </header>
+
+    <!-- Chat Main Area (Messages Scroll Area) -->
+    <div class="chat-main-area" id="chatMainArea">
+      <div class="history-navigation" id="historyNavigation" hidden>
+        <button type="button" class="history-nav-button" id="btnHistoryEarlier">加载更早</button>
+        <span class="history-nav-status" id="historyNavStatus"></span>
+        <button type="button" class="history-nav-button" id="btnHistoryNewer" hidden>加载较新</button>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+      <aside class="history-search-panel" id="historySearchPanel" aria-label="聊天记录" hidden>
+        <div class="history-panel-head">
+          <strong>聊天记录</strong>
+          <button type="button" class="history-panel-close" id="btnCloseHistorySearch" aria-label="关闭聊天记录">×</button>
+        </div>
+        <form id="historySearchForm" class="history-search-form">
+          <input type="search" id="historyKeyword" placeholder="关键词" aria-label="关键词">
+          <input type="date" id="historyDate" aria-label="日期">
+          <div class="history-search-actions">
+            <button type="submit" id="btnRunHistorySearch">搜索</button>
+            <button type="button" id="btnCancelHistorySearch" hidden>取消</button>
+          </div>
+        </form>
+        <div class="history-search-status" id="historySearchStatus" role="status"></div>
+        <div class="history-search-results" id="historySearchResults"></div>
+        <div class="history-search-pages">
+          <button type="button" id="btnHistoryPrevResults" hidden>上一页</button>
+          <button type="button" id="btnHistoryNextResults" hidden>下一页</button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Chat Input Area -->
+    <div class="chat-input-pane">
+      <section class="reply-prediction" id="replyPrediction" aria-live="polite" hidden>
+        <div class="reply-prediction-head">
+          <strong>可能的回应</strong>
+          <button type="button" class="reply-prediction-close" id="btnClosePrediction" aria-label="关闭预测">×</button>
+        </div>
+        <div class="reply-prediction-body" id="replyPredictionBody"></div>
+      </section>
+      <!-- Input Toolbar -->
+      <div class="input-toolbar">
+        <div class="toolbar-left">
+          <!-- Emoji Smiley -->
+          <div class="tool-btn" id="btnEmoji" title="表情">
+            <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+          </div>
+
+          <!-- Send File -->
+          <div class="tool-btn disabled" id="btnFile" title="不支持附件" aria-disabled="true">
+            <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+          </div>
+
+          <!-- Screenshot -->
+          <div class="tool-btn split disabled" id="btnScreenshot" title="不支持截图" aria-disabled="true">
+            <svg viewBox="0 0 24 24"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg>
+            <svg class="arrow" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+
+          <!-- Text Action Buttons on the right of icons -->
+          <button class="toolbar-text-btn active" id="btnToggleIntent" title="识别当前聊天消息">意图识别</button>
+          <button class="toolbar-text-btn" id="btnToolbarPersona" title="切换到当前聊天对象的人格画像">人物画像</button>
+          <button class="toolbar-text-btn" id="btnRetryAnalysis" title="重新分析当前会话" hidden>分析失败 · 重试</button>
+        </div>
+      </div>
+
+      <!-- Textarea Wrap -->
+      <div class="input-textarea-wrap">
+        <textarea id="chatInput" class="chat-textarea" placeholder="草稿仅用于复制，不会发送到微信"></textarea>
+      </div>
+
+      <!-- Bottom Action Row -->
+      <div class="input-bottom-bar">
+        <span class="shortcut-hint">Enter 复制草稿，Shift+Enter 换行 · 不发送</span>
+        <button class="btn-send" id="btnSend">复制草稿</button>
+      </div>
+    </div>
+  </div><!-- /chatView -->
+
+    <!-- VIEW 2: PERSONA PORTRAIT DASHBOARD (人格画像) -->
+    <div class="pane-view" id="personaView">
+      <!-- Persona Header -->
+      <header class="persona-header">
+        <div class="persona-header-left">
+          <div class="persona-nav-title">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5zm0 12c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4zm7.5-9.5l.94 2.06 2.06.94-2.06.94-.94 2.06-.94-2.06-2.06-.94 2.06-.94.94-2.06z"/>
+            </svg>
+            <span id="personaHeaderTitle">人物画像分析</span>
+          </div>
+
+          <!-- Group Member Tabs (仅在群聊时展示，供在群聊内切换成员画像) -->
+          <div class="group-member-tabs" id="groupMemberTabs" style="display:none;"></div>
+        </div>
+
+        <div class="persona-header-right">
+          <button class="btn-back-chat" id="btnBackToChat" title="返回会话聊天界面">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            <span>返回聊天</span>
+          </button>
+
+        </div>
+      </header>
+
+      <!-- Scrollable Persona Dashboard Content -->
+      <div class="persona-dashboard" id="personaDashboard">
+        <!-- 1. System Status Strip -->
+        <div class="persona-status-strip">
+          <div class="status-item">
+            <span class="status-dot-pulse"></span>
+            <span>消息：<strong id="stripDbPath">待读取</strong></span>
+          </div>
+          <div class="status-item">
+            <span>文本：<strong id="stripMsgCount">待读取</strong></span>
+          </div>
+          <div class="status-item" id="stripConfidenceItem" style="display:none">
+          <span>已分析：<strong id="stripConfidence"></strong></span>
+        </div>
+          <div class="status-item" id="stripStatusItem" style="display:none">
+            <span>状态：<strong id="stripStatusText"></strong></span>
+          </div>
+          <button class="ui-retry" id="btnRetryProfile" type="button" hidden>重试分析</button>
+        </div>
+
+        <!-- 2. Hero Profile Card -->
+        <div class="persona-hero-card">
+          <div class="hero-left">
+            <div class="hero-avatar-wrap">
+              <span class="hero-avatar" id="heroAvatar"></span>
+            </div>
+            <div class="hero-info">
+              <div class="hero-name-row">
+                <h3 class="hero-name" id="heroName">待读取</h3>
+                <span class="chat-subtitle-badge" id="heroRelationBadge">待分析</span>
+              </div>
+              <p class="hero-archetype" id="heroArchetype" style="display:none"></p>
+              <div class="hero-mbti-row" id="heroMbtiRow" hidden>
+                <span class="hero-mbti-label">人格属性 · 聊天推测</span>
+                <span class="hero-mbti-state" id="heroMbti"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hero Right Box: Dynamic for 1-on-1 (Game-like Favorability) OR Group (Group Activity Dynamics) -->
+          <div class="hero-metric-box" id="heroMetricBox">
+            <!-- Dynamically populated by app.js -->
+          </div>
+        </div>
+
+        <!-- 3. Grid Row 1: Chat-based preference evidence and unsupported traits -->
+        <div class="persona-grid">
+          <!-- Card A: MBTI 4-Dimension Scales -->
+          <div class="persona-card" id="mbtiCard">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                MBTI · 聊天推测
+              </span>
+              <span class="card-badge" id="mbtiScaleBadge">尚未生成</span>
+            </div>
+            <div class="mbti-scales-list" id="mbtiScalesList"></div>
+            <div class="mbti-theory-sources" id="mbtiSources"></div>
+          </div>
+
+          <!-- Card B: Six Trait Dimensions -->
+          <div class="persona-card" id="radarCard">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                互动风格
+              </span>
+              <span class="card-badge" id="radarBadge">聊天表现</span>
+            </div>
+            <div class="radar-container" id="radarContainer"></div>
+          </div>
+        </div>
+
+        <!-- 4. Grid Row 2: Linguistic Fingerprint & AI Contextual Summary -->
+        <div class="persona-grid">
+          <!-- Card C: Linguistic Style & Catchphrases -->
+          <div class="persona-card">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                高频词
+              </span>
+              <span class="card-badge">词频统计 Top 6</span>
+            </div>
+            <div class="tag-cloud" id="tagCloud">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
+          <!-- Card D: AI Deep Analysis Summary -->
+          <div class="persona-card" id="summaryCard">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                画像摘要
+              </span>
+              <span class="card-badge" id="summaryBadge">基于聊天汇总</span>
+            </div>
+            <p class="bot-summary-text" id="botSummaryText">
+              <!-- Dynamically rendered -->
+            </p>
+          </div>
+        </div>
+
+      </div><!-- /persona-dashboard -->
+    </div><!-- /personaView -->
+  </main>
+
+  <!-- ================= POPUPS & MODALS ================= -->
+  <!-- Emoji & Kaomoji Popover -->
+  <div class="emoji-popover" id="emojiPopover">
+    <div class="emoji-popover-tabs">
+      <span class="popover-tab active" data-tab="emoji">Emoji</span>
+      <span class="popover-tab" data-tab="kaomoji">颜文字 (心情)</span>
+    </div>
+    <div class="emoji-grid active" id="emojiGrid">
+      <span class="emoji-btn">🦀</span>
+      <span class="emoji-btn">🐶</span>
+      <span class="emoji-btn">🐱</span>
+      <span class="emoji-btn">😂</span>
+      <span class="emoji-btn">🤣</span>
+      <span class="emoji-btn">👍</span>
+      <span class="emoji-btn">❤️</span>
+      <span class="emoji-btn">🔥</span>
+      <span class="emoji-btn">😭</span>
+      <span class="emoji-btn">🙏</span>
+      <span class="emoji-btn">😎</span>
+      <span class="emoji-btn">🤔</span>
+      <span class="emoji-btn">🎉</span>
+      <span class="emoji-btn">✨</span>
+      <span class="emoji-btn">👏</span>
+      <span class="emoji-btn">🍺</span>
+      <span class="emoji-btn">🌙</span>
+      <span class="emoji-btn">🚀</span>
+    </div>
+    <div class="kaomoji-grid" id="kaomojiGrid"></div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-msg" id="toastMsg"></div>
+
+  <!-- WeChat Desktop Settings Modal (设置中心) -->
+  <div class="settings-modal-overlay" id="settingsModal">
+    <div class="settings-modal-card">
+      <button class="settings-close-btn" id="btnCloseSettings" title="关闭设置">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+      </button>
+      <div class="settings-sidebar">
+        <div class="settings-tab-btn active" data-tab="general">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          <span>通用设置</span>
+        </div>
+        <div class="settings-tab-btn" data-tab="about">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          <span>关于</span>
+        </div>
+      </div>
+
+      <div class="settings-content">
+        <!-- Panel 1: General -->
+        <div class="settings-panel active" id="panelGeneral">
+          <div class="settings-title">通用设置</div>
+          <div class="settings-row">
+            <span>主题外观</span>
+            <select id="selectThemeMode">
+              <option value="dark">深色模式 (默认)</option>
+              <option value="light">浅色模式 (白天)</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <span>界面缩放比例</span>
+            <select id="selectZoomLevel">
+              <option value="1.0">100% (标准)</option>
+              <option value="0.9">90% (紧凑)</option>
+              <option value="1.1">110% (放大)</option>
+              <option value="1.25">125% (大号)</option>
+              <option value="1.5">150% (特大)</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <span>模型设备</span>
+            <div class="runtime-control">
+              <span id="runtimeStatus" role="status">待读取</span>
+              <select id="selectRuntimeProvider" aria-label="模型设备" disabled>
+                <option value="cpu">CPU</option>
+                <option value="gpu">GPU</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-row">
+            <span>管理账号</span>
+            <button type="button" class="settings-action-btn" id="btnManageAccounts">查看账号</button>
+          </div>
+          <section class="account-manager" id="accountManager" hidden>
+            <div class="account-manager-head">
+              <span>已保存的微信账号</span>
+              <div class="account-manager-head-actions">
+                <button type="button" class="settings-action-btn" id="btnToggleAccountManagement" aria-pressed="false">管理</button>
+                <button type="button" class="settings-action-btn" id="btnRefreshAccounts">刷新</button>
+              </div>
+            </div>
+            <div class="account-list" id="accountList"></div>
+            <div class="account-manager-actions">
+              <span id="accountManagerStatus" role="status"></span>
+            </div>
+            <div class="account-delete-confirm" id="accountDeleteConfirm" hidden>
+              <p id="accountDeleteQuestion"></p>
+              <div class="account-confirm-actions">
+                <button type="button" class="settings-action-btn" id="btnCancelDeleteAccount">取消</button>
+                <button type="button" class="settings-danger-btn" id="btnConfirmDeleteAccount">确认清除</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Panel 2: About -->
+        <div class="settings-panel" id="panelAbout">
+        <div class="settings-title about-title"><img src="/assets/wechatvibe-icon.png" alt="" class="about-brand-icon">关于 WechatVibe</div>
+        <div class="about-card">
+          <div class="about-row">
+            <span class="about-label">作者</span>
+            <a class="about-val about-link user-select-all" href="https://github.com/tswawa" target="_blank" rel="noopener noreferrer">
+              <svg class="about-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297a12 12 0 0 0-3.793 23.386c.6.111.82-.261.82-.577v-2.234c-3.338.726-4.043-1.416-4.043-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.304-5.466-1.333-5.466-5.932 0-1.311.469-2.381 1.236-3.221-.123-.303-.536-1.524.117-3.176 0 0 1.008-.323 3.301 1.23A11.535 11.535 0 0 1 12 6.386c1.02.005 2.047.138 3.006.404 2.291-1.553 3.297-1.23 3.297-1.23.655 1.652.242 2.873.12 3.176.77.84 1.235 1.91 1.235 3.221 0 4.61-2.805 5.625-5.476 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.216.694.824.576A12.001 12.001 0 0 0 12 .297z"/></svg>
+              <span>tswawa</span>
+            </a>
+          </div>
+          <div class="about-row">
+            <span class="about-label">B站</span>
+            <span class="about-val user-select-all">tswawa9595</span>
+          </div>
+          <div class="about-row">
+            <span class="about-label">抖音</span>
+            <span class="about-val user-select-all">tswawa9595</span>
+          </div>
+          <div class="about-row">
+            <span class="about-label">GitHub 仓库</span>
+            <a class="about-val about-link user-select-all" href="https://github.com/tswawa/WechatVibe" target="_blank" rel="noopener noreferrer">
+              <svg class="about-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297a12 12 0 0 0-3.793 23.386c.6.111.82-.261.82-.577v-2.234c-3.338.726-4.043-1.416-4.043-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.304-5.466-1.333-5.466-5.932 0-1.311.469-2.381 1.236-3.221-.123-.303-.536-1.524.117-3.176 0 0 1.008-.323 3.301 1.23A11.535 11.535 0 0 1 12 6.386c1.02.005 2.047.138 3.006.404 2.291-1.553 3.297-1.23 3.297-1.23.655 1.652.242 2.873.12 3.176.77.84 1.235 1.91 1.235 3.221 0 4.61-2.805 5.625-5.476 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.216.694.824.576A12.001 12.001 0 0 0 12 .297z"/></svg>
+              <span>WechatVibe</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<script src="kaomoji.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
+

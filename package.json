@@ -1,0 +1,34 @@
+{
+  "name": "wechatvibe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WechatVibe 本机只读微信会话分析桌面客户端",
+  "license": "Apache-2.0",
+  "main": "scripts/desktop-main.cjs",
+  "engines": {
+    "node": "24.11.1"
+  },
+  "scripts": {
+    "start": "electron .",
+    "start:service": "python scripts/start-real-client.py",
+    "setup:models": "tsx scripts/setup-models.ts",
+    "catalog:generate": "node scripts/build-analysis-catalog.mjs",
+    "catalog:export": "python scripts/export-label-library.py --output WechatVibe-label-library.txt",
+    "test:recovery": "node scripts/test-real-client-recovery.cjs && python scripts/test-start-real-client.py && python bridge/test_account_store.py",
+    "stage:runtime": "python scripts/stage-real-runtime.py",
+    "stage:client": "python scripts/stage-real-client.py",
+    "build:portable": "npm run stage:runtime && npm run stage:client && electron-builder --win --dir --config electron-builder.real-client.json"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "onnxruntime-node": "1.30.0",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2"
+  }
+}
