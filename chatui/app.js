@@ -68,7 +68,7 @@ function unlockMbti() {
   try { localStorage.setItem(getMbtiUnlockKey(), "true"); } catch {}
 }
 const defaults = { theme: "dark", zoom: "1.0", intent: true };
-const CURRENT_LABEL_SCHEMA = "generic-v7";
+const CURRENT_LABEL_SCHEMA = "generic-v8";
 const GENERIC_INTENT_LABELS = Object.freeze({
   small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助",
   give_comfort: "安慰", agree: "同意", invite: "邀约", show_affection: "表达好感",

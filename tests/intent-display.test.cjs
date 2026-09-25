@@ -70,7 +70,7 @@ it("keeps up to three ranked Laya candidates with their original probabilities",
   ]);
 });
 
-it("renders nuanced generic-v7 labels using their original model probabilities", () => {
+it("renders nuanced generic-v8 labels using their original model probabilities", () => {
   const result = select({ groundedIntent: null, intent: [
     { rawLabel: "confide", probability: 0.72 },
     { rawLabel: "seek_comfort", probability: 0.2 },

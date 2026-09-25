@@ -59,6 +59,7 @@ const QUOTED = /“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"|
 export function groundedIntent(targetText: string): GroundedIntent | null {
   if (typeof targetText !== "string" || !targetText.trim() || targetText.length > 240) return null;
   let text = targetText.replace(QUOTED, " ").replace(/\s+/gu, " ").trim();
+  if (!/[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(text)) return null;
   // Forwarded chat lines can carry a transport sender prefix; classify only
   // the actual utterance after that prefix, never the identifier itself.
   text = text.replace(/^(?:qq_\d+|wxid_[\w-]+|[\w-]+@chatroom)\s*:\s*/u, "").trim();

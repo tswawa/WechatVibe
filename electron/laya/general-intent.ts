@@ -2,7 +2,7 @@ import type { LabelScore } from "../../shared/contracts";
 import type { Answer, Question } from "./types";
 
 /** Stable wire marker. A saved legacy fine result can be refreshed one message at a time. */
-export const GENERAL_LABEL_SCHEMA = "generic-v7";
+export const GENERAL_LABEL_SCHEMA = "generic-v8";
 
 export const INTENTS = [
   { id: "small_talk", zh: "闲聊", en: "small talk" },
@@ -70,6 +70,7 @@ const DIRECTED_CONFIDING = /想跟你说|想找你聊|想聊聊|说说心里话|
 /** Literal wording only retrieves candidates; Laya supplies every displayed probability. */
 const CUES: ReadonlyArray<{ pattern: RegExp; ids: readonly IntentId[] }> = [
   { pattern: /不去了|不参加|没法去|接不了|去不了|没空|不要了|不愿意|我拒绝|不接受|我不同意|(?:我们|咱们|两个人|彼此).{0,4}不(?:太)?合适/u, ids: ["reject", "distance"] },
+  { pattern: /(?:^|[，,。！!\s])(?:那|我)?还是算了(?:吧)?(?=$|[，,。！!\s])/u, ids: ["reject"] },
   { pattern: /别再|不要再|先别|不想谈|(?:我们|咱们|这段关系|这次聊天|这个话题).{0,4}到此为止|需要.{0,4}空间|保持距离/u, ids: ["set_boundary", "distance"] },
   { pattern: /对不起|抱歉|不好意思|是我不对|我错了/u, ids: ["apologize", "reconcile"] },
   { pattern: /和好|别生气|我们好好说|不想吵|重新开始/u, ids: ["reconcile", "clarify"] },

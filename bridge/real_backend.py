@@ -43,7 +43,7 @@ MAX_IMAGE_BYTES = 8 * 1024 * 1024
 FORECAST_CACHE_LIMIT = 64
 FORECAST_SOURCE_WINDOW = 16
 PROFILE_METADATA_CACHE_LIMIT = 64
-FINE_LABEL_SCHEMA = "generic-v7"
+FINE_LABEL_SCHEMA = "generic-v8"
 GROUNDED_INTENT_EVIDENCE = {
     "greet": {"greeting_phrase"}, "thank": {"thanks_phrase"},
     "confirm": {"short_acknowledgement"}, "inspect": {"first_person_inspection"},
