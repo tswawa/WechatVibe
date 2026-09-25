@@ -2,6 +2,7 @@ const { app, BrowserWindow, clipboard, ipcMain, session, shell } = require("elec
 const fs = require("node:fs");
 const path = require("node:path");
 const { monitorBridge } = require("./real-client-recovery.cjs");
+const { checkForUpdates, RELEASES_URL } = require("./real-client-update.cjs");
 
 const ROOT = process.env.WECHATVIBE_CLIENT_ROOT ?
   path.resolve(process.env.WECHATVIBE_CLIENT_ROOT) : path.resolve(__dirname, "..");
@@ -14,6 +15,7 @@ const DOC_URLS = new Set([
   "https://www.themyersbriggs.com/en-US/Products-and-Services/Myers-Briggs",
   "https://github.com/tswawa",
   "https://github.com/tswawa/WechatVibe",
+  RELEASES_URL,
 ]);
 
 function clientUrl(value) {
@@ -30,7 +32,16 @@ function argument(name) {
 
 const url = clientUrl(argument("--client-url"));
 const selfTest = process.argv.includes("--self-test");
-if (process.platform !== "win32" || !url) {
+const instanceId = process.env.WECHATVIBE_INSTANCE_ID;
+const updateValidation = process.env.WECHATVIBE_UPDATE_VALIDATE === "1";
+const updateFinalReady = !updateValidation &&
+  typeof process.env.WECHATVIBE_UPDATE_FINAL_READY_FILE === "string" &&
+  typeof process.env.WECHATVIBE_UPDATE_FINAL_READY_NONCE === "string";
+const updateReadyFile = updateValidation ? process.env.WECHATVIBE_UPDATE_READY_FILE :
+  process.env.WECHATVIBE_UPDATE_FINAL_READY_FILE;
+const updateReadyNonce = updateValidation ? process.env.WECHATVIBE_UPDATE_READY_NONCE :
+  process.env.WECHATVIBE_UPDATE_FINAL_READY_NONCE;
+if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test(instanceId || ""))) {
   process.stderr.write("real-client shell requires Windows and a validated loopback URL\n");
   app.exit(1);
 } else {
@@ -40,7 +51,10 @@ if (process.platform !== "win32" || !url) {
   app.setPath("userData", userData);
   let window = null;
   let stopBridgeMonitor = null;
+  let validationTimer = null;
   let exiting = false;
+  let updateCheckPromise = null;
+  let updateController = null;
   const testState = { themes: [], blockedPopups: 0, themeWaiter: null };
 
   function trustedFrame(event) {
@@ -87,6 +101,78 @@ if (process.platform !== "win32" || !url) {
       return true;
     });
 
+    ipcMain.handle("real-client:app-version", (event) => {
+      if (!trustedFrame(event)) return null;
+      return app.getVersion();
+    });
+
+    ipcMain.handle("real-client:check-updates", (event) => {
+      if (!trustedFrame(event)) return { status: "blocked" };
+      if (updateController) return updateController.check();
+      if (!updateCheckPromise) {
+        updateCheckPromise = checkForUpdates(app.getVersion()).finally(() => { updateCheckPromise = null; });
+      }
+      return updateCheckPromise;
+    });
+
+    ipcMain.handle("real-client:update-state", (event) => {
+      if (!trustedFrame(event)) return { phase: "blocked" };
+      return updateController?.getState() || { phase: "idle", currentVersion: app.getVersion() };
+    });
+
+    ipcMain.handle("real-client:begin-update", (event) => {
+      if (!trustedFrame(event) || !updateController) return { phase: "blocked" };
+      return updateController.begin();
+    });
+
+    ipcMain.handle("real-client:rollback-update", (event) => {
+      if (!trustedFrame(event) || !updateController) return { phase: "blocked" };
+      return updateController.rollback();
+    });
+
+    ipcMain.handle("real-client:update-ui-ready", async (event) => {
+      if ((!updateValidation && !updateFinalReady) || !trustedFrame(event) || selfTest ||
+          !window.isVisible() || window.isMinimized() ||
+          typeof updateReadyFile !== "string" || typeof updateReadyNonce !== "string" ||
+          !path.isAbsolute(updateReadyFile) || path.resolve(updateReadyFile) !== updateReadyFile ||
+          !/^[a-f0-9]{32,64}$/.test(updateReadyNonce) ||
+          !/^[a-f0-9]{64}$/.test(instanceId || "")) return false;
+      try {
+        const installRoot = path.resolve(ROOT, "..", "..");
+        const workDir = path.dirname(path.resolve(updateReadyFile));
+        const parent = path.dirname(installRoot);
+        if (path.dirname(workDir).toLowerCase() !== parent.toLowerCase() ||
+            !path.basename(workDir).startsWith(".wechatvibe-update-") ||
+            !/^ui-(?:final-)?ready-[a-f0-9-]{20,80}\.json$/.test(path.basename(updateReadyFile)) ||
+            fs.lstatSync(workDir).isSymbolicLink() ||
+            fs.realpathSync.native(workDir).toLowerCase() !== workDir.toLowerCase()) return false;
+        fs.writeFileSync(updateReadyFile, JSON.stringify({
+          nonce: updateReadyNonce, expectedVersion: app.getVersion(), instanceId,
+        }), { flag: "wx", mode: 0o600 });
+        if (updateValidation) return true;
+        const journalFile = path.join(workDir, "journal.json");
+        const deadline = Date.now() + 60000;
+        while (Date.now() < deadline && window && !window.isDestroyed()) {
+          try {
+            const stat = fs.statSync(journalFile);
+            if (stat.isFile() && stat.size < 32768) {
+              const journal = JSON.parse(fs.readFileSync(journalFile, "utf8"));
+              if (journal.phase === "succeeded" && journal.guiStarted === true &&
+                  journal.expectedVersion === app.getVersion() &&
+                  path.resolve(journal.installRoot).toLowerCase() === installRoot.toLowerCase()) {
+                if (validationTimer) clearTimeout(validationTimer);
+                validationTimer = null;
+                return true;
+              }
+              if (["failed", "rolled_back"].includes(journal.phase)) return false;
+            }
+          } catch (_) { /* The helper may be replacing its atomic journal. */ }
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      } catch (_) { /* A bad marker must never release chat loading. */ }
+      return false;
+    });
+
     ipcMain.handle("real-client:exit-app", (event) => {
       if (!trustedFrame(event)) return false;
       exiting = true;
@@ -126,6 +212,9 @@ if (process.platform !== "win32" || !url) {
           devTools: false,
         },
       });
+      if (updateValidation || updateFinalReady) {
+        validationTimer = setTimeout(() => app.quit(), updateValidation ? 60000 : 90000);
+      }
       const contents = window.webContents;
       contents.on("will-attach-webview", (event) => event.preventDefault());
       contents.on("will-navigate", (event, target) => {
@@ -162,17 +251,40 @@ if (process.platform !== "win32" || !url) {
         });
       }
       window.on("closed", () => { window = null; stopBridgeMonitor?.(); });
-      if (!selfTest) stopBridgeMonitor = monitorBridge({
-        root: ROOT, url,
-        isOpen: () => !exiting && !!window && !window.isDestroyed(),
-        onRecovered: () => { if (!exiting && window && !window.isDestroyed()) window.webContents.send("real-client:bridge-restored"); },
-      });
+      if (!selfTest && !updateValidation) {
+        const startBridgeMonitor = () => {
+          if (stopBridgeMonitor || !window || window.isDestroyed()) return;
+          stopBridgeMonitor = monitorBridge({
+            root: ROOT, url, instanceId,
+            isOpen: () => !exiting && !!window && !window.isDestroyed(),
+            onRecovered: () => {
+              if (!exiting && window && !window.isDestroyed())
+                window.webContents.send("real-client:bridge-restored");
+            },
+          });
+        };
+        const { createUpdateController } = require("./real-client-update-controller.cjs");
+        updateController = createUpdateController({
+          app, root: ROOT, port: Number(new URL(url).port), instanceId,
+          onState: state => {
+            if (window && !window.isDestroyed()) window.webContents.send("real-client:update-state", state);
+          },
+          pauseRecovery: () => { exiting = true; stopBridgeMonitor?.(); stopBridgeMonitor = null; },
+          resumeRecovery: () => { exiting = false; startBridgeMonitor(); },
+          quit: () => app.quit(),
+        });
+        startBridgeMonitor();
+      }
       void contents.loadURL(url);
     }).catch((error) => {
       process.stderr.write(String(error) + "\n");
       app.exit(1);
     });
-    app.on("before-quit", () => { exiting = true; stopBridgeMonitor?.(); });
+    app.on("before-quit", () => {
+      exiting = true;
+      if (validationTimer) clearTimeout(validationTimer);
+      stopBridgeMonitor?.();
+    });
     app.on("window-all-closed", () => app.quit());
   }
 }

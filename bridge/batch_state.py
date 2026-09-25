@@ -19,6 +19,7 @@ from profile_state import empty_state
 
 
 BATCH_VERSION = "message-batch-v1"
+QUOTED_BACKFILL_VERSION = "quoted-reply-v1"
 SHARD = re.compile(r"message__message_\d+\.db\Z")
 AXES = ("EI", "SN", "TF", "JP")
 
@@ -277,6 +278,12 @@ class BatchStateStore:
                          "subject TEXT NOT NULL,batch_version TEXT NOT NULL,message_id TEXT NOT NULL,"
                          "batch_id TEXT NOT NULL,start_offset INTEGER NOT NULL,end_offset INTEGER NOT NULL,"
                          "text_length INTEGER NOT NULL,PRIMARY KEY(account,session,base_version,subject,batch_version,message_id,start_offset))")
+            conn.execute("CREATE TABLE IF NOT EXISTS quoted_backfill_v1 ("
+                         "account TEXT NOT NULL,session TEXT NOT NULL,base_version TEXT NOT NULL,"
+                         "subject TEXT NOT NULL,backfill_version TEXT NOT NULL,"
+                         "ceiling_seq INTEGER NOT NULL,ceiling_shard TEXT NOT NULL,ceiling_local INTEGER NOT NULL,"
+                         "cursor_seq INTEGER,cursor_shard TEXT,cursor_local INTEGER,complete INTEGER NOT NULL DEFAULT 0,"
+                         "PRIMARY KEY(account,session,base_version,subject,backfill_version))")
 
     def load(self, account, session, base_version, subject):
         scope = _scope(account, session, base_version, subject)
@@ -290,6 +297,51 @@ class BatchStateStore:
         return {"cursor": (seq, shard, local) if seq is not None else None,
                 "charOffset": offset, "context": json.loads(context), "state": json.loads(state),
                 "complete": bool(complete)}
+
+    def quoted_backfill_pending(self, account, session, base_version, subject, cursor):
+        if cursor is None:
+            return False
+        scope = (*_scope(account, session, base_version, subject)[:4], QUOTED_BACKFILL_VERSION)
+        with closing(sqlite3.connect(self.path, timeout=15)) as conn:
+            row = conn.execute("SELECT complete FROM quoted_backfill_v1 WHERE account=? AND session=? "
+                               "AND base_version=? AND subject=? AND backfill_version=?", scope).fetchone()
+        return row is None or not bool(row[0])
+
+    def begin_quoted_backfill(self, account, session, base_version, subject, ceiling):
+        boundary = _position(ceiling)
+        scope = (*_scope(account, session, base_version, subject)[:4], QUOTED_BACKFILL_VERSION)
+        with closing(sqlite3.connect(self.path, timeout=15)) as conn, conn:
+            conn.execute("INSERT OR IGNORE INTO quoted_backfill_v1 VALUES (?,?,?,?,?,?,?,?,?,?,?,0)",
+                         (*scope, *boundary, None, None, None))
+            row = conn.execute("SELECT ceiling_seq,ceiling_shard,ceiling_local,"
+                               "cursor_seq,cursor_shard,cursor_local,complete FROM quoted_backfill_v1 "
+                               "WHERE account=? AND session=? AND base_version=? AND subject=? "
+                               "AND backfill_version=?", scope).fetchone()
+        return {"ceiling": tuple(row[:3]), "cursor": tuple(row[3:6]) if row[3] is not None else None,
+                "complete": bool(row[6])}
+
+    def advance_quoted_backfill(self, account, session, base_version, subject, position=None, *, complete=False):
+        next_position = _position(position) if position is not None else None
+        scope = (*_scope(account, session, base_version, subject)[:4], QUOTED_BACKFILL_VERSION)
+        with closing(sqlite3.connect(self.path, timeout=15)) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT ceiling_seq,ceiling_shard,ceiling_local,"
+                               "cursor_seq,cursor_shard,cursor_local,complete FROM quoted_backfill_v1 "
+                               "WHERE account=? AND session=? AND base_version=? AND subject=? "
+                               "AND backfill_version=?", scope).fetchone()
+            if row is None:
+                raise ValueError("quoted backfill must be started before advancing")
+            if row[6]:
+                return
+            ceiling = tuple(row[:3])
+            previous = tuple(row[3:6]) if row[3] is not None else None
+            if next_position is not None and (next_position > ceiling or
+                                              previous is not None and next_position < previous):
+                raise ValueError("quoted backfill cursor is outside its frozen prefix")
+            final = next_position or previous
+            conn.execute("UPDATE quoted_backfill_v1 SET cursor_seq=?,cursor_shard=?,cursor_local=?,"
+                         "complete=? WHERE account=? AND session=? AND base_version=? AND subject=? "
+                         "AND backfill_version=?", (*(final or (None, None, None)), int(complete), *scope))
 
     def mark_complete(self, account, session, base_version, subject):
         scope = _scope(account, session, base_version, subject)

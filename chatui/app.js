@@ -68,6 +68,32 @@ function unlockMbti() {
   try { localStorage.setItem(getMbtiUnlockKey(), "true"); } catch {}
 }
 const defaults = { theme: "dark", zoom: "1.0", intent: true };
+const CURRENT_LABEL_SCHEMA = "generic-v5";
+const GENERIC_INTENT_LABELS = Object.freeze({
+  small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助",
+  give_comfort: "安慰", agree: "同意", invite: "邀约", show_affection: "表达好感",
+  complain: "抱怨", apologize: "道歉", joke: "玩笑", reject: "拒绝",
+  distance: "保持距离", thank: "感谢", greet: "问候", confirm: "确认", inspect: "查看",
+  suggest_action: "建议或指令", explain: "解释", inform: "告知事实",
+  plan: "计划", correct: "纠正或异议", status_report: "状态报告",
+  follow_up: "追问", clarify: "澄清", share_feeling: "表达感受", confide: "倾诉",
+  seek_comfort: "求安慰", seek_company: "求陪伴", show_care: "关心",
+  encourage: "鼓励", praise: "称赞", celebrate: "祝贺", miss_you: "表达想念",
+  test_feelings: "探询心意", set_boundary: "设定边界", reconcile: "缓和关系",
+  show_material: "展示内容", offer_help: "提供帮助", tease: "调侃", close_chat: "告别",
+  general_exchange: "一般交流",
+});
+const GROUNDED_EVIDENCE = Object.freeze({
+  greet: ["greeting_phrase"], thank: ["thanks_phrase"],
+  confirm: ["short_acknowledgement"], inspect: ["first_person_inspection"],
+  agree: ["explicit_acceptance"],
+  reject: ["explicit_refusal"], invite: ["inclusive_invitation"],
+  ask_question: ["answer_seeking_question"], seek_help: ["action_request"],
+  suggest_action: ["advice_marker", "negative_imperative", "imperative_adjustment", "delegated_action"],
+  plan: ["first_person_intention"], correct: ["explicit_correction"],
+  explain: ["causal_explanation", "process_explanation"], complain: ["negative_evaluation"],
+  status_report: ["progress_statement"], share_news: ["sharing_announcement"],
+});
 let settings;
 try { settings = { ...defaults, ...JSON.parse(localStorage.getItem("real-ui-settings-1") || "{}") }; }
 catch { settings = { ...defaults }; }
@@ -111,6 +137,8 @@ let currentRecentJob = null;
 let controller = null;
 let messages = [];
 let results = {};
+const inlineIntentPending = new Map();
+let inlineIntentJobId = null;
 let recentFailed = false;
 const requestedRecentSignatures = new Set();
 let recentPending = false;
@@ -132,7 +160,6 @@ let lastChatScrollTop = 0;
 let catalogReady = false;
 let intentDisplayAliases = new Map();
 let emotionDisplayAliases = new Map();
-let playfulIntentById = new Map();
 let catalogLabelRevision = "";
 let toastTimer;
 let accountUnavailable = false;
@@ -353,6 +380,7 @@ function placeReplyPrediction(scroll = true) {
   if (scroll) requestAnimationFrame(() => { if (!card.hidden && card.isConnected) card.scrollIntoView({ block: "nearest" }); });
 }
 function resetAccountView(message = "当前微信账号未就绪", preserveOtherCaches = false) {
+  clearInlineIntentPending();
   clearTimeout(selectedAnalysisTimer);
   selectedAnalysisTimer = null;
   cancelHistoryRequest();
@@ -745,46 +773,25 @@ function rankedEmotionScores(values) {
     ...rank, item: { ...item, label: displayEmotionLabel(item) },
   }));
 }
-function displayIntentLabel(item) {
-  for (const value of [item?.rawLabel, item?.label]) {
-    const display = intentDisplayAliases.get(intentAlias(value));
-    if (display) return display;
+function hasIntentContent(messageText) {
+  return /[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(String(messageText || ""));
+}
+function displayedIntent(result, messageText) {
+  if (!hasIntentContent(messageText)) return [];
+  const grounded = result.groundedIntent;
+  if (grounded && Object.prototype.hasOwnProperty.call(GROUNDED_EVIDENCE, grounded.label) &&
+      GROUNDED_EVIDENCE[grounded.label].includes(grounded.evidenceKind)) {
+    return [{ label: GENERIC_INTENT_LABELS[grounded.label], probability: null }];
   }
-  return String(item?.label || item?.rawLabel || "").trim();
-}
-function rankedIntentScores(values) {
-  if (!Array.isArray(values)) return [];
-  const grouped = new Map();
-  values.forEach((item, index) => {
-    const probability = Number(item?.probability);
-    if (!Number.isFinite(probability) || probability <= 0 || probability > 1) return;
-    const label = displayIntentLabel(item);
-    if (!label) return;
-    const previous = grouped.get(label);
-    if (previous) previous.probability += probability;
-    else grouped.set(label, { label, probability, index });
-  });
-  return [...grouped.values()]
-    .filter(({ probability }) => probability <= 1 + 1e-12)
-    .map(({ label, probability, index }) => ({ item: { label, probability: Math.min(1, probability) }, index, probability }))
-    .sort((left, right) => right.probability - left.probability || left.index - right.index);
-}
-function rankedPlayfulIntentScores(values) {
-  if (!Array.isArray(values)) return [];
-  const grouped = new Map();
-  values.forEach((item, index) => {
-    const probability = item?.probability;
-    if (typeof probability !== "number" || !Number.isFinite(probability) || probability <= 0 || probability > 1) return;
-    const entry = playfulIntentById.get(item?.rawLabel) || playfulIntentById.get(item?.label);
-    if (!entry) return;
-    const previous = grouped.get(entry.needId);
-    if (previous) previous.probability += probability;
-    else grouped.set(entry.needId, { label: entry.shortLabel, probability, index });
-  });
-  return [...grouped.values()]
-    .filter(({ probability }) => probability <= 1 + 1e-12)
-    .map(({ label, probability, index }) => ({ item: { label, probability: Math.min(1, probability) }, index, probability }))
-    .sort((left, right) => right.probability - left.probability || left.index - right.index);
+  const ranked = Array.isArray(result.intent) ? result.intent
+    .filter(item => typeof item?.rawLabel === "string" &&
+      Object.prototype.hasOwnProperty.call(GENERIC_INTENT_LABELS, item.rawLabel) &&
+      typeof item.probability === "number" && Number.isFinite(item.probability) &&
+      item.probability >= 0 && item.probability <= 1)
+    .sort((left, right) => right.probability - left.probability) : [];
+  return ranked.slice(0, 3).map(item => ({
+    label: GENERIC_INTENT_LABELS[item.rawLabel], probability: item.probability,
+  }));
 }
 function appendScoreLine(container, label, scores, messageId, emotion = false) {
   if (!scores.length) return;
@@ -802,22 +809,85 @@ function appendScoreLine(container, label, scores, messageId, emotion = false) {
   }
   container.appendChild(line);
 }
+function appendIntentLine(container, candidates) {
+  if (!candidates.length) return;
+  const line = element("div", "intent-line intent-score-line");
+  line.appendChild(element("span", "intent-label", "意图"));
+  for (const [index, candidate] of candidates.slice(0, 3).entries()) {
+    const item = element("span", `intent-item${index === 0 ? " primary" : ""}`);
+    item.appendChild(element("span", "intent-name", candidate.label));
+    if (candidate.probability !== null) {
+      item.appendChild(element("span", "intent-pct", percent(candidate.probability)));
+    }
+    line.appendChild(item);
+  }
+  container.appendChild(line);
+}
+function clearInlineIntentPending() {
+  inlineIntentPending.clear();
+  inlineIntentJobId = null;
+}
+function startInlineIntentPending(window) {
+  for (const message of uncoveredMessages(window)) {
+    const id = String(message.id);
+    inlineIntentPending.set(id, message.text);
+  }
+  inlineIntentJobId = null;
+  refreshLabels();
+}
+function settleInlineIntentPending(job) {
+  if (!inlineIntentPending.size) return;
+  let changed = false;
+  const visible = new Map(messages.map(message => [String(message.id), message]));
+  const recentFinished = !!inlineIntentJobId && job?.recent?.id === inlineIntentJobId &&
+    ["done", "error"].includes(job.recent.status);
+  const jobFailed = job?.status === "error" && !["queued", "running"].includes(job.recent?.status);
+  const terminal = recentFinished || jobFailed;
+  for (const [id, pendingText] of inlineIntentPending) {
+    const state = fineMessageResult(results[id]) ? results[id].state : null;
+    if (terminal || state === "skipped" ||
+        (state === "done" && results[id]?.labelSchema === CURRENT_LABEL_SCHEMA) ||
+        visible.get(id)?.text !== pendingText) {
+      inlineIntentPending.delete(id);
+      changed = true;
+    }
+  }
+  if (terminal || !inlineIntentPending.size) inlineIntentJobId = null;
+  if (changed) refreshLabels();
+}
 function updateLabel(message, node) {
   const wrap = node.querySelector(".msg-content-wrap");
   const result = results[message.id];
-  const signature = settings.intent && message.side === "other" && message.kind === "text" && fineMessageResult(result) && result.state === "done" ? JSON.stringify([result.emotion, result.intentBroad, result.intent, result.playfulIntent, catalogReady, catalogLabelRevision]) : "";
+  const eligible = settings.intent && message.side === "other" && message.kind === "text" &&
+    typeof message.text === "string" && !!message.text.trim();
+  const pendingText = inlineIntentPending.get(String(message.id));
+  const pending = eligible && !historyState && pendingText === message.text &&
+    !(fineMessageResult(result) && (result.state === "skipped" ||
+      result.state === "done" && result.labelSchema === CURRENT_LABEL_SCHEMA));
+  const signature = pending ? "pending" : eligible && fineMessageResult(result) && result.state === "done" ?
+    JSON.stringify([result.emotion, result.intentBroad, result.intent, result.groundedIntent,
+      result.labelSchema, catalogReady, catalogLabelRevision]) : "";
   if (node.dataset.analysisSignature === signature) return;
+  const revealing = signature !== "pending" && !!wrap.querySelector(".inline-intent-pending");
   node.querySelector(".msg-avatar-column .msg-mood")?.remove();
   wrap.querySelector(".inline-expression-row")?.remove();
   wrap.querySelector(".inline-intent-row")?.remove();
+  wrap.querySelector(".inline-intent-pending")?.remove();
   node.dataset.analysisSignature = signature;
   if (!signature) return;
+  if (signature === "pending") {
+    wrap.appendChild(element("div", "inline-intent-pending", "分析中"));
+    return;
+  }
   const row = element("div", "inline-intent-row");
   appendScoreLine(row, "情绪", rankedEmotionScores(result.emotion), message.id, true);
-  const playfulIntents = rankedPlayfulIntentScores(result.playfulIntent);
-  const intents = playfulIntents.length ? playfulIntents : rankedIntentScores(result.intent);
-  appendScoreLine(row, "意图", intents.length ? intents : rankedIntentScores(result.intentBroad), message.id);
-  if (row.childNodes.length) wrap.appendChild(row);
+  appendIntentLine(row, result.labelSchema === CURRENT_LABEL_SCHEMA
+    ? displayedIntent(result, message.text)
+    : hasIntentContent(message.text) ? [{ label: "待判断", probability: null }] : []);
+  if (row.childNodes.length) {
+    if (revealing) row.classList.add("inline-intent-revealed");
+    wrap.appendChild(row);
+  }
 }
 function messageNode(message) {
   const session = sessions.get(currentUser);
@@ -937,6 +1007,8 @@ function enterHistoryView() {
   messageRefreshQueued = false;
   analysisGeneration++;
   followLatest = false;
+  clearInlineIntentPending();
+  refreshLabels();
   updateHistoryNavigation();
 }
 function historyResponseValid(data, account, user) {
@@ -1182,10 +1254,11 @@ function startHistorySearch() {
   byId("historySearchResults").replaceChildren();
   void loadHistorySearchPage(0);
 }
-function renderJob(job) {
+function renderJob(job, settlePending = true) {
   if (!job) return;
   currentAnalysisJob = job;
   if (job.recent) currentRecentJob = job.recent;
+  if (settlePending) settleInlineIntentPending(job);
   if (job.status === "error" && job.requested?.mode !== "recent") incrementalFailed = true;
   if (!manualRecentAwaitingPost) {
     if (job.recent?.status === "error") recentFailed = true;
@@ -1235,7 +1308,7 @@ function submitManualRecent() {
   manualRecentJobId = null;
   analysisGeneration++;
   setIntentActionState("submitting");
-  void analyzeRecent(currentUser, generation, controller.signal, fineWindowSignature(window), window.limit);
+  void analyzeRecent(currentUser, generation, controller.signal, fineWindowSignature(window), window.limit, window);
 }
 function fineWindow() {
   if (!messages.length) return { limit: 0, candidates: [] };
@@ -1259,8 +1332,11 @@ function analyzableMessages(window = fineWindow()) {
   return window.candidates;
 }
 function uncoveredMessages(window = fineWindow()) {
-  return analyzableMessages(window).filter(message => !["done", "skipped"].includes(
-    fineMessageResult(results[message.id]) ? results[message.id].state : null));
+  return analyzableMessages(window).filter(message => {
+    const result = fineMessageResult(results[message.id]) ? results[message.id] : null;
+    return result?.state !== "skipped" &&
+      !(result?.state === "done" && result.labelSchema === CURRENT_LABEL_SCHEMA);
+  });
 }
 function fineWindowSignature(window) {
   return JSON.stringify([window.limit, analyzableMessages(window).map(message => [message.id, message.text])]);
@@ -1271,7 +1347,7 @@ function scheduleRecent(user, token, signal, changedOther) {
   const window = fineWindow();
   if (!uncoveredMessages(window).length) return;
   const signature = fineWindowSignature(window);
-  if (!requestedRecentSignatures.has(signature)) void analyzeRecent(user, token, signal, signature, window.limit);
+  if (!requestedRecentSignatures.has(signature)) void analyzeRecent(user, token, signal, signature, window.limit, window);
 }
 function incrementalState(key) {
   let state = autoIncrementalState.get(key);
@@ -1370,18 +1446,20 @@ async function loadAnalysis(user, token, signal) {
     }
   }
 }
-async function analyzeRecent(user, token, signal, signature, limit) {
+async function analyzeRecent(user, token, signal, signature, limit, window) {
   if (recentPending || recentFailed) return;
   requestedRecentSignatures.add(signature);
   while (requestedRecentSignatures.size > 64) requestedRecentSignatures.delete(requestedRecentSignatures.values().next().value);
   recentPending = true;
+  startInlineIntentPending(window);
   try {
     const data = await api("/api/analyze", { method: "POST", body: JSON.stringify({ user, mode: "recent", limit }) }, signal);
     if (token === generation) {
       recentNetworkFailed = false;
       if (manualRecentAwaitingPost) manualRecentJobId = data.job?.recent?.id || null;
       manualRecentAwaitingPost = false;
-      renderJob(data.job);
+      inlineIntentJobId = data.job?.recent?.id || null;
+      renderJob(data.job, false);
       await loadAnalysis(user, token, signal);
     }
   } catch (error) {
@@ -1391,6 +1469,8 @@ async function analyzeRecent(user, token, signal, signature, limit) {
       recentFailed = true;
       recentNetworkFailed = isNetworkFailure(error);
       if (intentActionState !== "idle") setIntentActionState("error");
+      clearInlineIntentPending();
+      refreshLabels();
       byId("btnRetryAnalysis").hidden = false;
       updateProfileProgress();
       toast("分析失败，可重试");
@@ -1463,6 +1543,7 @@ function switchSession(user, force = false) {
   cacheCurrentSession({ scrollTop: historyState ? 0 : byId("chatMessages").scrollTop, followLatest: historyState ? true : followLatest });
   const cacheKey = sessionCacheKey(currentAccount, user);
   const cached = sessionCache.get(cacheKey);
+  clearInlineIntentPending();
   clearTimeout(selectedAnalysisTimer);
   selectedAnalysisTimer = null;
   cancelHistoryRequest();
@@ -2470,6 +2551,221 @@ byId("btnToggleIntent").addEventListener("click", () => {
 });
 for (const [id, key] of [["selectThemeMode", "theme"], ["selectZoomLevel", "zoom"]]) byId(id).addEventListener("change", event => { settings[key] = event.target.value; save(); applySettings(); });
 byId("selectRuntimeProvider").addEventListener("change", event => { void changeRuntime(event.target.value); });
+const OFFICIAL_RELEASES_URL = "https://github.com/tswawa/WechatVibe/releases";
+const UPDATE_BUSY_PHASES = new Set(["downloading", "verifying", "extracting", "installing", "restarting"]);
+let aboutVersionPromise = null;
+let versionLoadFailed = false;
+let updateState = { phase: "idle" };
+let updateStateSequence = 0;
+let updateCheckPending = false;
+let updateActionPending = false;
+let updateOperationStatus = "";
+let updateCheckedOnce = false;
+let updatePreviousFocus = null;
+
+function displayVersion(value) {
+  const version = typeof value === "string" ? value.trim() : "";
+  return version ? (version.startsWith("v") ? version : `v${version}`) : "";
+}
+function setDisplayedVersion(value) {
+  const version = displayVersion(value);
+  if (!version) return;
+  text("aboutCurrentVersion", version);
+  text("updateCurrentVersion", version);
+  byId("btnAboutVersion").setAttribute("aria-label", `查看软件更新，当前版本 ${version}`);
+}
+function loadAboutVersion() {
+  if (aboutVersionPromise) return aboutVersionPromise;
+  if (typeof window.desktopHost?.getAppVersion !== "function") {
+    text("aboutCurrentVersion", "--");
+    text("updateCurrentVersion", "--");
+    text("updateStatus", "仅桌面版可用");
+    return Promise.resolve();
+  }
+  aboutVersionPromise = window.desktopHost.getAppVersion().then(version => {
+    if (!displayVersion(version)) throw new Error("Invalid app version");
+    versionLoadFailed = false;
+    setDisplayedVersion(version);
+  }).catch(() => {
+    versionLoadFailed = true;
+    text("aboutCurrentVersion", "读取失败");
+    text("updateCurrentVersion", "读取失败");
+    renderUpdateState();
+    aboutVersionPromise = null;
+  });
+  return aboutVersionPromise;
+}
+function officialReleaseUrl(candidate) {
+  try {
+    const url = new URL(candidate);
+    if (url.href === OFFICIAL_RELEASES_URL) return url.href;
+  } catch { }
+  return OFFICIAL_RELEASES_URL;
+}
+function updatePhase(state) {
+  return typeof state?.phase === "string" ? state.phase :
+    (typeof state?.status === "string" ? state.status : "");
+}
+function updateStatusMessage(state) {
+  const latest = displayVersion(state.latestVersion);
+  const error = typeof state.error === "string" ? state.error.trim().slice(0, 180) : "";
+  return {
+    idle: "准备检查更新",
+    current: "已是最新版本",
+    "preview-current": "已是最新版本",
+    available: latest ? `发现新版本 ${latest}` : "发现新版本",
+    downloading: "正在下载更新",
+    verifying: "正在校验更新包",
+    extracting: "正在解压更新包",
+    ready: "更新已下载，准备安装",
+    installing: "正在安装更新",
+    restarting: "正在重启",
+    rolled_back: "已回退到上一版本",
+    failed: error ? `更新失败：${error}` : "更新失败，请重试",
+    "incomplete-release": latest ? `发现 ${latest}，发布文件尚未齐全` : "发布文件尚未齐全",
+    "no-release": "暂无正式发布版本",
+    "invalid-current": "当前版本信息异常",
+    "invalid-release": "发布信息异常，请稍后重试",
+    "rate-limited": "检查次数受限，请稍后重试",
+    timeout: "检查超时，请重试",
+    offline: "网络不可用，请重试",
+    "server-error": "暂时无法检查更新",
+  }[updatePhase(state)] || "暂时无法检查更新";
+}
+function renderUpdateState() {
+  const phase = updatePhase(updateState);
+  const latest = displayVersion(updateState.latestVersion);
+  byId("updateLatestRow").hidden = !latest;
+  text("updateLatestVersion", latest);
+  text("updateStatus", updateCheckPending ? "正在检查更新" :
+    (updateOperationStatus || (!window.desktopHost ? "仅桌面版可用" :
+      (versionLoadFailed && phase === "idle" ? "版本读取失败" : updateStatusMessage(updateState)))));
+  byId("updateReleaseLink").href = officialReleaseUrl(updateState.releaseUrl);
+
+  const downloading = phase === "downloading";
+  const downloaded = Number(updateState.downloadedBytes);
+  const total = Number(updateState.totalBytes);
+  byId("updateProgress").hidden = !downloading;
+  if (downloading) {
+    const knownTotal = Number.isFinite(total) && total > 0;
+    const safeDownloaded = Number.isFinite(downloaded) ? Math.max(0, downloaded) : 0;
+    const percent = knownTotal ? Math.min(100, Math.round(safeDownloaded / total * 100)) : 0;
+    const bar = byId("updateProgressBar");
+    bar.classList.toggle("indeterminate", !knownTotal);
+    if (knownTotal) bar.setAttribute("aria-valuenow", String(percent));
+    else bar.removeAttribute("aria-valuenow");
+    byId("updateProgressFill").style.width = `${percent}%`;
+    text("updateProgressText", knownTotal ? `${percent}%` : `${(safeDownloaded / 1048576).toFixed(1)} MB`);
+  }
+
+  const canRollback = !!displayVersion(updateState.rollbackVersion) &&
+    typeof window.desktopHost?.rollbackUpdate === "function";
+  byId("updateRollback").hidden = !canRollback;
+  text("updateRollbackVersion", displayVersion(updateState.rollbackVersion));
+  byId("btnRollbackUpdate").disabled = updateActionPending || updateCheckPending || UPDATE_BUSY_PHASES.has(phase);
+
+  const canCheck = typeof window.desktopHost?.checkForUpdates === "function";
+  byId("btnCheckUpdates").disabled = !canCheck || updateCheckPending || updateActionPending ||
+    UPDATE_BUSY_PHASES.has(phase) || phase === "ready";
+  const canBegin = typeof window.desktopHost?.beginUpdate === "function" &&
+    (phase === "available" || phase === "ready");
+  byId("btnBeginUpdate").hidden = !canBegin;
+  byId("btnBeginUpdate").disabled = updateCheckPending || updateActionPending;
+  text("btnBeginUpdate", phase === "ready" ? "立即安装" : "下载并安装");
+}
+function applyUpdateState(next) {
+  if (!updatePhase(next)) return false;
+  updateState = { ...updateState, ...next, phase: updatePhase(next) };
+  updateOperationStatus = "";
+  updateStateSequence++;
+  renderUpdateState();
+  return true;
+}
+async function checkForUpdates() {
+  if (updateCheckPending || updateActionPending || typeof window.desktopHost?.checkForUpdates !== "function" ||
+      UPDATE_BUSY_PHASES.has(updatePhase(updateState))) return;
+  updateCheckedOnce = true;
+  updateCheckPending = true;
+  renderUpdateState();
+  const before = updateStateSequence;
+  try {
+    const result = await window.desktopHost.checkForUpdates();
+    if (before === updateStateSequence) applyUpdateState(result);
+  } catch {
+    if (before === updateStateSequence) applyUpdateState({ phase: "server-error" });
+  } finally {
+    updateCheckPending = false;
+    renderUpdateState();
+  }
+}
+async function refreshUpdateState() {
+  if (typeof window.desktopHost?.getUpdateState === "function") {
+    const before = updateStateSequence;
+    try {
+      const state = await window.desktopHost.getUpdateState();
+      if (before === updateStateSequence) applyUpdateState(state);
+    } catch { /* The check action remains available. */ }
+  }
+  if (!updateCheckedOnce && ["idle", "current", "preview-current"].includes(updatePhase(updateState)))
+    void checkForUpdates();
+}
+function openUpdateModal() {
+  updatePreviousFocus = document.activeElement;
+  byId("updateModal").classList.add("show");
+  byId("btnCloseUpdate").focus();
+  void loadAboutVersion();
+  void refreshUpdateState();
+  renderUpdateState();
+}
+function closeUpdateModal() {
+  byId("updateModal").classList.remove("show");
+  if (updatePreviousFocus?.isConnected) updatePreviousFocus.focus();
+}
+byId("btnAboutVersion").addEventListener("click", openUpdateModal);
+byId("btnCloseUpdate").addEventListener("click", closeUpdateModal);
+byId("updateModal").addEventListener("click", event => { if (event.target === byId("updateModal")) closeUpdateModal(); });
+document.addEventListener("keydown", event => { if (event.key === "Escape" && byId("updateModal").classList.contains("show")) closeUpdateModal(); });
+window.addEventListener("wechatvibe-update-state", event => { applyUpdateState(event.detail); });
+byId("btnCheckUpdates").addEventListener("click", () => { void checkForUpdates(); });
+byId("btnBeginUpdate").addEventListener("click", async () => {
+  if (updateActionPending || !["available", "ready"].includes(updatePhase(updateState))) return;
+  updateActionPending = true;
+  updateOperationStatus = updatePhase(updateState) === "ready" ? "正在安装更新" : "正在启动更新";
+  renderUpdateState();
+  const before = updateStateSequence;
+  try {
+    const result = await window.desktopHost.beginUpdate();
+    if (result === false) throw new Error("更新未启动");
+    if (before === updateStateSequence && !applyUpdateState(result)) void refreshUpdateState();
+  } catch (error) {
+    if (before === updateStateSequence) applyUpdateState({ phase: "failed", error: error?.message || "请重试" });
+  } finally {
+    updateActionPending = false;
+    updateOperationStatus = "";
+    renderUpdateState();
+  }
+});
+byId("btnRollbackUpdate").addEventListener("click", async () => {
+  if (updateActionPending || !updateState.rollbackVersion ||
+      typeof window.desktopHost?.rollbackUpdate !== "function") return;
+  updateActionPending = true;
+  updateOperationStatus = "正在回退版本";
+  renderUpdateState();
+  const before = updateStateSequence;
+  try {
+    const result = await window.desktopHost.rollbackUpdate();
+    if (result === false) throw new Error("回退未启动");
+    if (before === updateStateSequence && !applyUpdateState(result)) void refreshUpdateState();
+  } catch (error) {
+    if (before === updateStateSequence) applyUpdateState({ phase: "failed", error: error?.message || "回退失败" });
+  } finally {
+    updateActionPending = false;
+    updateOperationStatus = "";
+    renderUpdateState();
+  }
+});
+void loadAboutVersion();
+renderUpdateState();
 byId("btnSettings").addEventListener("click", () => {
   byId("settingsModal").classList.add("show");
   void loadRuntime();
@@ -2503,6 +2799,7 @@ document.querySelectorAll(".settings-tab-btn").forEach(tab => tab.addEventListen
   document.querySelectorAll(".settings-tab-btn").forEach(node => node.classList.toggle("active", node === tab));
   document.querySelectorAll(".settings-panel").forEach(node => node.classList.toggle("active", node.id === ({ general: "panelGeneral", about: "panelAbout" })[tab.dataset.tab]));
   byId("settingsModal").querySelector(".settings-modal-card").classList.toggle("account-open", tab.dataset.tab === "general" && !byId("accountManager").hidden);
+  if (tab.dataset.tab === "about") void loadAboutVersion();
 }));
 byId("btnEmoji").addEventListener("click", event => { event.stopPropagation(); byId("emojiPopover").classList.toggle("show"); });
 document.querySelectorAll(".popover-tab").forEach(tab => tab.addEventListener("click", event => {
@@ -2575,16 +2872,8 @@ async function loadCatalog() {
         addAlias(canonicalEmotionAliases, alias, display);
       }
     }
-    const playful = new Map();
-    for (const entry of catalog.playfulIntents || []) {
-      if (typeof entry.id === "string" && typeof entry.needId === "string" &&
-          typeof entry.shortLabel === "string" && entry.shortLabel.trim()) {
-        playful.set(entry.id, { needId: entry.needId, shortLabel: entry.shortLabel.trim() });
-      }
-    }
     intentDisplayAliases = new Map([...legacyIntentAliases, ...canonicalIntentAliases]);
     emotionDisplayAliases = new Map([...legacyEmotionAliases, ...canonicalEmotionAliases]);
-    playfulIntentById = playful;
     catalogLabelRevision = String(catalog.labelRevision || catalog.intentDisplayVersion || catalog.version || "");
     catalogReady = true;
     renderKaomojiPanel();
@@ -2619,8 +2908,27 @@ async function startInitialLoad() {
 }
 byId("startupRetry").addEventListener("click", retryStartup);
 byId("startupContinue").addEventListener("click", () => { if (startupActive && accountUnavailable) completeStartup(); });
-void startInitialLoad();
+const updateValidationMode = window.desktopHost?.updateValidationMode === true;
+const updateFinalReadyMode = window.desktopHost?.updateFinalReadyMode === true;
+let updateCommitReady = !updateFinalReadyMode;
+if (updateValidationMode) {
+  // The updater checks that this script and its desktop bridge actually run
+  // before opening a writable chat session in the new installation.
+  byId("startupOverlay").classList.add("update-validation");
+  text("startupStatus", "正在验证新版本…");
+  void window.desktopHost.reportUiReady().catch(() => {});
+} else if (updateFinalReadyMode) {
+  text("startupStatus", "正在完成更新…");
+  void window.desktopHost.reportUiReady().then(ready => {
+    if (!ready) return;
+    updateCommitReady = true;
+    void startInitialLoad();
+  }).catch(() => {});
+} else {
+  void startInitialLoad();
+}
 window.addEventListener("wechatvibe-service-restored", () => {
+  if (updateValidationMode || !updateCommitReady) return;
   // A new bridge has no in-memory jobs, even if the earlier POST succeeded.
   // Keep all saved UI/results and let the persisted server cursor resume the job.
   autoIncrementalState.clear();
@@ -2634,10 +2942,12 @@ window.addEventListener("wechatvibe-service-restored", () => {
     else void loadProfile(member);
   }
 });
-setInterval(() => { if (currentUser && !document.hidden) loadMessages(generation, true); }, 4000);
-setInterval(() => { if (!document.hidden) loadSessions(); }, 15000);
+if (!updateValidationMode) {
+  setInterval(() => { if (updateCommitReady && currentUser && !document.hidden) loadMessages(generation, true); }, 4000);
+  setInterval(() => { if (updateCommitReady && !document.hidden) loadSessions(); }, 15000);
+}
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) return;
+  if (document.hidden || updateValidationMode || !updateCommitReady) return;
   void loadSessions();
   if (currentUser) void loadMessages(generation, true, true);
   if (currentUser && view === "persona") void loadProfile(activeMember);

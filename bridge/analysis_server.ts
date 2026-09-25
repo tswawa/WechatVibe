@@ -32,7 +32,11 @@ import { emotionLabel, intentLabel } from "../src/lib/labels";
 import { messageScore } from "../electron/laya/scoring";
 import { EXPRESSIONS } from "../electron/laya/expression";
 import { SOCIAL_NEEDS } from "../electron/laya/social-intents";
+import { GENERAL_LABEL_SCHEMA } from "../electron/laya/general-intent";
 import { MessageBatchInputError, type BatchMessage, type BatchContext } from "../electron/laya/message-batch";
+
+// Observed, unattributed text has model-only generic labels; v3 is reserved for fine targets.
+const OBSERVED_LABEL_SCHEMA = "generic-v2";
 
 interface Score {
   label: string;
@@ -125,6 +129,7 @@ async function handleObserve(id: unknown, text: string): Promise<void> {
   emit({
     id,
     cmd: "observe",
+    labelSchema: OBSERVED_LABEL_SCHEMA,
     emotion: r.emotion,
     intent: r.intent,
     expression: r.expression,
@@ -227,6 +232,8 @@ async function handleTargets(id: unknown, req: Record<string, unknown>): Promise
       const i = top(m.intent);
       return {
         messageId: m.messageId,
+        ...(messageLabelsOnly ? { labelSchema: GENERAL_LABEL_SCHEMA } : {}),
+        ...(messageLabelsOnly ? { groundedIntent: m.groundedIntent ?? null } : {}),
         emotion: m.emotion.map((entry) => ({ label: emotionLabel(entry.label), rawLabel: entry.label, probability: entry.probability })),
         intent: m.intent.map((entry) => ({ label: intentLabel(entry.label), rawLabel: entry.label, probability: entry.probability })),
         expression: m.expression ?? [],

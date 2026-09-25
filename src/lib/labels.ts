@@ -11,23 +11,49 @@ export const EMOTION_LABELS: Record<string, string> = {
     [[keyOf(id), label], [keyOf(modelLabel), label], [keyOf(label), label]])),
 };
 
+/** Generic speech acts supported by the explicit evidence classifier. */
+export const GROUNDED_INTENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  greet: "问候", thank: "感谢", confirm: "确认", inspect: "查看",
+  agree: "同意", reject: "拒绝", invite: "邀约",
+  ask_question: "提问", seek_help: "求助", suggest_action: "建议或指令",
+  plan: "计划", correct: "纠正或异议", explain: "解释", complain: "抱怨",
+  status_report: "状态报告", share_news: "分享",
+});
+
 export const INTENT_LABELS: Record<string, string> = {
   ...Object.fromEntries(Object.entries(legacyIntentLabels).map(([alias, display]) => [keyOf(alias), display])),
   ...Object.fromEntries(catalog.intents.flatMap(({ id, label, displayLabel, modelLabel }) =>
     [[keyOf(id), displayLabel], [keyOf(modelLabel), displayLabel], [keyOf(label), displayLabel], [keyOf(displayLabel), displayLabel]])),
   small_talk: "闲聊",
   smalltalk: "闲聊",
-  share_news: "分享",
-  ask_question: "提问",
   seek_comfort: "求安慰",
   give_comfort: "安慰",
+  show_affection: "表达好感",
+  inform: "告知事实",
+  general_exchange: "一般交流",
   make_plan: "计划",
   flirt: "暧昧",
-  complain: "吐槽",
   apologize: "道歉",
   joke: "玩笑",
-  reject: "拒绝",
-  distance: "疏远",
+  distance: "保持距离",
+  follow_up: "追问",
+  clarify: "澄清",
+  share_feeling: "表达感受",
+  confide: "倾诉",
+  seek_company: "求陪伴",
+  show_care: "关心",
+  encourage: "鼓励",
+  praise: "称赞",
+  celebrate: "祝贺",
+  miss_you: "表达想念",
+  test_feelings: "探询心意",
+  set_boundary: "设定边界",
+  reconcile: "缓和关系",
+  show_material: "展示内容",
+  offer_help: "提供帮助",
+  tease: "调侃",
+  close_chat: "告别",
+  ...GROUNDED_INTENT_LABELS,
 };
 
 export function emotionLabel(label: string): string {

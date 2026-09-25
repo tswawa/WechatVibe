@@ -38,8 +38,8 @@ import { buildPrefix, serializeState } from "./laya/prompt";
 import { toInternal } from "./laya/questions";
 import { renderOptions } from "./laya/questions";
 import { CATALOG_VERSION, routeEmotion, routeIntent } from "./laya/catalog";
-import { EXPRESSION_FAMILY_QUESTION, routeExpression } from "./laya/expression";
-import { routeSocialIntent } from "./laya/social-intents";
+import { generalIntentQuestion, generalIntentScores } from "./laya/general-intent";
+import { groundedIntent, type GroundedIntent } from "./laya/grounded-intent";
 import { classifyNextReply, REPLY_FORECAST_QUESTION, type ReplyForecastCandidate, type ForecastBudget } from "./laya/forecast";
 import { MBTI_QUESTION_VERSION, PERSONALITY_QUESTIONS, personalityEvidenceFromAnswers, type PersonalityEvidence } from "./laya/personality";
 import { STYLE_QUESTIONS, styleEvidenceFromAnswers } from "./laya/style";
@@ -76,6 +76,8 @@ export const MAX_PORTRAIT_CONTEXT_CODEPOINTS = 120;
 const MAX_PORTRAIT_CONTEXT_TOKENS = 40;
 /** Bounded analysis cache (per cached message / self-quality entry). */
 const MAX_CACHE_ENTRIES = 5000;
+// This value keys saved portrait progress. Keep it stable for the generic-v4 label rollout;
+// per-message labelSchema selects which fine results need an individual refresh.
 export const ANALYSIS_VERSION = `${CATALOG_VERSION}+routing-v4-style-v1+${MBTI_QUESTION_VERSION}+message-state-v2+expression-route-v2+social-intent-route-v2`;
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -107,6 +109,8 @@ class SupersededModelLoadError extends Error {
 export interface AnalyzedMessageResult extends MessageResult {
   /** Empty for SELF messages: relationship is only meaningful for OTHER-side messages. */
   relationship: LabelScore[];
+  /** Explicit speech act in this fine-label target text; null means abstain. Never has a score. */
+  groundedIntent?: GroundedIntent | null;
 }
 
 /** Separate "我的发挥" classification of the latest SELF reply. */
@@ -544,28 +548,38 @@ async function predictChecked(
 }
 
 async function classifyMessage(engine: AnalysisEngine, state: State, side: Message["side"], targetText: string,
-  batchIndependentExpression = false, hasPortrait = false, messageLabelsOnly = false): Promise<CachedMessageAnalysis> {
+  _batchIndependentExpression = false, hasPortrait = false, messageLabelsOnly = false): Promise<CachedMessageAnalysis> {
   const predictForState = (questions: Record<string, Question>) =>
     predictChecked(engine, state, questions, hasPortrait);
+  const intentQuestion = messageLabelsOnly ? generalIntentQuestion(targetText) : null;
   const questions = side === "other"
-    ? { ...ANALYSIS_QUESTIONS, expression: EXPRESSION_FAMILY_QUESTION,
+    ? { ...ANALYSIS_QUESTIONS, ...(intentQuestion ? { intent: intentQuestion.question } : {}),
         ...(messageLabelsOnly ? {} : PERSONALITY_QUESTIONS), ...(messageLabelsOnly ? {} : STYLE_QUESTIONS) }
-    : { ...DISPLAY_QUESTIONS, expression: EXPRESSION_FAMILY_QUESTION };
+    : { ...DISPLAY_QUESTIONS, ...(intentQuestion ? { intent: intentQuestion.question } : {}) };
   const prediction = await predictForState(questions);
-  const routed = await routeIntent(prediction.answers.intent, (detailQuestions) =>
-    predictForState(detailQuestions).then((detail) => detail.answers));
-  const emotion = await routeEmotion(prediction.answers.emotion, (detailQuestions) =>
-    predictForState(detailQuestions).then((detail) => detail.answers));
-  const expression = await routeExpression(prediction.answers.expression, (detailQuestions) =>
-    predictForState(detailQuestions).then((detail) => detail.answers), batchIndependentExpression);
-  const playfulIntent = await routeSocialIntent(expression, (detailQuestions) =>
-    predictForState(detailQuestions).then((detail) => detail.answers), targetText);
+  let emotion: LabelScore[];
+  let intent: LabelScore[];
+  let intentBroad: LabelScore[];
+  if (intentQuestion) {
+    emotion = toLabelScores(prediction.answers.emotion);
+    intent = generalIntentScores(prediction.answers.intent);
+    intentBroad = intent;
+  } else {
+    // Portrait state is already persisted under this analysis version. Preserve its 40-emotion /
+    // 547-intent dimensions so new portrait batches merge with old ones without mixing schemas.
+    const routed = await routeIntent(prediction.answers.intent, (detailQuestions) =>
+      predictForState(detailQuestions).then((detail) => detail.answers));
+    emotion = await routeEmotion(prediction.answers.emotion, (detailQuestions) =>
+      predictForState(detailQuestions).then((detail) => detail.answers));
+    intent = routed.scores;
+    intentBroad = toLabelScores(prediction.answers.intent);
+  }
   return {
     emotion,
-    intent: routed.scores,
-    intentBroad: toLabelScores(prediction.answers.intent),
-    expression,
-    playfulIntent,
+    intent,
+    intentBroad,
+    expression: [],
+    playfulIntent: [],
     styleEvidence: side === "other" && !messageLabelsOnly ? styleEvidenceFromAnswers(prediction.answers) : null,
     relationship: side === "other" ? toLabelScores(prediction.answers.relationship) : [],
     personalityEvidence: side === "other" && !messageLabelsOnly ? personalityEvidenceFromAnswers(prediction.answers) : null,
@@ -749,7 +763,12 @@ function buildOutcome(
     dominantRelationship = argmaxLabel(toProbabilityMap(entries[i]!.result.relationship));
     const leafIntent = argmaxLabel(toProbabilityMap(entries[i]!.result.intent));
     const group = leafIntent?.split("_")[0];
-    dominantIntent = group === "rejection" ? "reject"
+    dominantIntent = leafIntent === "invite" ? "make plan"
+      : leafIntent === "show_affection" ? "flirt"
+      : leafIntent === "ask_question" ? "ask question"
+      : leafIntent === "seek_help" ? "seek comfort"
+      : leafIntent === "give_comfort" ? "give comfort"
+      : group === "rejection" ? "reject"
       : group === "boundary" ? "distance"
       : group === "flirt" ? "flirt"
       : group === "planning" || group === "invitation" ? "make plan"
@@ -939,6 +958,7 @@ export async function analyzeMessageTargets(
         emotion: cached.emotion,
         intent: cached.intent,
         intentBroad: cached.intentBroad,
+        ...(messageLabelsOnly ? { groundedIntent: groundedIntent(message.text) } : {}),
         expression: cached.expression,
         playfulIntent: cached.playfulIntent,
         styleEvidence: cached.styleEvidence,
@@ -1001,6 +1021,7 @@ export async function analyzeObservedText(text: string): Promise<ObservedTextRes
   }
   const engine = await resolveEngine();
   const state = buildIsolatedTargetState(clean);
+  const intentQuestion = generalIntentQuestion(clean);
   // Reject on the REAL tokenizer/config (never a character count): the whole prompt for every
   // DISPLAY question must fit max_len, or the model would silently truncate it.
   if (loaded) {
@@ -1009,7 +1030,7 @@ export async function analyzeObservedText(text: string): Promise<ObservedTextRes
     const stateTokens = tokenizer
       .encode(serializeState(state).replaceAll(tokenizer.maskToken, " "))
       .length;
-    for (const definition of [...Object.values(DISPLAY_QUESTIONS), EXPRESSION_FAMILY_QUESTION]) {
+    for (const definition of [DISPLAY_QUESTIONS.emotion, intentQuestion.question]) {
       const question = toInternal(definition);
       const prefix = buildPrefix(tokenizer, question, config.head_max_len);
       const needed = prefix.ids.length + stateTokens + 1;
@@ -1018,21 +1039,15 @@ export async function analyzeObservedText(text: string): Promise<ObservedTextRes
       }
     }
   }
-  const prediction = await predictChecked(engine, state, { ...DISPLAY_QUESTIONS, expression: EXPRESSION_FAMILY_QUESTION });
-  const routed = await routeIntent(prediction.answers.intent, (detailQuestions) =>
-    predictChecked(engine, state, detailQuestions).then((detail) => detail.answers));
-  const emotion = await routeEmotion(prediction.answers.emotion, (detailQuestions) =>
-    predictChecked(engine, state, detailQuestions).then((detail) => detail.answers));
-  const expression = await routeExpression(prediction.answers.expression, (detailQuestions) =>
-    predictChecked(engine, state, detailQuestions).then((detail) => detail.answers));
-  const playfulIntent = await routeSocialIntent(expression, (detailQuestions) =>
-    predictChecked(engine, state, detailQuestions).then((detail) => detail.answers), clean);
+  const prediction = await predictChecked(engine, state, { ...DISPLAY_QUESTIONS, intent: intentQuestion.question });
+  const generalIntent = generalIntentScores(prediction.answers.intent);
+  const emotion = toLabelScores(prediction.answers.emotion);
   return {
     emotion,
-    intent: routed.scores,
-    intentBroad: toLabelScores(prediction.answers.intent),
-    expression,
-    playfulIntent,
+    intent: generalIntent,
+    intentBroad: generalIntent,
+    expression: [],
+    playfulIntent: [],
     styleEvidence: null,
   };
 }

@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import hmac
 import mimetypes
 import os
+import re
 import threading
 from contextlib import nullcontext
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -12,8 +14,22 @@ from urllib.parse import parse_qs, urlsplit
 
 from real_backend import Backend, ForecastRequestError, WeChatSource, ROOT
 from account_store import AccountConflict, AccountNotFound
+from instance_identity import default_port, instance_id
 
 CHATUI = ROOT / "chatui"
+CONTROL_TOKEN_ENV = "WECHATVIBE_CONTROL_TOKEN"
+CONTROL_TOKEN_HEADER = "X-WechatVibe-Control-Token"
+
+
+def app_version():
+    try:
+        value = json.loads((ROOT / "package.json").read_text(encoding="utf-8")).get("version")
+        return value if isinstance(value, str) and value else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+APP_VERSION = app_version()
 
 
 def integer(value, default, maximum):
@@ -39,7 +55,7 @@ def request_id_value(value):
     return value
 
 
-def make_handler(backend, accounts=None):
+def make_handler(backend, accounts=None, control_token=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
             pass
@@ -86,7 +102,8 @@ def make_handler(backend, accounts=None):
             try:
                 query = self.query(parsed)
                 if parsed.path == "/api/health":
-                    return self.send(200, backend.health())
+                    return self.send(200, {**backend.health(), "instanceId": instance_id(ROOT),
+                                           "appVersion": APP_VERSION})
                 if parsed.path == "/api/runtime":
                     return self.send(200, backend.runtime())
                 if parsed.path == "/api/sessions":
@@ -143,6 +160,18 @@ def make_handler(backend, accounts=None):
             if not self.trusted_request():
                 return self.send(403, {"error": "forbidden"})
             endpoint = urlsplit(self.path).path
+            if endpoint == "/api/control/shutdown":
+                supplied = self.headers.get(CONTROL_TOKEN_HEADER, "")
+                if (self.client_address[0] != "127.0.0.1" or
+                        not isinstance(control_token, str) or
+                        re.fullmatch(r"[0-9a-f]{64}", control_token) is None or
+                        not hmac.compare_digest(supplied, control_token)):
+                    return self.send(403, {"error": "forbidden"})
+                if self.path != endpoint or self.headers.get("Content-Length") != "0":
+                    return self.send(400, {"error": "invalid control request"})
+                self.send(202, {"stopping": True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             if endpoint not in ("/api/analyze", "/api/predict-reply", "/api/messages/batch", "/api/runtime"):
                 return self.send(404, {"error": "not found"})
             content_type = [part.strip().lower() for part in self.headers.get("Content-Type", "").split(";")]
@@ -231,10 +260,11 @@ def make_handler(backend, accounts=None):
 
 def main(classifier):
     from account_api import AccountAPI
+    control_token = os.environ.pop(CONTROL_TOKEN_ENV, None)
     backend = Backend(WeChatSource(classifier=classifier))
-    port = integer(os.environ.get("CHATUI_PORT"), 8805, 65535)
+    port = integer(os.environ.get("CHATUI_PORT"), default_port(ROOT), 65535)
     accounts = AccountAPI(backend, ROOT / ".local" / "real-client-data")
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(backend, accounts))
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(backend, accounts, control_token))
     print(f"chatui server on http://127.0.0.1:{port}", flush=True)
     try:
         server.serve_forever()

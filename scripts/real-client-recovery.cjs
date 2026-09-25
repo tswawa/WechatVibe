@@ -1,10 +1,10 @@
 // Keep the local bridge available while this project's desktop client is open.
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
-const net = require('node:net');
+const http = require('node:http');
 const path = require('node:path');
 
-function monitorBridge({ root, url, isOpen, onRecovered }) {
+function monitorBridge({ root, url, instanceId, isOpen, onRecovered }) {
   const port = Number(new URL(url).port);
   const bundledPython = path.join(root, 'runtime', 'python', 'python.exe');
   const python = process.env.WECHATVIBE_PYTHON || (fs.existsSync(bundledPython) ? bundledPython : 'python');
@@ -18,22 +18,36 @@ function monitorBridge({ root, url, isOpen, onRecovered }) {
   async function check() {
     if (stopped || !isOpen() || checking || recovering || fs.existsSync(noAutoRecovery) || Date.now() < retryAfter) return;
     checking = true;
-    const reachable = await new Promise(resolve => {
-      const socket = net.createConnection({ host: '127.0.0.1', port });
+    const healthy = await new Promise(resolve => {
       let done = false;
       const finish = value => {
         if (done) return;
         done = true;
-        socket.destroy();
+        request.destroy();
         resolve(value);
       };
-      socket.setTimeout(1500);
-      socket.once('connect', () => finish(true));
-      socket.once('error', () => finish(false));
-      socket.once('timeout', () => finish(false));
+      const request = http.get({ hostname: '127.0.0.1', port, path: '/api/health', timeout: 1500 }, response => {
+        if (response.statusCode !== 200) return finish(false);
+        let body = '';
+        response.on('data', chunk => {
+          body += chunk;
+          if (body.length > 65536) finish(false);
+        });
+        response.once('end', () => {
+          try {
+            const health = JSON.parse(body);
+            finish(health.version === 'real-ui-1' && health.instanceId === instanceId);
+          } catch (_) {
+            finish(false);
+          }
+        });
+        response.once('error', () => finish(false));
+      });
+      request.once('error', () => finish(false));
+      request.once('timeout', () => finish(false));
     });
     checking = false;
-    if (reachable || stopped || !isOpen() || fs.existsSync(noAutoRecovery) ||
+    if (healthy || stopped || !isOpen() || fs.existsSync(noAutoRecovery) ||
         (path.isAbsolute(python) && !fs.existsSync(python))) return;
     recovering = true;
     // The existing launcher verifies process identity and service ownership, and

@@ -1,10 +1,11 @@
 """Stage only the portable real-client runtimes and their recorded dependencies.
 
 Run with the installed Python 3.14 interpreter. This script never copies a whole
-site-packages or node_modules tree, and never removes existing staged files.
+site-packages or node_modules tree. Its output must be new and empty.
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.metadata as metadata
 import json
@@ -286,7 +287,30 @@ def staged_inventory(path: Path) -> dict:
     return {"files": len(files), "bytes": sum(item.stat().st_size for item in files)}
 
 
-def main() -> int:
+def staged_hashes(path: Path) -> list[dict]:
+    rows = []
+    for item in sorted(path.rglob("*")):
+        if item.is_symlink() or getattr(item, "is_junction", lambda: False)():
+            raise RuntimeError(f"link in staged runtime: {item}")
+        if item.is_file():
+            rows.append({"file": item.relative_to(path).as_posix(),
+                         "bytes": item.stat().st_size, "sha256": sha256(item)})
+        elif not item.is_dir():
+            raise RuntimeError(f"unexpected staged runtime entry: {item}")
+    return rows
+
+
+def main(argv: list[str] | None = None) -> int:
+    global STAGE
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=STAGE,
+                        help="new empty client staging directory")
+    args = parser.parse_args(argv)
+    STAGE = args.output.absolute()
+    if STAGE.exists() and (not STAGE.is_dir() or STAGE.is_symlink() or
+                           getattr(STAGE, "is_junction", lambda: False)() or
+                           any(STAGE.iterdir())):
+        raise RuntimeError(f"runtime stage must be new and empty: {STAGE}")
     STAGE.mkdir(parents=True, exist_ok=True)
     python = stage_python_stdlib()
     print(f"Python standard library staged: {STATS['python_stdlib'][0]} files")
@@ -303,8 +327,9 @@ def main() -> int:
                     "nodePackages": staged_inventory(STAGE / "node_modules"),
                 },
                 "copiedThisRun": {name: {"files": count, "bytes": size}
-                                  for name, (count, size) in STATS.items()}}
-    package_root = ROOT / ".local" / "real-client-package"
+                                  for name, (count, size) in STATS.items()},
+                "files": staged_hashes(STAGE)}
+    package_root = STAGE.parent
     requirements = package_root / "python-requirements.lock.txt"
     requirements.write_text("".join(f"{item['name']}=={item['version']}\n"
                                     for item in python["packages"]), encoding="utf-8")

@@ -11,8 +11,10 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from real_backend import AccountChangedError, Backend, ForecastRequestError, NodeAnalysis, ResultStore, WeChatSource, affinity, avatar_candidates, infer_mbti, message_id, validate_personality_evidence
+from chat_server import classify
 from profile_signals import STYLE_LABELS, historical_mood
-from real_http import make_handler
+from real_http import ROOT, make_handler
+from instance_identity import instance_id
 
 
 def personality_evidence(preferences="ESTJ"):
@@ -137,6 +139,196 @@ class BackendTests(unittest.TestCase):
         job = self.backend.start(user, mode, limit)
         self.backend.tasks.join()
         return self.backend.analysis(user)["job"]
+
+    def test_quoted_reply_is_text_but_other_app_messages_are_not(self):
+        quoted_type = (57 << 32) | 49
+        class FakeDB:
+            account = "account-a"
+
+            @staticmethod
+            def _msg_type_name(local_type):
+                return "文本" if local_type == 1 else "文件/链接/卡片"
+
+            @staticmethod
+            def _friendly_content(raw, _type):
+                return raw.decode("utf-8")
+
+        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
+        xml = "<msg><appmsg><title>引用后的新文字</title><type>57</type><refermsg><content>旧文字</content></refermsg></appmsg></msg>"
+        def render(local_type, content, *, compressed=False):
+            raw = content.encode("utf-8")
+            record = (1, local_type, 1, 1, None if compressed else raw,
+                      raw if compressed else None, 1, 1)
+            return source._render_row(FakeDB(), "room@chatroom",
+                                      (record, "message__message_0.db", {1: "member"}), {}, "me")
+
+        self.assertEqual((render(quoted_type, xml)["kind"], render(quoted_type, xml)["text"]),
+                         ("text", "引用后的新文字"))
+        self.assertEqual(render(quoted_type, xml, compressed=True)["kind"], "text")
+        referenced_image = xml.replace("<content>旧文字</content>", "<content><img src='x'/></content>")
+        self.assertEqual(render(quoted_type, referenced_image)["text"], "引用后的新文字")
+        long_title = "长" * 120
+        self.assertEqual(render(quoted_type, xml.replace("引用后的新文字", long_title))["text"], long_title)
+        self.assertEqual(render(49, xml)["kind"], "other")
+        self.assertEqual(render(quoted_type, "<msg><appmsg><title>无引用卡片</title></appmsg></msg>")["kind"], "other")
+        self.assertEqual(render(quoted_type, xml.replace("引用后的新文字", "[图片]"))["kind"], "other")
+
+    def test_quoted_reply_counts_as_text_for_group_and_member(self):
+        room = "room@chatroom"
+        table = "Msg_" + hashlib.md5(room.encode()).hexdigest()
+        dbpath = Path(self.temp.name) / "message__message_0.db"
+        with closing(sqlite3.connect(dbpath)) as conn, conn:
+            conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
+            conn.execute("INSERT INTO Name2Id(rowid,user_name) VALUES (1,'member')")
+            conn.execute(f"CREATE TABLE {table} (local_id INTEGER,local_type INTEGER,real_sender_id INTEGER,"
+                         "create_time INTEGER,message_content BLOB,compress_content BLOB,"
+                         "server_id INTEGER,sort_seq INTEGER)")
+            valid_quote = b"<msg><appmsg><title>reply</title><type>57</type><refermsg/></appmsg></msg>"
+            invalid_quote = b"<msg><appmsg><title>card</title><type>57</type></appmsg></msg>"
+            conn.executemany(f"INSERT INTO {table} VALUES (?,?,1,1,?,NULL,?,?)",
+                             [(index, local_type, content, index, index)
+                              for index, (local_type, content) in enumerate(
+                                  ((1, b"text"), ((57 << 32) | 49, valid_quote),
+                                   ((57 << 32) | 49, invalid_quote), (49, valid_quote)), 1)])
+
+        class FakeDB:
+            account = "account-a"
+
+            @staticmethod
+            def _msg_conns(_user):
+                return [(sqlite3.connect(dbpath), table)]
+
+            @staticmethod
+            def _msg_type_name(local_type):
+                return "文本" if local_type == 1 else "文件/链接/卡片"
+
+            @staticmethod
+            def _friendly_content(raw, _type):
+                return raw.decode("utf-8")
+
+        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
+        source._contacts = lambda _db: {}
+        source.self_user = lambda *_args: "me"
+        self.assertEqual(source.stats(room)[:2], (4, 2))
+        self.assertEqual(source.stats(room, "member")[:2], (4, 2))
+        self.assertEqual(source.profile_metadata(room)["textCount"], 2)
+        self.assertEqual(source.profile_metadata(room, "member")["textCount"], 2)
+        quoted, cursor = source.quoted_history_page(room, (4, dbpath.name, 4))
+        self.assertEqual(([item["kind"] for item in quoted], cursor),
+                         (["text", "other"], (3, dbpath.name, 3)))
+        self.assertEqual([item["text"] for item in source.preceding_text_context(
+            room, (2, dbpath.name, 2))], ["text"])
+
+    def test_profile_text_count_matches_rendered_consumable_text_and_caches_decode(self):
+        room = "room@chatroom"
+        table = "Msg_" + hashlib.md5(room.encode()).hexdigest()
+        dbpath = Path(self.temp.name) / "message__message_0.db"
+        quote_type = (57 << 32) | 49
+        quote = b"<msg><appmsg><title>reply</title><type>57</type><refermsg/></appmsg></msg>"
+        rows = ((1, 1, 1, b"hello", None),
+                (2, 1, 1, b"<sysmsg><text>notice</text></sysmsg>", None),
+                (3, 1, 1, b"<msg><appmsg><title>card</title></appmsg></msg>", None),
+                (4, quote_type, 1, quote, None),
+                (5, quote_type, 2, None, quote),
+                (6, 1, 2, b"world", None),
+                (7, 49, 2, quote, None),
+                (8, 1, 2, b"   ", None))
+        with closing(sqlite3.connect(dbpath)) as conn, conn:
+            conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
+            conn.executemany("INSERT INTO Name2Id(rowid,user_name) VALUES (?,?)",
+                             ((1, "member-a"), (2, "member-b")))
+            conn.execute(f"CREATE TABLE {table} (local_id INTEGER,local_type INTEGER,real_sender_id INTEGER,"
+                         "create_time INTEGER,message_content BLOB,compress_content BLOB,"
+                         "server_id INTEGER,sort_seq INTEGER)")
+            conn.executemany(f"INSERT INTO {table} VALUES (?,?,?,?,?,?,?,?)",
+                             ((local_id, kind, sender, 1, body, compressed, local_id, local_id)
+                              for local_id, kind, sender, body, compressed in rows))
+
+        decoded = []
+
+        class FakeDB:
+            account = "account-a"
+
+            @staticmethod
+            def _msg_conns(_user):
+                return [(sqlite3.connect(dbpath), table)]
+
+            @staticmethod
+            def _msg_type_name(kind):
+                return "文本" if kind == 1 else "文件/链接/卡片"
+
+            @staticmethod
+            def _friendly_content(raw, _type):
+                decoded.append(raw)
+                return raw.decode("utf-8")
+
+        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
+        source._contacts = lambda _db: {}
+        source.self_user = lambda *_args: "me"
+        rendered = source.messages(room, len(rows))
+        consumable = [item for item in rendered if item["kind"] == "text" and item["text"].strip()]
+        self.assertEqual(len(consumable), 4)
+        decoded.clear()
+        whole = source.profile_metadata(room)
+        self.assertEqual((whole["count"], whole["textCount"]), (8, len(consumable)))
+        self.assertEqual(source.profile_metadata(room, "member-a")["textCount"], 2)
+        self.assertEqual(source.profile_metadata(room, "member-b")["textCount"], 2)
+        first_decode_count = len(decoded)
+        self.assertGreater(first_decode_count, 0)
+        self.assertEqual(source.profile_metadata(room)["textCount"], 4)
+        self.assertEqual(len(decoded), first_decode_count, "unchanged snapshot must use cached metadata")
+        self.assertEqual(source.stats(room)[:2], (8, 4))
+        self.assertEqual(source.stats(room, "member-a")[:2], (4, 2))
+        with closing(sqlite3.connect(dbpath)) as conn, conn:
+            conn.execute(f"INSERT INTO {table} VALUES (9,1,2,1,?,NULL,9,9)", (b"new text",))
+        self.assertEqual(source.profile_metadata(room)["textCount"], 5)
+        self.assertGreater(len(decoded), first_decode_count)
+
+    def test_member_quote_page_filters_sender_before_decoding(self):
+        room = "room@chatroom"
+        table = "Msg_" + hashlib.md5(room.encode()).hexdigest()
+        dbpath = Path(self.temp.name) / "message__message_0.db"
+        quote_type = (57 << 32) | 49
+        quote = b"<msg><appmsg><title>reply</title><type>57</type><refermsg/></appmsg></msg>"
+        with closing(sqlite3.connect(dbpath)) as conn, conn:
+            conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
+            conn.executemany("INSERT INTO Name2Id(rowid,user_name) VALUES (?,?)",
+                             ((1, "member-a"), (2, "member-b")))
+            conn.execute(f"CREATE TABLE {table} (local_id INTEGER,local_type INTEGER,real_sender_id INTEGER,"
+                         "create_time INTEGER,message_content BLOB,compress_content BLOB,"
+                         "server_id INTEGER,sort_seq INTEGER)")
+            conn.executemany(f"INSERT INTO {table} VALUES (?,?,?,?,?,?,?,?)",
+                             ((number, quote_type, 1 if number == 41 else 2, 1, quote, None,
+                               number, number) for number in range(1, 65)))
+
+        decoded = []
+
+        class FakeDB:
+            account = "account-a"
+
+            @staticmethod
+            def _msg_conns(_user):
+                return [(sqlite3.connect(dbpath), table)]
+
+            @staticmethod
+            def _msg_type_name(_kind):
+                return "文件/链接/卡片"
+
+            @staticmethod
+            def _friendly_content(raw, _type):
+                decoded.append(raw)
+                return raw.decode("utf-8")
+
+        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
+        source._contacts = lambda _db: {}
+        source.self_user = lambda *_args: "me"
+        page, cursor = source.quoted_history_page(room, (64, dbpath.name, 64), member="member-a")
+        self.assertEqual(([item["senderId"] for item in page], cursor),
+                         (["member-a"], (41, dbpath.name, 41)))
+        self.assertEqual(len(decoded), 1)
+        self.assertEqual(source.quoted_history_page(room, (64, dbpath.name, 64), cursor,
+                         member="member-a"), ([], None))
+        self.assertEqual(len(decoded), 1)
 
     def test_model_provider_reflects_runtime_fallback(self):
         analyzer = NodeAnalysis()
@@ -662,6 +854,40 @@ class BackendTests(unittest.TestCase):
         self.assertLess(calls.index(urgent), calls.index(current))
         self.assertEqual(len(calls), len(set(calls)))
 
+    def test_focused_recent_stays_ahead_of_other_recent(self):
+        for user in ("old", "background", "visible"):
+            self.source.add(user, 1)
+        self.analyzer.entered = threading.Event()
+        self.analyzer.release = threading.Event()
+        try:
+            self.backend.start("old", "history", 1)
+            self.assertTrue(self.analyzer.entered.wait(timeout=5))
+            self.backend.start("background", "recent", 1)
+            self.backend.start("visible", "recent", 1)
+            self.backend.analysis("visible")
+        finally:
+            self.analyzer.release.set()
+            self.backend.tasks.join()
+        calls = [target for _session, target, _context in self.analyzer.calls]
+        self.assertEqual(calls, [self.source.rows[user][0]["id"]
+                                 for user in ("old", "visible", "background")])
+
+    def test_recent_window_precedes_focused_member_portrait(self):
+        account, workdir, store = self.backend._scoped_identity()
+        version = self.analyzer.analysis_version()
+        focused = (account, str(store.path), "room@chatroom", version)
+        other = (account, str(store.path), "friend", version)
+        self.backend.batch_engine = Mock(focused_member=(focused, "member"))
+        self.backend._focus(focused)
+
+        def rank(key, mode, limit):
+            return self.backend._task_priority((key, mode, limit, store, {}, (account, workdir)))
+
+        self.assertLess(rank(other, "recent-window", 1),
+                        rank(focused, "batch-subject", "member"))
+        self.assertLess(rank(focused, "batch-subject", "member"),
+                        rank(other, "incremental", None))
+
     def test_recent_requests_share_single_worker_in_eight_item_chunks(self):
         self.source.add("first", 12)
         self.source.add("second", 1)
@@ -895,7 +1121,9 @@ class BackendTests(unittest.TestCase):
                 conn.close()
                 return status, payload
 
-            self.assertEqual(json.loads(request("GET", "/api/health")[1])["version"], "real-ui-1")
+            health = json.loads(request("GET", "/api/health")[1])
+            self.assertEqual(health["version"], "real-ui-1")
+            self.assertEqual(health["instanceId"], instance_id(ROOT))
             self.assertEqual(request("GET", "/api/health", headers={"Host": f"localhost:{server.server_port}"})[0], 200)
             self.assertEqual(request("GET", "/api/messages?user=friend&limit=-1")[0], 400)
             self.assertEqual(request("POST", "/api/analyze", json.dumps({"texts": ["not accepted"]}),
@@ -1568,6 +1796,386 @@ class ForecastTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join()
+
+
+class FineLabelRevisionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.source = SyntheticSource(Path(self.temp.name))
+        self.analyzer = SyntheticAnalyzer()
+        self.store_factory = lambda account, _workdir: ResultStore(Path(self.temp.name) / (account + ".sqlite3"))
+        self.backend = Backend(self.source, self.analyzer, self.store_factory)
+
+    def run_job(self, user, limit):
+        self.backend.start(user, "recent", limit)
+        self.backend.tasks.join()
+
+    def test_unmarked_fine_response_keeps_previous_label(self):
+        self.source.add("friend", 1)
+        account, workdir, store = self.backend._scoped_identity()
+        version = self.analyzer.analysis_version()
+        item = self.source.rows["friend"][0]
+        store.save_fine(account, "friend", version, item, {"intentLabel": "旧细标签"})
+        original_analyze = self.analyzer.analyze
+        self.analyzer.analyze = lambda session, messages, target, **_kwargs: original_analyze(
+            session, messages, target)
+
+        with self.assertRaisesRegex(RuntimeError, "fine label schema mismatch"):
+            self.backend._analyze_item(account, "friend", version, store, [item], item,
+                                       (account, workdir), fine=True)
+        self.assertEqual(store.fine_view(account, "friend", version,
+                         [item["id"]])[item["id"]]["intentLabel"], "旧细标签")
+
+    def test_grounded_intent_is_validated_before_fine_save(self):
+        self.source.add("friend", 1)
+        account, workdir, store = self.backend._scoped_identity()
+        version = self.analyzer.analysis_version()
+        item = self.source.rows["friend"][0]
+        original_analyze = self.analyzer.analyze
+
+        def response_with(value):
+            return lambda session, messages, target, **_kwargs: {
+                **original_analyze(session, messages, target),
+                "labelSchema": "generic-v5", "groundedIntent": value,
+            }
+
+        for malformed in (
+            {"label": "喊老板", "evidenceKind": "action_request"},
+            {"label": "greet", "evidenceKind": "progress_statement"},
+            {"label": "greet", "evidenceKind": "greeting_phrase", "probability": 1},
+            {"label": "greet"},
+        ):
+            with self.subTest(malformed=malformed):
+                self.analyzer.analyze = response_with(malformed)
+                with self.assertRaisesRegex(RuntimeError, "invalid grounded intent"):
+                    self.backend._analyze_item(account, "friend", version, store, [item], item,
+                                               (account, workdir), fine=True)
+                self.assertEqual(store.fine_view(account, "friend", version, [item["id"]]), {})
+
+        self.analyzer.analyze = response_with({"label": "greet", "evidenceKind": "greeting_phrase"})
+        self.backend._analyze_item(account, "friend", version, store, [item], item,
+                                   (account, workdir), fine=True)
+        saved = store.fine_view(account, "friend", version, [item["id"]])[item["id"]]
+        self.assertEqual(saved["groundedIntent"],
+                         {"label": "greet", "evidenceKind": "greeting_phrase"})
+        self.assertEqual(saved["labelSchema"], "generic-v5")
+
+        for label, evidence_kind in (
+            ("confirm", "short_acknowledgement"),
+            ("inspect", "first_person_inspection"),
+            ("explain", "process_explanation"),
+        ):
+            with self.subTest(label=label):
+                grounded = {"label": label, "evidenceKind": evidence_kind}
+                self.analyzer.analyze = response_with(grounded)
+                self.backend._analyze_item(account, "friend", version, store, [item], item,
+                                           (account, workdir), fine=True)
+                saved = store.fine_view(account, "friend", version, [item["id"]])[item["id"]]
+                self.assertEqual(saved["groundedIntent"], grounded)
+
+        self.analyzer.analyze = response_with(None)
+        self.backend._analyze_item(account, "friend", version, store, [item], item,
+                                   (account, workdir), fine=True)
+        self.assertIsNone(store.fine_view(account, "friend", version, [item["id"]])[item["id"]]
+                          ["groundedIntent"])
+
+    def test_legacy_fine_length_skip_is_terminal_and_visible(self):
+        self.source.add("friend", 1)
+        account, workdir, store = self.backend._scoped_identity()
+        version = self.analyzer.analysis_version()
+        item = self.source.rows["friend"][0]
+        store.save_fine(account, "friend", version, item, {"intentLabel": "旧细标签"})
+        store.skip_fine(account, "friend", version, item, "ObservedTextTooLongError")
+        self.assertEqual(store.fine_known(account, "friend", version, [item["id"]]), {item["id"]})
+        self.assertEqual(store.fine_view(account, "friend", version, [item["id"]])[item["id"]],
+                         {"state": "skipped", "reason": "ObservedTextTooLongError"})
+        for _ in range(2):
+            list(self.backend._run_fine_recent(account, "friend", version, store, {},
+                                               (account, workdir), 1))
+        self.assertEqual(self.analyzer.calls, [])
+        self.assertEqual(self.backend.analysis("friend")["results"][item["id"]]["state"], "skipped")
+        store.save_fine(account, "friend", version, item,
+                         {"intentLabel": "新细标签", "labelSchema": "generic-v5",
+                         "groundedIntent": None})
+        self.assertEqual(store.fine_view(account, "friend", version, [item["id"]])[item["id"]]
+                         ["intentLabel"], "新细标签")
+
+    def test_recent_fine_relabels_legacy_without_changing_portrait_state(self):
+        self.source.add("friend", 7)
+        self.run_job("friend", limit=7)
+        self.backend.profile("friend")
+        account, workdir, store = self.backend._scoped_identity()
+        version = self.analyzer.analysis_version()
+        items = self.source.rows["friend"]
+        saved = store.recent(account, "friend", version, limit=7)
+
+        # Simulate records written by the previous label scheme. Message 6
+        # has a current fine override and must not be reanalyzed.
+        with store.connect() as conn:
+            for index in (4, 5):
+                item = items[index]
+                current = {**saved[item["id"]], "labelSchema": "generic-v4"}
+                conn.execute("UPDATE results_v2 SET result=? WHERE account=? AND session=? AND id=? AND version=?",
+                             (json.dumps(current, ensure_ascii=False), account, "friend", item["id"], version))
+        for index in (0, 5):
+            item = items[index]
+            store.save_fine(account, "friend", version, item,
+                            {**saved[item["id"]], "intentLabel": "旧细标签"})
+        store.save_fine(account, "friend", version, items[2],
+                        {**saved[items[2]["id"]], "intentLabel": "旧细标签",
+                          "labelSchema": "generic-v4", "groundedIntent": None})
+        store.save_fine(account, "friend", version, items[6],
+                        {**saved[items[6]["id"]], "intentLabel": "新细标签",
+                          "labelSchema": "generic-v5", "groundedIntent": None})
+        store.skip_fine(account, "friend", version, items[3], "ObservedTextTooLongError")
+        store.save_fine("account-b", "friend", version, items[2], {"intentLabel": "其它账号"})
+        store.save_fine(account, "other-session", version, items[2], {"intentLabel": "其它会话"})
+        store.save_fine(account, "friend", "other-version", items[2], {"intentLabel": "其它版本"})
+
+        preserved_tables = ("results_v2", "progress_v1", "summary_v1", "profile_state_v1")
+        with store.connect() as conn:
+            before = {table: conn.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
+                      for table in preserved_tables}
+        self.analyzer.calls.clear()
+        original_analyze = self.analyzer.analyze
+
+        def generic_analyze(session, messages, target, **_kwargs):
+            return {**original_analyze(session, messages, target),
+                     "labelSchema": "generic-v5", "intentLabel": "新细标签",
+                    "groundedIntent": {"label": "status_report", "evidenceKind": "progress_statement"}}
+
+        self.analyzer.analyze = generic_analyze
+        self.backend.batch_engine = Mock(snapshot=lambda *_args: None)
+        scope = (account, workdir)
+        job = {}
+        list(self.backend._run_fine_recent(account, "friend", version, store, job, scope, 5))
+
+        self.assertEqual((job["total"], job["processed"]), (5, 5))
+        self.assertEqual({target for _session, target, _context in self.analyzer.calls},
+                         {items[index]["id"] for index in (2, 4, 5)})
+        self.assertEqual(store.fine_known(account, "friend", version,
+                                          [item["id"] for item in items[2:]]),
+                         {item["id"] for item in items[2:]})
+        self.analyzer.calls.clear()
+        list(self.backend._run_fine_recent(account, "friend", version, store, {}, scope, 5))
+        self.assertEqual(self.analyzer.calls, [])
+        current = self.backend.analysis("friend")["results"]
+        for index in (2, 4, 5):
+            self.assertEqual((current[items[index]["id"]]["labelSchema"],
+                              current[items[index]["id"]]["intentLabel"]),
+                              ("generic-v5", "新细标签"))
+            self.assertEqual(current[items[index]["id"]]["groundedIntent"],
+                             {"label": "status_report", "evidenceKind": "progress_statement"})
+        self.assertEqual(current[items[3]["id"]],
+                         {"state": "skipped", "reason": "ObservedTextTooLongError"})
+        self.assertNotIn("labelSchema", store.fine_view(account, "friend", version,
+                         [items[0]["id"]])[items[0]["id"]])
+        self.assertEqual(store.fine_view("account-b", "friend", version,
+                         [items[2]["id"]])[items[2]["id"]]["intentLabel"], "其它账号")
+        self.assertEqual(store.fine_view(account, "other-session", version,
+                         [items[2]["id"]])[items[2]["id"]]["intentLabel"], "其它会话")
+        self.assertEqual(store.fine_view(account, "friend", "other-version",
+                         [items[2]["id"]])[items[2]["id"]]["intentLabel"], "其它版本")
+        with store.connect() as conn:
+            after = {table: conn.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
+                     for table in preserved_tables}
+        self.assertEqual(after, before)
+
+
+class QuotedBackfillTests(unittest.TestCase):
+    class Source(SyntheticSource):
+        def quoted_history_page(self, user, ceiling, after=None, page_size=64, member=None):
+            rows = [item for item in self.rows.get(user, []) if item.get("quotedCandidate") and
+                    tuple(item["_sort"]) <= ceiling and
+                    (after is None or tuple(item["_sort"]) > after) and
+                    (member is None or item["senderId"] == member)]
+            rows = sorted(rows, key=lambda item: item["_sort"])[:page_size]
+            return rows, tuple(rows[-1]["_sort"]) if rows else None
+
+        def preceding_text_context(self, user, before, limit=3):
+            rows = [item for item in self.rows.get(user, []) if item["kind"] == "text" and
+                    tuple(item["_sort"]) < before]
+            return [{"id": item["id"], "side": item["side"], "text": item["text"]}
+                    for item in sorted(rows, key=lambda item: item["_sort"])[-limit:]]
+
+        def stats(self, user, member=None):
+            rows = self.rows.get(user, [])
+            selected = [item for item in rows if item["senderId"] == member] if member else rows
+            members = [{"id": sender, "name": sender, "avatar": ""}
+                       for sender in sorted({item["senderId"] for item in rows})]
+            return len(selected), sum(item["kind"] == "text" for item in selected), members
+
+    class Analyzer(SyntheticAnalyzer):
+        def analyze_batch(self, session, payload, context):
+            item = payload[0]
+            self.calls.append((session, item["id"], [part["text"] for part in context]))
+            if item["text"] == "quote" and getattr(self, "fail_quote_once", False):
+                self.fail_quote_once = False
+                raise RuntimeError("synthetic quote failure")
+            score = {"first": .1, "quote": .5, "middle": .7, "last": .9}.get(item["text"], .5)
+            result = None
+            consumed = payload if getattr(self, "consume_all", False) else payload[:1]
+            if any(part["target"] for part in consumed):
+                result = {"emotion": [{"label": "平静", "rawLabel": "neutral", "probability": 1}],
+                          "intent": [{"label": "提问", "probability": 1}],
+                          "intentBroad": [{"label": "提问", "probability": 1}],
+                          "score": score, "personalityEvidence": personality_evidence()}
+            return {"consumed": [{"start": part["offset"], "end": len(part["text"]),
+                                  "complete": True} for part in consumed],
+                    "result": result, "durationMs": 1}
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.source = self.Source(Path(self.temp.name))
+        self.analyzer = self.Analyzer()
+        self.store_factory = lambda account, _workdir: ResultStore(Path(self.temp.name) / (account + ".sqlite3"))
+        self.backend = Backend(self.source, self.analyzer, self.store_factory)
+
+    def test_completed_personal_cursor_backfills_only_missing_quote_once(self):
+        self.source.add("friend", 3)
+        rows = self.source.rows["friend"]
+        for item, text in zip(rows, ("first", "quote", "last")):
+            item["text"] = text
+        rows[1]["quotedCandidate"] = True
+        rows[1]["kind"] = "other"
+        self.backend.profile("friend")
+        self.backend.tasks.join()
+        before = self.backend.batch_engine.snapshot("account-a", "friend", self.analyzer.version,
+                                                    self.store_factory("account-a", self.source.workdir))
+        self.assertEqual((before["cursor"], before["state"]["count"]),
+                         (tuple(rows[-1]["_sort"]), 2))
+        rows[1]["kind"] = "text"
+        self.analyzer.calls.clear()
+        self.backend.profile("friend")
+        self.backend.tasks.join()
+        profile = self.backend.profile("friend")
+        after = self.backend.batch_engine.snapshot("account-a", "friend", self.analyzer.version,
+                                                   self.store_factory("account-a", self.source.workdir))
+        self.assertEqual((profile["stats"]["analyzedCount"], after["cursor"]),
+                         (3, before["cursor"]))
+        self.assertEqual([target for _session, target, _context in self.analyzer.calls], [rows[1]["id"]])
+        self.assertEqual(after["state"]["scoreWeighted"], .1 * 0 + .5 * 1 + .9 * 2)
+        self.assertEqual(after["state"]["axes"]["EI"][2], 3)
+        self.analyzer.calls.clear()
+        restarted = Backend(self.source, self.analyzer, self.store_factory)
+        restarted.profile("friend")
+        restarted.tasks.join()
+        self.assertEqual(self.analyzer.calls, [])
+
+    def test_group_and_existing_member_receive_only_their_quote(self):
+        room = "room@chatroom"
+        self.source.add(room, 1, start=0, sender="member-a", text="first")
+        self.source.add(room, 1, start=1, sender="member-a", text="quote")
+        self.source.add(room, 1, start=2, sender="member-b", text="last")
+        self.source.add(room, 1, start=3, sender="me", text="self quote")
+        rows = self.source.rows[room]
+        rows[1]["quotedCandidate"] = True
+        rows[1]["kind"] = "other"
+        rows[3]["quotedCandidate"] = True
+        rows[3]["kind"] = "other"
+        self.backend.profile(room)
+        self.backend.tasks.join()
+        self.backend.profile(room, "member-a")
+        self.backend.tasks.join()
+        store = self.store_factory("account-a", self.source.workdir)
+        member_before = self.backend.batch_engine.snapshot("account-a", room, self.analyzer.version,
+                                                           store, "member-a")
+        self.assertEqual((member_before["cursor"], member_before["state"]["count"]),
+                         (tuple(rows[-1]["_sort"]), 1))
+        # The previous app version had no quoted-reply migration ledger.
+        with store.connect() as conn:
+            conn.execute("DELETE FROM quoted_backfill_v1")
+        rows[1]["kind"] = "text"
+        rows[3]["kind"] = "text"
+        self.analyzer.calls.clear()
+        self.backend.profile(room)
+        self.backend.profile(room, "member-a")
+        self.backend.tasks.join()
+        member_after = self.backend.batch_engine.snapshot("account-a", room, self.analyzer.version,
+                                                          store, "member-a")
+        self.assertEqual(member_after["state"]["count"], 2,
+                         self.backend.batch_engine.member_jobs.get(
+                             ("account-a", str(store.path), room, self.analyzer.version, "member-a")))
+        whole = self.backend.profile(room)
+        member = self.backend.profile(room, "member-a")
+        self.assertEqual(whole["stats"]["analyzedCount"], 4)
+        self.assertEqual(member["stats"]["analyzedCount"], 2, member.get("job"))
+        self.assertEqual([target for _session, target, _context in self.analyzer.calls],
+                         [rows[1]["id"], rows[1]["id"]])
+
+    def test_failed_quote_resumes_without_reanalyzing_prior_history(self):
+        self.source.add("friend", 3)
+        quote = self.source.rows["friend"][1]
+        quote["text"] = "quote"
+        quote["quotedCandidate"] = True
+        quote["kind"] = "other"
+        self.backend.profile("friend")
+        self.backend.tasks.join()
+        quote["kind"] = "text"
+        self.analyzer.calls.clear()
+        self.analyzer.fail_quote_once = True
+        self.backend.profile("friend")
+        self.backend.tasks.join()
+        self.assertEqual(self.backend.analysis("friend")["job"]["status"], "error")
+        restarted = Backend(self.source, self.analyzer, self.store_factory)
+        restarted.profile("friend")
+        restarted.tasks.join()
+        profile = restarted.profile("friend")
+        self.assertEqual(profile["stats"]["analyzedCount"], 3)
+        self.assertEqual([target for _session, target, _context in self.analyzer.calls],
+                         [quote["id"], quote["id"]])
+
+    def test_many_old_quotes_share_bounded_model_batches(self):
+        room = "room@chatroom"
+        self.source.add(room, 268, sender="member-a")
+        rows = self.source.rows[room]
+        for item in rows:
+            item["quotedCandidate"] = True
+            item["kind"] = "other"
+        self.backend.profile(room)
+        self.backend.profile(room, "member-a")
+        self.backend.tasks.join()
+        self.assertEqual(self.analyzer.calls, [])
+        store = self.store_factory("account-a", self.source.workdir)
+        with store.connect() as conn:
+            conn.execute("DELETE FROM quoted_backfill_v1")
+        for item in rows:
+            item["kind"] = "text"
+        self.analyzer.consume_all = True
+        self.backend.profile(room)
+        self.backend.profile(room, "member-a")
+        self.backend.tasks.join()
+        self.assertEqual(self.backend.profile(room)["stats"]["analyzedCount"], 268)
+        self.assertEqual(self.backend.profile(room, "member-a")["stats"]["analyzedCount"], 268)
+        self.assertEqual(len(self.analyzer.calls), 50)
+
+    def test_one_quote_batch_keeps_interleaved_old_score_order(self):
+        self.source.add("friend", 5)
+        rows = self.source.rows["friend"]
+        for item, text in zip(rows, ("first", "quote", "middle", "quote", "last")):
+            item["text"] = text
+        for index in (1, 3):
+            rows[index]["quotedCandidate"] = True
+            rows[index]["kind"] = "other"
+        self.backend.profile("friend")
+        self.backend.tasks.join()
+        previous = self.backend.batch_engine.snapshot("account-a", "friend", self.analyzer.version,
+                                                      self.store_factory("account-a", self.source.workdir))
+        for index in (1, 3):
+            rows[index]["kind"] = "text"
+        self.analyzer.consume_all = True
+        self.analyzer.calls.clear()
+        self.backend.profile("friend")
+        self.backend.tasks.join()
+        current = self.backend.batch_engine.snapshot("account-a", "friend", self.analyzer.version,
+                                                     self.store_factory("account-a", self.source.workdir))
+        self.assertEqual(len(self.analyzer.calls), 1)
+        self.assertEqual(current["cursor"], previous["cursor"])
+        self.assertEqual(current["state"]["scoreWeighted"],
+                         .1 * 0 + .5 * 1 + .7 * 2 + .5 * 3 + .9 * 4)
+        self.assertEqual(current["state"]["moodCount"], 5)
 
 
 if __name__ == "__main__":

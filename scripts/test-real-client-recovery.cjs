@@ -7,20 +7,31 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, 'real-client-recovery.cjs'), 'utf8');
 
-function fixture(markerPresent) {
+function fixture(markerPresent, healthMode = 'offline') {
   const calls = [];
   let tick;
   let recovered = 0;
   const fakeFs = {
     existsSync: target => target.endsWith('no-auto-recovery.json') ? markerPresent : false,
   };
-  const fakeNet = {
-    createConnection: () => {
-      const socket = new EventEmitter();
-      socket.setTimeout = () => {};
-      socket.destroy = () => {};
-      queueMicrotask(() => socket.emit('error', new Error('synthetic offline')));
-      return socket;
+  const instanceId = 'a'.repeat(64);
+  const fakeHttp = {
+    get: (options, callback) => {
+      assert.equal(options.path, '/api/health');
+      assert.equal(options.port, 54321);
+      const request = new EventEmitter();
+      request.destroy = () => {};
+      queueMicrotask(() => {
+        if (healthMode === 'offline') return request.emit('error', new Error('synthetic offline'));
+        const response = new EventEmitter();
+        response.statusCode = 200;
+        callback(response);
+        response.emit('data', JSON.stringify({
+          version: 'real-ui-1', instanceId: healthMode === 'matching' ? instanceId : 'b'.repeat(64),
+        }));
+        response.emit('end');
+      });
+      return request;
     },
   };
   const fakeChild = {
@@ -30,7 +41,7 @@ function fixture(markerPresent) {
   vm.runInNewContext(source, {
     module,
     require: name => ({ 'node:child_process': fakeChild, 'node:fs': fakeFs,
-      'node:net': fakeNet, 'node:path': path })[name],
+      'node:http': fakeHttp, 'node:path': path })[name],
     process: { env: { WECHATVIBE_PYTHON: 'python' } },
     URL,
     setInterval: callback => { tick = callback; return { unref() {} }; },
@@ -39,6 +50,7 @@ function fixture(markerPresent) {
   const stop = module.exports.monitorBridge({
     root: path.join(__dirname, 'synthetic root'),
     url: 'http://127.0.0.1:54321',
+    instanceId,
     isOpen: () => true,
     onRecovered: () => { recovered += 1; },
   });
@@ -73,6 +85,19 @@ async function main() {
   await flush();
   assert.equal(available.recovered(), 1);
   available.stop();
+
+  const matching = fixture(false, 'matching');
+  await flush();
+  assert.equal(matching.calls.length, 0);
+  matching.stop();
+
+  const wrong = fixture(false, 'wrong');
+  await flush();
+  assert.equal(wrong.calls.length, 1);
+  wrong.calls[0].done(new Error('foreign bridge occupies port'));
+  await flush();
+  assert.equal(wrong.recovered(), 0);
+  wrong.stop();
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

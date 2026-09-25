@@ -1,6 +1,6 @@
 {
   "name": "wechatvibe",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "WechatVibe 本机只读微信会话分析桌面客户端",
@@ -15,10 +15,8 @@
     "setup:models": "tsx scripts/setup-models.ts",
     "catalog:generate": "node scripts/build-analysis-catalog.mjs",
     "catalog:export": "python scripts/export-label-library.py --output WechatVibe-label-library.txt",
-    "test:recovery": "node scripts/test-real-client-recovery.cjs && python scripts/test-start-real-client.py && python bridge/test_account_store.py",
-    "stage:runtime": "python scripts/stage-real-runtime.py",
-    "stage:client": "python scripts/stage-real-client.py",
-    "build:portable": "npm run stage:runtime && npm run stage:client && electron-builder --win --dir --config electron-builder.real-client.json"
+    "test:recovery": "node scripts/test-desktop-main.cjs && node scripts/test-real-client-recovery.cjs && python scripts/test-start-real-client.py && python bridge/test_account_store.py",
+    "build:portable": "python scripts/build-portable-clean.py"
   },
   "dependencies": {
     "@huggingface/tokenizers": "0.2.0",

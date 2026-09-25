@@ -2,14 +2,14 @@
 
 微信聊天情感分析客户端，支持意图识别、情绪感知、人物画像、群聊画像、好感度分析和 MBTI 聊天推测。
 
-- **分析模型**：[Laya](https://github.com/NandhaKishorM/laya)，用于聊天情绪和意图分析，采用 [mizchi 的多语言 ONNX 版本](https://huggingface.co/mizchi/laya-multilingual-onnx)。
-- **微信数据读取**：基于 [wechatauto-replica](https://github.com/fanyuantaier/wechatauto-replica)，读取微信本地会话和聊天记录。
+- **分析模型**：基于 [Laya](https://github.com/NandhaKishorM/laya) 和 [mizchi/laya-mlx](https://github.com/mizchi/laya-mlx) 的实现，使用 [多语言 ONNX 模型](https://huggingface.co/mizchi/laya-multilingual-onnx) 在本机分析聊天情绪与意图。
+- **微信数据读取**：基于 [wechatauto-replica](https://github.com/fanyuantaier/wechatauto-replica) 的本地数据库接口，只读获取当前登录微信账号的会话和消息。
 
 项目适合想回看聊天中的情绪变化、了解日常交流方式的用户。单聊中可查看对方消息的情绪、意图和人物画像；群聊中可查看整体氛围、互动特点及成员画像。
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-[功能介绍](#功能介绍) · [下载安装](#下载安装) · [首次使用](#首次使用) · [更多截图](#更多截图) · [源码运行](#源码运行) · [数据与隐私](#数据与隐私) · [交流与建议](#交流与建议)
+[功能介绍](#功能介绍) · [下载安装](#下载安装) · [软件更新](#软件更新) · [首次使用](#首次使用) · [更多截图](#更多截图) · [源码运行](#源码运行) · [数据与隐私](#数据与隐私) · [交流与建议](#交流与建议)
 
 ![消息情绪与意图识别](docs/assets/readme/chat-demo.png)
 
@@ -89,14 +89,12 @@
 
 ## 下载安装
 
-当前版本为 **[WechatVibe 1.0.1](https://github.com/tswawa/WechatVibe/releases/tag/v1.0.1)**。
-
-1.0.1 修复了 Windows 长路径与 8.3 短路径被误判为不同缓存目录，导致「会话读取失败」的问题。原有目录、链接和账号边界检查保留。
+当前版本为 **[WechatVibe 1.0.2](https://github.com/tswawa/WechatVibe/releases/tag/v1.0.2)**。本版加入应用内更新：可检查新版本、下载并安装，更新后保留 WechatVibe 本地数据；安装失败可恢复旧版，成功安装后也可回退。
 
 | 文件 | 用途 |
 | --- | --- |
-| [WechatVibe-1.0.1-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.1/WechatVibe-1.0.1-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |
-| [WechatVibe-1.0.1-source.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.1/WechatVibe-1.0.1-source.zip) | 干净源码，用于查看、修改或自行构建。 |
+| [WechatVibe-1.0.2-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.2/WechatVibe-1.0.2-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |
+| [WechatVibe-1.0.2-source.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.2/WechatVibe-1.0.2-source.zip) | 干净源码，用于查看、修改或自行构建。 |
 
 ### 运行要求
 
@@ -108,6 +106,17 @@
 **不支持微信 3.x。** 使用旧版微信时，请先更新微信并重新登录，再启动 WechatVibe。若停在「当前微信账号未就绪」，请先检查微信版本。
 
 运行时请保留整个解压目录。
+
+## 软件更新
+
+在桌面版的「设置」→「关于」中，点击「当前版本」打开更新窗口。发现新版本后，点击「下载并安装」；软件会校验更新清单签名和更新包完整性，随后安装并重启。更新时会保留 WechatVibe 的本地账号数据库、分析结果和画像。安装失败时会恢复旧版；成功更新后，窗口显示可回退版本时可点击「回退版本」。回退使用本地备份，不重新下载；软件只保留最近一次可回退版本，避免旧包长期累积。
+
+1.0.1 没有应用内更新入口，也没有专用的后台停止命令。首次升级到 1.0.2 时：
+
+1. 退出 1.0.1，重启 Windows；重启后不要再打开旧版。
+2. 下载 1.0.2 运行版，解压到新目录。
+3. 如需保留旧版数据，把旧目录的 `resources/client/.local/real-client-data` 文件夹复制到新版 `resources/client/.local/` 下；新版没有 `.local` 时先新建。只复制 `real-client-data`，不要复制整个 `.local`。
+4. 启动新版 `WechatVibe.exe`。此后可从应用内更新。
 
 ## 首次使用
 
@@ -141,7 +150,7 @@ $env:PATH = "$PWD\.venv\Scripts;$env:PATH"
 npm run build:portable
 ```
 
-产物位于 `release-real-client/win-unpacked/WechatVibe.exe`。整个 `win-unpacked` 目录构成运行版，包含模型和运行环境。
+构建命令会打印本次独立的产物目录：`.local/portable-builds/build-*/release/win-unpacked/WechatVibe.exe`。整个 `win-unpacked` 目录构成运行版，包含模型和运行环境。
 
 ### 修改词库
 

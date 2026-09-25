@@ -19,6 +19,7 @@ from collections import OrderedDict, deque
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
+from xml.etree import ElementTree
 
 from profile_signals import historical_mood, keywords_from_texts, style_traits, summary_from_signals, validate_style_evidence
 from profile_signals import keyword_counts, keywords_from_counts, summary_from_aggregate
@@ -41,6 +42,20 @@ MAX_ISSUED_IMAGES = 2048
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 FORECAST_CACHE_LIMIT = 64
 FORECAST_SOURCE_WINDOW = 16
+PROFILE_METADATA_CACHE_LIMIT = 64
+FINE_LABEL_SCHEMA = "generic-v5"
+GROUNDED_INTENT_EVIDENCE = {
+    "greet": {"greeting_phrase"}, "thank": {"thanks_phrase"},
+    "confirm": {"short_acknowledgement"}, "inspect": {"first_person_inspection"},
+    "agree": {"explicit_acceptance"}, "reject": {"explicit_refusal"},
+    "invite": {"inclusive_invitation"}, "ask_question": {"answer_seeking_question"},
+    "seek_help": {"action_request"},
+    "suggest_action": {"advice_marker", "negative_imperative", "imperative_adjustment", "delegated_action"},
+    "plan": {"first_person_intention"}, "correct": {"explicit_correction"},
+    "explain": {"causal_explanation", "process_explanation"}, "complain": {"negative_evaluation"},
+    "status_report": {"progress_statement"}, "share_news": {"sharing_announcement"},
+}
+QUOTED_REPLY_TYPE = (57 << 32) | 49
 SESSION_PREVIEWS = {3: "[图片]", 34: "[语音]", 43: "[视频]", 47: "[表情]",
                     48: "[位置]", 49: "[文件/链接/卡片]", 11000: "[表情]"}
 
@@ -258,7 +273,7 @@ class WeChatSource:
         self._self_username = None
         self.issued_images = OrderedDict()
         self.window_images = {}
-        self.profile_metadata_cache = {}
+        self.profile_metadata_cache = OrderedDict()
         self.media_reason = threading.local()
 
     def _release_db(self):
@@ -464,17 +479,65 @@ class WeChatSource:
         rows.sort(key=lambda item: (int(item[0][7]), item[1], int(item[0][0])), reverse=True)
         return rows[offset:offset + limit]
 
-    def _render_row(self, db, user, item, contacts, own_user):
-        record, shard, senders = item
-        local_id, local_type, sender_id, created, content, compressed, server_id, seq = record
+    @staticmethod
+    def _quoted_reply_title(content):
+        if not isinstance(content, str):
+            return None
+        start = content.find("<msg")
+        if start > 0:
+            content = content[start:]
+        try:
+            root = ElementTree.fromstring(content.strip())
+        except ElementTree.ParseError:
+            return None
+        appmsg = root if root.tag == "appmsg" else root.find("./appmsg")
+        if appmsg is None or appmsg.find("./refermsg") is None:
+            return None
+        subtype = appmsg.find("./type")
+        if subtype is not None and (subtype.text or "").strip() != "57":
+            return None
+        title = appmsg.find("./title")
+        text = "".join(title.itertext()).strip() if title is not None else ""
+        return text if text and text not in ("[应用消息]", "[消息]", "[图片]", "[表情]") else None
+
+    @staticmethod
+    def _decoded_content(db, local_type, content, compressed):
         kind_name = db._msg_type_name(local_type)
         if isinstance(content, bytes):
             content = db._friendly_content(content, kind_name)
-        placeholder = f"[{kind_name}]"
-        if not content or content == placeholder:
+        if not content or content == f"[{kind_name}]":
             if isinstance(compressed, bytes) and compressed:
                 content = db._friendly_content(compressed, kind_name)
-        kind, text = self.classifier(kind_name, content or placeholder)
+        return kind_name, content
+
+    def _classified_content(self, db, local_type, content, compressed):
+        kind_name, content = self._decoded_content(db, local_type, content, compressed)
+        quote = self._quoted_reply_title(content) if local_type == QUOTED_REPLY_TYPE else None
+        kind, text = ("text", quote) if quote is not None else self.classifier(
+            kind_name, content or f"[{kind_name}]")
+        return kind_name, kind, text
+
+    def _analyzable_counts(self, db, conn, table, sender_ids=None):
+        """Count exactly the rendered text that portrait scanning can consume."""
+        where = "local_type IN (?,?)"
+        args = [1, QUOTED_REPLY_TYPE]
+        if sender_ids is not None:
+            if not sender_ids:
+                return {}
+            where += " AND real_sender_id IN (" + ",".join("?" for _ in sender_ids) + ")"
+            args.extend(sender_ids)
+        counts = {}
+        for sender_id, local_type, content, compressed in conn.execute(
+                f"SELECT real_sender_id,local_type,message_content,compress_content FROM {table} WHERE {where}", args):
+            _name, kind, text = self._classified_content(db, local_type, content, compressed)
+            if kind == "text" and isinstance(text, str) and text.strip():
+                counts[sender_id] = counts.get(sender_id, 0) + 1
+        return counts
+
+    def _render_row(self, db, user, item, contacts, own_user):
+        record, shard, senders = item
+        local_id, local_type, sender_id, created, content, compressed, server_id, seq = record
+        kind_name, kind, text = self._classified_content(db, local_type, content, compressed)
         if kind == "system":
             return None
         sender = senders.get(int(sender_id or 0), "")
@@ -763,11 +826,129 @@ class WeChatSource:
             messages = [self._render_row(db, user, item, contacts, own_user) for item in page]
             return [message for message in messages if message], next_after
 
-    def stats(self, user, member=None):
+    def quoted_history_page(self, user, ceiling, after=None, page_size=64, member=None):
+        """Read only 49/57 candidates inside an already-consumed history prefix."""
+        if ceiling is None:
+            return [], None
         with self.lock:
             db = self._db()
             contacts = self._contacts(db)
             own_user = self.self_user()
+            found = db._msg_conns(user)
+            rows = []
+            try:
+                for conn, table in found:
+                    if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
+                        raise RuntimeError("invalid message table")
+                    shard = Path(conn.execute("PRAGMA database_list").fetchone()[2]).name
+                    if not re.fullmatch(r"message__message_\d+\.db", shard):
+                        raise RuntimeError("unidentified message shard")
+                    clauses, params = ["local_type=?"], [QUOTED_REPLY_TYPE]
+                    if member is not None:
+                        selected_ids = [row[0] for row in conn.execute(
+                            "SELECT rowid FROM Name2Id WHERE user_name=?", (member,))]
+                        if not selected_ids:
+                            continue
+                        clauses.append("real_sender_id IN (" + ",".join("?" for _ in selected_ids) + ")")
+                        params.extend(selected_ids)
+                    high_seq, high_shard, high_local = ceiling
+                    if shard == high_shard:
+                        clauses.append("(sort_seq < ? OR (sort_seq = ? AND local_id <= ?))")
+                        params.extend((high_seq, high_seq, high_local))
+                    else:
+                        clauses.append("sort_seq <= ?" if shard < high_shard else "sort_seq < ?")
+                        params.append(high_seq)
+                    if after is not None:
+                        after_seq, after_shard, after_local = after
+                        if shard == after_shard:
+                            clauses.append("(sort_seq > ? OR (sort_seq = ? AND local_id > ?))")
+                            params.extend((after_seq, after_seq, after_local))
+                        else:
+                            clauses.append("sort_seq >= ?" if shard > after_shard else "sort_seq > ?")
+                            params.append(after_seq)
+                    sql = ("SELECT local_id,local_type,real_sender_id,create_time,message_content,"
+                           "compress_content,server_id,sort_seq "
+                           f"FROM {table} WHERE {' AND '.join(clauses)} "
+                           "ORDER BY sort_seq ASC,local_id ASC LIMIT ?")
+                    senders = {int(row[0]): row[1] for row in conn.execute(
+                        "SELECT rowid,user_name FROM Name2Id")}
+                    rows.extend((record, shard, senders) for record in conn.execute(
+                        sql, (*params, page_size)))
+            finally:
+                for conn in {id(conn): conn for conn, _ in found}.values():
+                    conn.close()
+            rows.sort(key=lambda item: (int(item[0][7]), item[1], int(item[0][0])))
+            page = rows[:page_size]
+            if not page:
+                return [], None
+            last, shard, _senders = page[-1]
+            next_after = (int(last[7]), shard, int(last[0]))
+            rendered = [self._render_row(db, user, item, contacts, own_user) for item in page]
+            return [item for item in rendered if item], next_after
+
+    def preceding_text_context(self, user, before, limit=3):
+        """Fetch the nearest earlier text context without replaying older history."""
+        with self.lock:
+            db = self._db()
+            contacts = self._contacts(db)
+            own_user = self.self_user()
+            found = db._msg_conns(user)
+            candidates = []
+            try:
+                for conn, table in found:
+                    if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
+                        raise RuntimeError("invalid message table")
+                    shard = Path(conn.execute("PRAGMA database_list").fetchone()[2]).name
+                    if not re.fullmatch(r"message__message_\d+\.db", shard):
+                        raise RuntimeError("unidentified message shard")
+                    cursor = None
+                    senders = {int(row[0]): row[1] for row in conn.execute(
+                        "SELECT rowid,user_name FROM Name2Id")}
+                    found_here = 0
+                    while found_here < limit:
+                        clauses = ["local_type IN (?,?)"]
+                        params = [1, QUOTED_REPLY_TYPE]
+                        if cursor is None:
+                            seq, target_shard, local = before
+                            if shard == target_shard:
+                                clauses.append("(sort_seq < ? OR (sort_seq = ? AND local_id < ?))")
+                                params.extend((seq, seq, local))
+                            else:
+                                clauses.append("sort_seq <= ?" if shard < target_shard else "sort_seq < ?")
+                                params.append(seq)
+                        else:
+                            seq, local = cursor
+                            clauses.append("(sort_seq < ? OR (sort_seq = ? AND local_id < ?))")
+                            params.extend((seq, seq, local))
+                        sql = ("SELECT local_id,local_type,real_sender_id,create_time,message_content,"
+                               "compress_content,server_id,sort_seq "
+                               f"FROM {table} WHERE {' AND '.join(clauses)} "
+                               "ORDER BY sort_seq DESC,local_id DESC LIMIT ?")
+                        rows = conn.execute(sql, (*params, 16)).fetchall()
+                        if not rows:
+                            break
+                        for record in rows:
+                            item = self._render_row(db, user, (record, shard, senders),
+                                                    contacts, own_user)
+                            if item and item["kind"] == "text" and item["text"].strip():
+                                candidates.append(item)
+                                found_here += 1
+                                if found_here >= limit:
+                                    break
+                        cursor = int(rows[-1][7]), int(rows[-1][0])
+                        if len(rows) < 16:
+                            break
+            finally:
+                for conn in {id(conn): conn for conn, _ in found}.values():
+                    conn.close()
+            newest = sorted(candidates, key=lambda item: tuple(item["_sort"]), reverse=True)[:limit]
+            return [{"id": item["id"], "side": item["side"], "text": item["text"]}
+                    for item in reversed(newest)]
+
+    def stats(self, user, member=None):
+        with self.lock:
+            db = self._db()
+            contacts = self._contacts(db)
             found = db._msg_conns(user)
             count = text_count = 0
             members = set()
@@ -776,14 +957,15 @@ class WeChatSource:
                     sender_index = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
                     selected_ids = [sender_id for sender_id, username in sender_index.items() if username == member] if member else []
                     if member and not selected_ids:
-                        amount, texts = 0, 0
+                        amount = 0
                     elif member:
                         placeholders = ",".join("?" for _ in selected_ids)
-                        amount, texts = conn.execute(f"SELECT COUNT(*),SUM(local_type=1) FROM {table} WHERE real_sender_id IN ({placeholders})", selected_ids).fetchone()
+                        amount = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE real_sender_id IN ({placeholders})", selected_ids).fetchone()[0]
                     else:
-                        amount, texts = conn.execute(f"SELECT COUNT(*),SUM(local_type=1) FROM {table}").fetchone()
+                        amount = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                     count += amount
-                    text_count += texts or 0
+                    text_count += sum(self._analyzable_counts(
+                        db, conn, table, selected_ids if member else None).values())
                     for (sender_id,) in conn.execute(f"SELECT DISTINCT real_sender_id FROM {table}"):
                         sender = sender_index.get(int(sender_id or 0))
                         if sender:
@@ -805,27 +987,36 @@ class WeChatSource:
                 for conn, _table in found:
                     path = Path(conn.execute("PRAGMA database_list").fetchone()[2])
                     stat = path.stat()
-                    signatures.append((str(path), stat.st_mtime_ns, stat.st_size))
+                    signatures.append((str(path), stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size))
                 signature = tuple(signatures)
                 key = (str(db.account), user)
                 cached = self.profile_metadata_cache.get(key)
                 if cached and cached[0] == signature:
                     counts, count, text_count = cached[1:]
+                    self.profile_metadata_cache.move_to_end(key)
                 else:
                     counts, count, text_count = {}, 0, 0
                     for conn, table in found:
                         if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
                             raise RuntimeError("invalid message table")
                         senders = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
-                        for sender_id, amount, texts in conn.execute(
-                                f"SELECT real_sender_id,COUNT(*),SUM(local_type=1) FROM {table} GROUP BY real_sender_id"):
+                        for sender_id, amount in conn.execute(
+                                f"SELECT real_sender_id,COUNT(*) FROM {table} GROUP BY real_sender_id"):
                             count += amount
-                            text_count += texts or 0
                             sender = senders.get(int(sender_id or 0))
                             if sender:
                                 previous = counts.get(sender, (0, 0))
-                                counts[sender] = (previous[0] + amount, previous[1] + (texts or 0))
+                                counts[sender] = (previous[0] + amount, previous[1])
+                        for sender_id, analyzed in self._analyzable_counts(db, conn, table).items():
+                            text_count += analyzed
+                            sender = senders.get(int(sender_id or 0))
+                            if sender:
+                                previous = counts.get(sender, (0, 0))
+                                counts[sender] = (previous[0], previous[1] + analyzed)
                     self.profile_metadata_cache[key] = (signature, counts, count, text_count)
+                    self.profile_metadata_cache.move_to_end(key)
+                    if len(self.profile_metadata_cache) > PROFILE_METADATA_CACHE_LIMIT:
+                        self.profile_metadata_cache.popitem(last=False)
             finally:
                 for conn in {id(conn): conn for conn, _ in found}.values():
                     conn.close()
@@ -1313,13 +1504,26 @@ class ResultStore:
         if len(ids) > 500:
             raise ValueError("too many fine result ids")
         marks = ",".join("?" for _ in ids)
-        tables = ("results_v2", "analysis_skips", "fine_results_v1", "fine_skips_v1")
         with self.connect() as conn:
-            known = set()
-            for table in tables:
+            scope = (account, user, version, *ids)
+            main = {stable_id: json.loads(raw).get("labelSchema") for stable_id, raw in conn.execute(
+                f"SELECT id,result FROM results_v2 WHERE account=? AND session=? AND version=? AND id IN ({marks})",
+                scope)}
+            fine = {stable_id: json.loads(raw).get("labelSchema") for stable_id, raw in conn.execute(
+                f"SELECT id,result FROM fine_results_v1 WHERE account=? AND session=? AND version=? AND id IN ({marks})",
+                scope)}
+            # A legacy fine row overlays a newer main row in fine_view, so it
+            # must be refreshed too. Only the caller's visible ids are queried.
+            known = {stable_id for stable_id, schema in fine.items() if schema == FINE_LABEL_SCHEMA}
+            known.update(stable_id for stable_id, schema in main.items()
+                         if schema == FINE_LABEL_SCHEMA and stable_id not in fine)
+            # A recorded skip is terminal for this analysis version. In particular,
+            # retrying a legacy fine row that already hit the length limit would
+            # repeat the same failed model request on every visit.
+            for table in ("analysis_skips", "fine_skips_v1"):
                 known.update(row[0] for row in conn.execute(
                     f"SELECT id FROM {table} WHERE account=? AND session=? AND version=? AND id IN ({marks})",
-                    (account, user, version, *ids)))
+                    scope))
             return known
 
     def fine_view(self, account, user, version, ids=None, limit=80):
@@ -1338,15 +1542,18 @@ class ResultStore:
         with self.connect() as conn:
             done = conn.execute("SELECT id,result FROM fine_results_v1 WHERE " + where + order, args).fetchall()
             skipped = conn.execute("SELECT id,reason FROM fine_skips_v1 WHERE " + where + order, args).fetchall()
-        return ({stable_id: {"state": "skipped", "reason": reason} for stable_id, reason in skipped} |
-                {stable_id: json.loads(raw) for stable_id, raw in done})
+        return ({stable_id: json.loads(raw) for stable_id, raw in done} |
+                {stable_id: {"state": "skipped", "reason": reason} for stable_id, reason in skipped})
 
     def save_fine(self, account, user, version, message, result):
         seq, shard, local_id = message["_sort"]
         with self.connect() as conn:
-            conn.execute("INSERT OR IGNORE INTO fine_results_v1 VALUES (?,?,?,?,?,?,?,?,?)",
+            conn.execute("INSERT INTO fine_results_v1 VALUES (?,?,?,?,?,?,?,?,?) "
+                         "ON CONFLICT(account,session,id,version) DO UPDATE SET result=excluded.result",
                          (account, user, message["id"], version, seq, shard, local_id,
                           message["senderId"], json.dumps(result, ensure_ascii=False)))
+            conn.execute("DELETE FROM fine_skips_v1 WHERE account=? AND session=? AND id=? AND version=?",
+                         (account, user, message["id"], version))
 
     def skip_fine(self, account, user, version, message, reason):
         seq, shard, local_id = message["_sort"]
@@ -1491,6 +1698,7 @@ class Backend:
         self.incremental_recheck = set()
         self.history_iterators = {}
         self.history_iterator_modes = {}
+        self.quoted_backfill_iterators = {}
         self.forecast_cache = OrderedDict()
         self.forecast_lock = threading.Lock()
         self.forecast_flights = {}
@@ -1558,6 +1766,7 @@ class Backend:
             self.incremental_recheck.clear()
         self.history_iterators.clear()
         self.history_iterator_modes.clear()
+        self.quoted_backfill_iterators.clear()
         self.performance.clear()
         self.forecast_cache.clear()
         self.forecast_flights.clear()
@@ -1607,8 +1816,10 @@ class Backend:
         recent = interactive or task[1] == "recent-window"
         if task[1] == "batch-subject":
             active = self.batch_engine and self.batch_engine.focused_member == (task[0], task[2])
-            return 0 if focused and active else 3
-        return (0 if recent else 1) if focused else (2 if recent else 3)
+            return 2 if focused and active else 3
+        # A newly requested visible window should run after the current model
+        # call, even when a different conversation's baseline is focused.
+        return (0 if focused else 1) if recent else (2 if focused else 3)
 
     def _enqueue(self, task, interactive=False):
         if self.closing:
@@ -1627,7 +1838,7 @@ class Backend:
 
     def _interactive_waiting(self):
         with self.tasks.mutex:
-            return bool(self.tasks.queue and self.tasks.queue[0][0] == 0)
+            return bool(self.tasks.queue and self.tasks.queue[0][0] <= 1)
 
     @staticmethod
     def _project_store(account, _workdir):
@@ -1916,6 +2127,26 @@ class Backend:
         inferred = time.perf_counter()
         if response.get("analysisVersion") != version:
             raise RuntimeError("analysis response version mismatch")
+        label_schema = response.get("labelSchema")
+        if fine and label_schema != FINE_LABEL_SCHEMA:
+            raise RuntimeError("fine label schema mismatch")
+        if label_schema is not None and not isinstance(label_schema, str):
+            raise RuntimeError("invalid label schema")
+        if fine:
+            if "groundedIntent" not in response:
+                raise RuntimeError("missing grounded intent")
+            grounded_intent = response["groundedIntent"]
+            if grounded_intent is not None and (
+                not isinstance(grounded_intent, dict) or
+                set(grounded_intent) != {"label", "evidenceKind"} or
+                not isinstance(grounded_intent.get("label"), str) or
+                not isinstance(grounded_intent.get("evidenceKind"), str) or
+                grounded_intent["evidenceKind"] not in
+                GROUNDED_INTENT_EVIDENCE.get(grounded_intent["label"], set())
+            ):
+                raise RuntimeError("invalid grounded intent")
+        elif "groundedIntent" in response:
+            raise RuntimeError("grounded intent in portrait result")
         for field in ("emotion", "intent"):
             distribution = response.get(field)
             if not isinstance(distribution, list) or not distribution or any(
@@ -1953,6 +2184,10 @@ class Backend:
         result = {field: response[field] for field in
                   ("emotion", "intent", "emotionLabel", "intentLabel", "emotionP", "intentP", "analysisVersion")}
         result["intentBroad"] = broad
+        if label_schema is not None:
+            result["labelSchema"] = label_schema
+        if fine:
+            result["groundedIntent"] = grounded_intent
         result["expression"] = expression
         result["playfulIntent"] = playful_intent
         result["styleEvidence"] = validate_style_evidence(response.get("styleEvidence"))
@@ -2059,7 +2294,7 @@ class Backend:
                 yield
 
     def _run_visible_priority(self, account, user, version, store, job, scope,
-                              highwater, cached_ids, counted_ids, processed_ids, limit):
+                               highwater, cached_ids, counted_ids, processed_ids, limit):
         if not limit:
             return
         if self.batch_engine:
@@ -2095,8 +2330,105 @@ class Backend:
                     since_yield = 0
                     yield
 
+    def _infer_quoted_batch(self, account, user, version, store, scope, subject, batches, items):
+        """Commit an ordered quote-only target batch, including partial-window resumes."""
+        context = self.source.preceding_text_context(user, tuple(items[0]["_sort"]))
+        remaining = items
+        while remaining:
+            known = self.batch_engine.known(account, user, version, store, subject, remaining)
+            first = next((index for index, item in enumerate(remaining) if item["id"] not in known), None)
+            if first is None:
+                batches.advance_quoted_backfill(account, user, version, subject,
+                                                tuple(remaining[-1]["_sort"]))
+                return
+            if first:
+                batches.advance_quoted_backfill(account, user, version, subject,
+                                                tuple(remaining[first-1]["_sort"]))
+                remaining = remaining[first:]
+            self._assert_scope(scope)
+            cursor, offset, context = self.batch_engine.infer(
+                account, user, version, store, scope, subject, remaining, context, advance=False)
+            completed = [item for item in remaining if tuple(item["_sort"]) < cursor or
+                         tuple(item["_sort"]) == cursor and not offset]
+            if completed:
+                batches.advance_quoted_backfill(account, user, version, subject,
+                                                tuple(completed[-1]["_sort"]))
+            remaining = [item for item in remaining if tuple(item["_sort"]) > cursor or
+                         offset and tuple(item["_sort"]) == cursor]
+            yield
+
+    def _run_quoted_backfill(self, account, user, version, store, scope, member=None):
+        """Add only previously skipped quoted text inside the saved portrait cursor."""
+        if not self.batch_engine:
+            return
+        subject = self.batch_engine.subject(user, member)
+        saved = self.batch_engine.ensure(account, user, version, store, scope, member)
+        if saved["cursor"] is None:
+            return
+        batches = self.batch_engine.store(store)
+        checkpoint = batches.begin_quoted_backfill(account, user, version, subject, saved["cursor"])
+        if checkpoint["complete"]:
+            return
+        after = checkpoint["cursor"]
+        while True:
+            self._assert_scope(scope)
+            page, next_after = self.source.quoted_history_page(
+                user, checkpoint["ceiling"], after, member=member)
+            self._assert_scope(scope)
+            if next_after is None:
+                batches.advance_quoted_backfill(account, user, version, subject, complete=True)
+                return
+            if after is not None and next_after <= after:
+                raise RuntimeError("quoted backfill cursor did not advance")
+            eligible = [item for item in page if item["kind"] == "text" and item["text"].strip()]
+            known = self.batch_engine.known(account, user, version, store, subject, eligible)
+            pending, characters = [], 0
+            for item in page:
+                position = tuple(item["_sort"])
+                if item["id"] in known or item["kind"] != "text" or not item["text"].strip():
+                    continue
+                if member is not None and item["senderId"] != member:
+                    continue
+                if self.batch_engine.target(item, subject):
+                    if pending and (len(pending) >= 12 or characters + len(item["text"]) > 3000):
+                        yield from self._infer_quoted_batch(account, user, version, store, scope,
+                                                            subject, batches, pending)
+                        pending, characters = [], 0
+                    pending.append(item)
+                    characters += len(item["text"])
+                elif user.endswith("@chatroom") and member is None:
+                    if pending:
+                        yield from self._infer_quoted_batch(account, user, version, store, scope,
+                                                            subject, batches, pending)
+                        pending, characters = [], 0
+                    # Whole-room statistics include the user's own text, without
+                    # assigning it a relationship or personality inference.
+                    length = len(item["text"])
+                    record = {"id": item["id"], "position": list(position),
+                              "senderId": item["senderId"], "side": item["side"],
+                              "target": False, "startOffset": 0, "endOffset": length,
+                              "textLength": length, "complete": True}
+                    batch_id = hashlib.sha256(json.dumps(
+                        [account, user, version, subject, "quoted-self", item["id"]],
+                        ensure_ascii=False).encode()).hexdigest()
+                    current = batches.load(account, user, version, subject)
+                    self._assert_scope(scope)
+                    batches.commit(account, user, version, subject, batch_id=batch_id,
+                                   consumed=[record], cursor=current["cursor"],
+                                   char_offset=current["charOffset"], context=current["context"],
+                                   result=None, is_group=True, advance=False)
+                    batches.advance_quoted_backfill(account, user, version, subject, position)
+            if pending:
+                yield from self._infer_quoted_batch(account, user, version, store, scope,
+                                                    subject, batches, pending)
+            batches.advance_quoted_backfill(account, user, version, subject, next_after)
+            after = next_after
+            if self._interactive_waiting():
+                yield
+
     def _run_all_history(self, account, user, version, store, job, scope, key):
         if self.batch_engine:
+            yield from self._run_quoted_backfill(account, user, version, store, scope)
             yield from self.batch_engine.incremental(account, user, version, store, job, scope, key)
             return
         self._assert_scope(scope)
@@ -2156,6 +2488,7 @@ class Backend:
 
     def _run_incremental(self, account, user, version, store, job, scope, key):
         if self.batch_engine:
+            yield from self._run_quoted_backfill(account, user, version, store, scope)
             yield from self.batch_engine.incremental(account, user, version, store, job, scope, key)
             return
         self._assert_scope(scope)
@@ -2383,7 +2716,25 @@ class Backend:
             key, mode, limit, store, job, source_scope = task
             if mode == "batch-subject" and self.batch_engine:
                 try:
-                    self.batch_engine.member_turn(key, limit, store, job, source_scope)
+                    member_key = (*key, limit)
+                    iterator = self.quoted_backfill_iterators.get(member_key)
+                    if iterator is None:
+                        account, _path, user, version = key
+                        iterator = self._run_quoted_backfill(account, user, version, store,
+                                                              source_scope, limit)
+                        self.quoted_backfill_iterators[member_key] = iterator
+                    try:
+                        next(iterator)
+                    except StopIteration:
+                        self.quoted_backfill_iterators.pop(member_key, None)
+                        self.batch_engine.member_turn(key, limit, store, job, source_scope)
+                    else:
+                        job["status"] = "queued"
+                        self._enqueue(task)
+                except Exception as exc:
+                    self.quoted_backfill_iterators.pop((*key, limit), None)
+                    job["status"] = "error"
+                    job["error"] = str(exc)[:200]
                 finally:
                     self.tasks.task_done()
                 continue
@@ -2545,15 +2896,19 @@ class Backend:
         if self.batch_engine:
             saved = self.batch_engine.ensure(account, user, version, store, (account, workdir), member)
             state = saved["state"]
+            backfill_pending = self.batch_engine.store(store).quoted_backfill_pending(
+                account, user, version, self.batch_engine.subject(user, member), saved["cursor"])
             if member:
                 profile_job = self.batch_engine.request_member(account, user, version, store,
-                                                                (account, workdir), member, text_count, retry)
+                                                                (account, workdir), member,
+                                                                max(text_count, state["count"] + 1)
+                                                                if backfill_pending else text_count, retry)
             else:
                 self.batch_engine.focused_member = None
                 key = (account, str(store.path), user, version)
                 self._focus(key)
                 highwater = self.source.history_highwater(user)
-                needs_work = (not saved["complete"] or bool(saved["charOffset"]) or
+                needs_work = (backfill_pending or not saved["complete"] or bool(saved["charOffset"]) or
                               highwater is not None and
                               (saved["cursor"] is None or highwater > tuple(saved["cursor"])))
                 with self.jobs_lock:
@@ -2561,7 +2916,8 @@ class Backend:
                     fine_active = key in self.recent_windows
                 current_mode = current.get("requested", {}).get("mode")
                 portrait_active = (current_mode in ("incremental", "history") and
-                                   current.get("status") in ("queued", "running", "error") and
+                                   (current.get("status") in ("queued", "running") or
+                                    current.get("status") == "error" and not retry) and
                                    (not fine_active or current.get("analysisUnit") == "batch"))
                 if portrait_active:
                     profile_job = current
