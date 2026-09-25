@@ -125,8 +125,8 @@ it("every grounded label has a generic Chinese display label", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(GROUNDED_INTENT_LABELS, "喊老板"), false);
 });
 
-it("generic-v6 offers bounded, readable candidate menus instead of the same four defaults", () => {
-  assert.equal(GENERAL_LABEL_SCHEMA, "generic-v6");
+it("generic-v7 offers bounded, readable candidate menus instead of the same four defaults", () => {
+  assert.equal(GENERAL_LABEL_SCHEMA, "generic-v7");
   assert.ok(INTENTS.length >= 35 && INTENTS.length <= 50);
   const cases: Array<[string, string[]]> = [
     ["截图", ["展示内容"]],
@@ -201,4 +201,9 @@ it("common colloquial acts enter the candidate menu without forcing a plan or bo
   assert.ok(labels("你们几个人").includes("提问"));
   assert.ok(labels("他家几楼").includes("提问"));
   assert.ok(!labels("没什么").includes("提问"));
+  const rhetorical = labels("我这不把文件发过来了吗？");
+  assert.ok(rhetorical.includes("纠正或异议"));
+  assert.ok(rhetorical.includes("澄清"));
+  assert.ok(!rhetorical.includes("提问"));
+  assert.ok(labels("我的文件发过来了吗？").includes("提问"));
 });

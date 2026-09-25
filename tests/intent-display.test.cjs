@@ -31,12 +31,18 @@ vm.runInContext(section("const GENERIC_INTENT_LABELS", "let settings;") +
 const select = context.displayedIntentForTest;
 const plain = candidates => Array.from(candidates, candidate => ({ ...candidate }));
 
-it("shows one evidence-backed generic intent without a model percentage", () => {
+it("shows evidence-backed intent plus distinct scored model alternatives", () => {
   const result = select({
     groundedIntent: { label: "status_report", evidenceKind: "progress_statement" },
-    intent: [{ rawLabel: "complain", probability: 0.99 }],
+    intent: [{ rawLabel: "complain", probability: 0.49 },
+      { rawLabel: "status_report", probability: 0.31 },
+      { rawLabel: "inform", probability: 0.2 }],
   }, "文件已上传到共享盘。");
-  assert.deepEqual(plain(result), [{ label: "状态报告", probability: null }]);
+  assert.deepEqual(plain(result), [
+    { label: "状态报告", probability: null },
+    { label: "抱怨", probability: 0.49 },
+    { label: "告知事实", probability: 0.2 },
+  ]);
 });
 
 it("shows grounded acknowledgements, inspection, and process explanation", () => {
@@ -64,7 +70,7 @@ it("keeps up to three ranked Laya candidates with their original probabilities",
   ]);
 });
 
-it("renders nuanced generic-v6 labels using their original model probabilities", () => {
+it("renders nuanced generic-v7 labels using their original model probabilities", () => {
   const result = select({ groundedIntent: null, intent: [
     { rawLabel: "confide", probability: 0.72 },
     { rawLabel: "seek_comfort", probability: 0.2 },
@@ -93,6 +99,18 @@ it("omits intent for punctuation and quote-only text while retaining an emotion 
   }
 });
 
+it("does not present a forced intent for unfinished fragments", () => {
+  const result = { groundedIntent: null, intent: [
+    { rawLabel: "status_report", probability: 0.64 },
+    { rawLabel: "inform", probability: 0.36 },
+  ] };
+  assert.deepEqual(plain(select(result, "这就是")), []);
+  assert.deepEqual(plain(select(result, "这是昨天说的文件")), [
+    { label: "状态报告", probability: 0.64 },
+    { label: "告知事实", probability: 0.36 },
+  ]);
+});
+
 it("renders a model top three with percentages and a grounded label without one", () => {
   const modelRow = element("div", "inline-intent-row");
   context.appendIntentLineForTest(modelRow, select({ groundedIntent: null, intent: [
@@ -111,6 +129,7 @@ it("renders a model top three with percentages and a grounded label without one"
   }, "谢谢你。"));
   assert.equal(groundedRow.children[0].children.length, 2);
   assert.equal(groundedRow.children[0].children[1].children.length, 1); // no percentage
+  assert.match(groundedRow.children[0].children[1].className, /grounded/);
 });
 
 it("ignores malformed model candidates without inventing a fallback score", () => {

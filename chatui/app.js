@@ -68,7 +68,7 @@ function unlockMbti() {
   try { localStorage.setItem(getMbtiUnlockKey(), "true"); } catch {}
 }
 const defaults = { theme: "dark", zoom: "1.0", intent: true };
-const CURRENT_LABEL_SCHEMA = "generic-v6";
+const CURRENT_LABEL_SCHEMA = "generic-v7";
 const GENERIC_INTENT_LABELS = Object.freeze({
   small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助",
   give_comfort: "安慰", agree: "同意", invite: "邀约", show_affection: "表达好感",
@@ -814,22 +814,28 @@ function rankedEmotionScores(values) {
 function hasIntentContent(messageText) {
   return /[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(String(messageText || ""));
 }
+function isIncompleteFragment(messageText) {
+  return /^(?:这|那|我|你|你这|这个|那个)(?:就)?是[，,。！!…\s]*$/u.test(String(messageText || "").trim());
+}
 function displayedIntent(result, messageText) {
-  if (!hasIntentContent(messageText)) return [];
-  const grounded = result.groundedIntent;
-  if (grounded && Object.prototype.hasOwnProperty.call(GROUNDED_EVIDENCE, grounded.label) &&
-      GROUNDED_EVIDENCE[grounded.label].includes(grounded.evidenceKind)) {
-    return [{ label: GENERIC_INTENT_LABELS[grounded.label], probability: null }];
-  }
+  if (!hasIntentContent(messageText) || isIncompleteFragment(messageText)) return [];
   const ranked = Array.isArray(result.intent) ? result.intent
     .filter(item => typeof item?.rawLabel === "string" &&
       Object.prototype.hasOwnProperty.call(GENERIC_INTENT_LABELS, item.rawLabel) &&
       typeof item.probability === "number" && Number.isFinite(item.probability) &&
       item.probability >= 0 && item.probability <= 1)
     .sort((left, right) => right.probability - left.probability) : [];
-  return ranked.slice(0, 3).map(item => ({
+  const modelCandidates = ranked.map(item => ({
     label: GENERIC_INTENT_LABELS[item.rawLabel], probability: item.probability,
   }));
+  const grounded = result.groundedIntent;
+  if (grounded && Object.prototype.hasOwnProperty.call(GROUNDED_EVIDENCE, grounded.label) &&
+      GROUNDED_EVIDENCE[grounded.label].includes(grounded.evidenceKind)) {
+    const label = GENERIC_INTENT_LABELS[grounded.label];
+    return [{ label, probability: null },
+      ...modelCandidates.filter(candidate => candidate.label !== label).slice(0, 2)];
+  }
+  return modelCandidates.slice(0, 3);
 }
 function appendScoreLine(container, label, scores, messageId, emotion = false) {
   if (!scores.length) return;
@@ -852,7 +858,8 @@ function appendIntentLine(container, candidates) {
   const line = element("div", "intent-line intent-score-line");
   line.appendChild(element("span", "intent-label", "意图"));
   for (const [index, candidate] of candidates.slice(0, 3).entries()) {
-    const item = element("span", `intent-item${index === 0 ? " primary" : ""}`);
+    const item = element("span", `intent-item${index === 0 ? " primary" : ""}${candidate.probability === null ? " grounded" : ""}`);
+    if (candidate.probability === null) item.title = "文本线索判断";
     item.appendChild(element("span", "intent-name", candidate.label));
     if (candidate.probability !== null) {
       item.appendChild(element("span", "intent-pct", percent(candidate.probability)));
@@ -897,7 +904,7 @@ function updateLabel(message, node) {
   const wrap = node.querySelector(".msg-content-wrap");
   const result = results[message.id];
   const eligible = settings.intent && message.side === "other" && message.kind === "text" &&
-    typeof message.text === "string" && !!message.text.trim();
+    typeof message.text === "string" && !!message.text.trim() && !isIncompleteFragment(message.text);
   const pendingText = inlineIntentPending.get(String(message.id));
   const pending = eligible && !historyState && pendingText === message.text &&
     !(fineMessageResult(result) && (result.state === "skipped" ||

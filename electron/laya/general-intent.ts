@@ -2,7 +2,7 @@ import type { LabelScore } from "../../shared/contracts";
 import type { Answer, Question } from "./types";
 
 /** Stable wire marker. A saved legacy fine result can be refreshed one message at a time. */
-export const GENERAL_LABEL_SCHEMA = "generic-v6";
+export const GENERAL_LABEL_SCHEMA = "generic-v7";
 
 export const INTENTS = [
   { id: "small_talk", zh: "闲聊", en: "small talk" },
@@ -62,6 +62,7 @@ const MAX_OPTIONS = 10;
 const MIN_OPTIONS = 8;
 const QUOTED = /“[^”]*”|「[^」]*」|『[^』]*』|‘[^’]*’|"[^"]*"|`[^`]*`/gu;
 const QUESTION_CUE = /[？?]|(?:怎么|为什么|如何|是否|是不是|能否|多少|几点|几号|几(?:个人|位|楼|件|份|次|辆|本|条|张)|什么|咋(?:样|办|回事|了)|啥(?:时候|情况|意思)|干嘛|哪(?:个|家|里|儿))[^。！!？?]{0,20}(?:[。！!，,\s]|$)|(?:吗|呢)(?:[。！!，,\s]|$)|^(?:谁|什么|哪里|哪儿|何时|什么时候|几|多少)/u;
+const RHETORICAL_CORRECTION = /^(?:[^。！？?]{0,12})?这不[^。！？?]{1,50}(?:了|过)吗[？?]?$/u;
 const NONQUESTION_SHORT = /^(?:没什么|没啥)(?:事|意思|好说的)?[。！!\s]*$/u;
 const CARE_CONTINUATION = /[？?].{0,60}(?:早点休息|好好休息|注意身体|照顾好自己|别太累)/u;
 const DIRECTED_CONFIDING = /想跟你说|想找你聊|想聊聊|说说心里话|能不能听我说/u;
@@ -122,8 +123,14 @@ export function generalIntentQuestion(targetText: string): GeneralIntentQuestion
     if (options.length < MAX_OPTIONS - 1 && !options.includes(id)) options.push(id);
   };
   let matched = false;
-  if (!NONQUESTION_SHORT.test(text) && QUESTION_CUE.test(text) && !CARE_CONTINUATION.test(text)) {
+  if (!NONQUESTION_SHORT.test(text) && !RHETORICAL_CORRECTION.test(text) &&
+      QUESTION_CUE.test(text) && !CARE_CONTINUATION.test(text)) {
     add("ask_question");
+    matched = true;
+  }
+  if (RHETORICAL_CORRECTION.test(text)) {
+    add("correct");
+    add("clarify");
     matched = true;
   }
   for (const cue of CUES) {

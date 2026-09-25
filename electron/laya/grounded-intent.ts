@@ -88,7 +88,8 @@ export function groundedIntent(targetText: string): GroundedIntent | null {
   }
 
   if (/^(?:难道|谁说|我什么时候说|我有说|哪有).*[？?吗呢]?[？?]?$/u.test(text)
-    || /^不是.{1,80}吗[？?]?$/u.test(text)) return null;
+    || /^不是.{1,80}吗[？?]?$/u.test(text)
+    || /^(?:[^。！？?]{0,12})?这不[^。！？?]{1,50}(?:了|过)吗[？?]?$/u.test(text)) return null;
   if (/^(?:我想问(?:一下)?|想问一下|请问)[。！!]?$/u.test(text)) return null;
   if (/^(?:没什么|没啥)(?:事|意思|好说的)?[。！!\s]*$/u.test(text)) return null;
 
