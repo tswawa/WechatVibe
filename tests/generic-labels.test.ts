@@ -125,8 +125,8 @@ it("every grounded label has a generic Chinese display label", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(GROUNDED_INTENT_LABELS, "喊老板"), false);
 });
 
-it("generic-v5 offers bounded, readable candidate menus instead of the same four defaults", () => {
-  assert.equal(GENERAL_LABEL_SCHEMA, "generic-v5");
+it("generic-v6 offers bounded, readable candidate menus instead of the same four defaults", () => {
+  assert.equal(GENERAL_LABEL_SCHEMA, "generic-v6");
   assert.ok(INTENTS.length >= 35 && INTENTS.length <= 50);
   const cases: Array<[string, string[]]> = [
     ["截图", ["展示内容"]],
@@ -174,4 +174,31 @@ it("generic-v5 offers bounded, readable candidate menus instead of the same four
 
 it("all curated generic labels have a wire display mapping", () => {
   for (const intent of INTENTS) assert.equal(intentLabel(intent.id), intent.zh);
+});
+
+it("common colloquial acts enter the candidate menu without forcing a plan or boundary", () => {
+  const labels = (text: string): string[] => {
+    const criteria = generalIntentQuestion(text).question.criteria;
+    if (!Array.isArray(criteria)) throw new Error("Expected choice candidates");
+    return criteria.map(String);
+  };
+  assert.ok(labels("好的，谢谢你了").includes("感谢"));
+  assert.ok(labels("谢谢大家的帮助").includes("感谢"));
+  assert.ok(labels("辛苦大家了").includes("感谢"));
+  assert.ok(labels("他家几点开门啊").includes("提问"));
+  assert.ok(labels("明天天气咋样").includes("提问"));
+  assert.ok(labels("别生气，慢慢说").includes("安慰"));
+  assert.ok(labels("你太厉害了").includes("称赞"));
+  assert.ok(labels("下次见").includes("告别"));
+  assert.ok(labels("这几家都不错，可以任选一家").includes("建议或指令"));
+  assert.ok(!labels("我们开始吧").includes("计划"));
+  assert.ok(labels("我后天去医院").includes("计划"));
+  assert.ok(!labels("我后天去医院").includes("邀约"));
+  assert.ok(labels("我周末去看电影").includes("计划"));
+  assert.ok(labels("我明早去上班").includes("计划"));
+  assert.ok(!labels("你的旅程到此为止了").includes("设定边界"));
+  assert.ok(!labels("这个颜色不合适，我换一件").includes("保持距离"));
+  assert.ok(labels("你们几个人").includes("提问"));
+  assert.ok(labels("他家几楼").includes("提问"));
+  assert.ok(!labels("没什么").includes("提问"));
 });

@@ -1837,7 +1837,7 @@ class FineLabelRevisionTests(unittest.TestCase):
         def response_with(value):
             return lambda session, messages, target, **_kwargs: {
                 **original_analyze(session, messages, target),
-                "labelSchema": "generic-v5", "groundedIntent": value,
+                "labelSchema": "generic-v6", "groundedIntent": value,
             }
 
         for malformed in (
@@ -1859,7 +1859,7 @@ class FineLabelRevisionTests(unittest.TestCase):
         saved = store.fine_view(account, "friend", version, [item["id"]])[item["id"]]
         self.assertEqual(saved["groundedIntent"],
                          {"label": "greet", "evidenceKind": "greeting_phrase"})
-        self.assertEqual(saved["labelSchema"], "generic-v5")
+        self.assertEqual(saved["labelSchema"], "generic-v6")
 
         for label, evidence_kind in (
             ("confirm", "short_acknowledgement"),
@@ -1896,7 +1896,7 @@ class FineLabelRevisionTests(unittest.TestCase):
         self.assertEqual(self.analyzer.calls, [])
         self.assertEqual(self.backend.analysis("friend")["results"][item["id"]]["state"], "skipped")
         store.save_fine(account, "friend", version, item,
-                         {"intentLabel": "新细标签", "labelSchema": "generic-v5",
+                         {"intentLabel": "新细标签", "labelSchema": "generic-v6",
                          "groundedIntent": None})
         self.assertEqual(store.fine_view(account, "friend", version, [item["id"]])[item["id"]]
                          ["intentLabel"], "新细标签")
@@ -1910,12 +1910,13 @@ class FineLabelRevisionTests(unittest.TestCase):
         items = self.source.rows["friend"]
         saved = store.recent(account, "friend", version, limit=7)
 
-        # Simulate records written by the previous label scheme. Message 6
+        # Simulate records written by previous label schemes. Message 6
         # has a current fine override and must not be reanalyzed.
         with store.connect() as conn:
             for index in (4, 5):
                 item = items[index]
-                current = {**saved[item["id"]], "labelSchema": "generic-v4"}
+                current = {**saved[item["id"]],
+                           "labelSchema": "generic-v4" if index == 4 else "generic-v5"}
                 conn.execute("UPDATE results_v2 SET result=? WHERE account=? AND session=? AND id=? AND version=?",
                              (json.dumps(current, ensure_ascii=False), account, "friend", item["id"], version))
         for index in (0, 5):
@@ -1927,7 +1928,7 @@ class FineLabelRevisionTests(unittest.TestCase):
                           "labelSchema": "generic-v4", "groundedIntent": None})
         store.save_fine(account, "friend", version, items[6],
                         {**saved[items[6]["id"]], "intentLabel": "新细标签",
-                          "labelSchema": "generic-v5", "groundedIntent": None})
+                          "labelSchema": "generic-v6", "groundedIntent": None})
         store.skip_fine(account, "friend", version, items[3], "ObservedTextTooLongError")
         store.save_fine("account-b", "friend", version, items[2], {"intentLabel": "其它账号"})
         store.save_fine(account, "other-session", version, items[2], {"intentLabel": "其它会话"})
@@ -1942,7 +1943,7 @@ class FineLabelRevisionTests(unittest.TestCase):
 
         def generic_analyze(session, messages, target, **_kwargs):
             return {**original_analyze(session, messages, target),
-                     "labelSchema": "generic-v5", "intentLabel": "新细标签",
+                     "labelSchema": "generic-v6", "intentLabel": "新细标签",
                     "groundedIntent": {"label": "status_report", "evidenceKind": "progress_statement"}}
 
         self.analyzer.analyze = generic_analyze
@@ -1964,7 +1965,7 @@ class FineLabelRevisionTests(unittest.TestCase):
         for index in (2, 4, 5):
             self.assertEqual((current[items[index]["id"]]["labelSchema"],
                               current[items[index]["id"]]["intentLabel"]),
-                              ("generic-v5", "新细标签"))
+                              ("generic-v6", "新细标签"))
             self.assertEqual(current[items[index]["id"]]["groundedIntent"],
                              {"label": "status_report", "evidenceKind": "progress_statement"})
         self.assertEqual(current[items[3]["id"]],

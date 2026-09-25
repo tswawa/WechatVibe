@@ -38,7 +38,7 @@ import { buildPrefix, serializeState } from "./laya/prompt";
 import { toInternal } from "./laya/questions";
 import { renderOptions } from "./laya/questions";
 import { CATALOG_VERSION, routeEmotion, routeIntent } from "./laya/catalog";
-import { generalIntentQuestion, generalIntentScores } from "./laya/general-intent";
+import { GENERAL_LABEL_SCHEMA, generalIntentQuestion, generalIntentScores } from "./laya/general-intent";
 import { groundedIntent, type GroundedIntent } from "./laya/grounded-intent";
 import { classifyNextReply, REPLY_FORECAST_QUESTION, type ReplyForecastCandidate, type ForecastBudget } from "./laya/forecast";
 import { MBTI_QUESTION_VERSION, PERSONALITY_QUESTIONS, personalityEvidenceFromAnswers, type PersonalityEvidence } from "./laya/personality";
@@ -495,7 +495,7 @@ function analysisKey(
   const parts = [ANALYSIS_VERSION, sessionId, messages[index]!.id, messages[index]!.side, messages[index]!.text];
   for (let j = start; j < index; j++) parts.push(messages[j]!.side, messages[j]!.text);
   if (portraitContext) parts.push("portrait", portraitContext);
-  if (messageLabelsOnly) parts.push("message-labels-only");
+  if (messageLabelsOnly) parts.push("message-labels-only", GENERAL_LABEL_SCHEMA);
   const digest = createHash("sha1").update(parts.join("\u0000")).digest("hex");
   return `${sessionId}\u0001${digest}`;
 }

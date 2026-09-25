@@ -90,6 +90,7 @@ export function groundedIntent(targetText: string): GroundedIntent | null {
   if (/^(?:难道|谁说|我什么时候说|我有说|哪有).*[？?吗呢]?[？?]?$/u.test(text)
     || /^不是.{1,80}吗[？?]?$/u.test(text)) return null;
   if (/^(?:我想问(?:一下)?|想问一下|请问)[。！!]?$/u.test(text)) return null;
+  if (/^(?:没什么|没啥)(?:事|意思|好说的)?[。！!\s]*$/u.test(text)) return null;
 
   // These complete short utterances acknowledge or offer to inspect. Anchoring the
   // whole message keeps questions and longer statements out of these categories.
@@ -105,7 +106,13 @@ export function groundedIntent(targetText: string): GroundedIntent | null {
     || /^(?:这个|这样|这么做|这个方案|这个办法)(?:我觉得|我看)?不行[。！!\s]*$/u.test(text)) {
     return result("reject", "explicit_refusal");
   }
-  if ((/^(?:嗯+|对(?:的|啊)?|是的|没错|确实|好(?:的|啊|呀|吧)?|行(?:的|啊|呀|吧)?|可以(?:的|啊|呀)?|没问题|同意|我同意|我赞成|当然可以|OK|ok)(?:[。！!，,\s]|$)/u.test(text)
+  if (/^(?:(?:好(?:的)?|行|收到|嗯+|嗯呢)[，,。！!\s]*)?(?:谢谢(?:你|您)?(?:啦|了|啊)?|感谢(?:你|您)?|谢了|多谢(?:你|您)?|感激不尽)[。！!\s]*$/u.test(text)) {
+    return result("thank", "thanks_phrase");
+  }
+  if (/^(?:(?:谢谢|感谢|多谢)(?:大家|各位|老师|同学|朋友|你们|宝贝)(?:的[^。！？?]{1,25})?|辛苦(?:大家|各位|你们|老师)(?:了)?)[。！!\s]*$/u.test(text)) {
+    return result("thank", "thanks_phrase");
+  }
+  if ((/^(?:嗯+|对(?:的|啊)?|是的|没错|确实|好(?:的|啊|呀|吧)?|行(?:的|啊|呀|吧)?|可以(?:的|啊|呀)?|没问题|同意|我同意|我赞成|当然可以|OK|ok)[。！!，,\s]*$/u.test(text)
     || /^(?:(?:这个|这样|这么做|这个方案|这个办法|这版)(?:我觉得|我看)?|我觉得(?:这个|这样|这么做|这个方案|这个办法|这版))(?:可以|行|没问题|不错)(?:了|的|吧|啊|呀|哦|噢)?[。！!\s]*$/u.test(text)
     || /^这个我同意[。！!\s]*$/u.test(text)) && !/[？?]$/u.test(text)) {
     return result("agree", "explicit_acceptance");
@@ -124,7 +131,7 @@ export function groundedIntent(targetText: string): GroundedIntent | null {
     return result("invite", "inclusive_invitation");
   }
 
-  if (/^(?:真无语|烦死了|太离谱了|受不了|我(?:很|非常)?不满|这也太[^。！？?]{1,30}(?:了|吧)|怎么(?:又|还)[^。！？?]{1,50}|等了[^。！？?]{1,35}还没[^。！？?]{1,35})/u.test(text)) {
+  if (/^(?:真无语|烦死了|太离谱了|受不了|我(?:很|非常)?不满|这也太(?:离谱|糟糕|难|烦|过分|不合理|差|坑人|贵|慢)[^。！？?]{0,25}(?:了|吧)|怎么(?:又|还)[^。！？?]{1,50}|等了[^。！？?]{1,35}还没[^。！？?]{1,35})/u.test(text)) {
     return result("complain", "negative_evaluation");
   }
 
@@ -133,8 +140,9 @@ export function groundedIntent(targetText: string): GroundedIntent | null {
   if (/[？?]$/u.test(text)
     || /^是[^。！？?]{1,50}还是[^。！？?]{1,50}(?:啊|呀|呢|吗)[。]?$/.test(text)
     || /^(?:谁|什么|哪里|哪儿|哪天|何时|什么时候|为什么|怎么|如何|是否|能否)[^。！？?]{1,90}[。]?$/.test(text)
-    || (!embeddedQuestionWord && /(?:怎么|为什么|哪里|哪儿|什么时候|如何|是否|几|多少)[^。！？?]{0,50}[吗呢]?[。]?$/.test(text))
-    || /^[^。！？?]{1,80}(?:吗|么|呢)[。]?$/.test(text)) {
+    || /^(?:你(?:们|家)?|您(?:们|家)?|他家|她家|这家|那家|这里|那里|一共|总共)[^。！？?]{0,12}几(?:个人|位|楼|件|份|次|辆|本|条|张)[。]?$/.test(text)
+    || (!embeddedQuestionWord && /(?:怎么|为什么|哪里|哪儿|什么时候|如何|是否|几(?:点|号|岁|时|月|年)|多少)[^。！？?]{0,50}[吗呢]?[。]?$/.test(text))
+    || /^[^。！？?]{1,80}(?:吗|么)[。]?$/.test(text)) {
     return result("ask_question", "answer_seeking_question");
   }
 

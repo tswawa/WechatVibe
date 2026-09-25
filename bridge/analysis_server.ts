@@ -36,7 +36,7 @@ import { GENERAL_LABEL_SCHEMA } from "../electron/laya/general-intent";
 import { MessageBatchInputError, type BatchMessage, type BatchContext } from "../electron/laya/message-batch";
 
 // Observed, unattributed text has model-only generic labels; v3 is reserved for fine targets.
-const OBSERVED_LABEL_SCHEMA = "generic-v2";
+const OBSERVED_LABEL_SCHEMA = "generic-v3";
 
 interface Score {
   label: string;

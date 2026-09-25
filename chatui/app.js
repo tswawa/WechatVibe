@@ -68,7 +68,7 @@ function unlockMbti() {
   try { localStorage.setItem(getMbtiUnlockKey(), "true"); } catch {}
 }
 const defaults = { theme: "dark", zoom: "1.0", intent: true };
-const CURRENT_LABEL_SCHEMA = "generic-v5";
+const CURRENT_LABEL_SCHEMA = "generic-v6";
 const GENERIC_INTENT_LABELS = Object.freeze({
   small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助",
   give_comfort: "安慰", agree: "同意", invite: "邀约", show_affection: "表达好感",
@@ -919,9 +919,9 @@ function updateLabel(message, node) {
   }
   const row = element("div", "inline-intent-row");
   appendScoreLine(row, "情绪", rankedEmotionScores(result.emotion), message.id, true);
-  appendIntentLine(row, result.labelSchema === CURRENT_LABEL_SCHEMA
-    ? displayedIntent(result, message.text)
-    : hasIntentContent(message.text) ? [{ label: "待判断", probability: null }] : []);
+  if (result.labelSchema === CURRENT_LABEL_SCHEMA) {
+    appendIntentLine(row, displayedIntent(result, message.text));
+  }
   if (row.childNodes.length) {
     if (revealing) row.classList.add("inline-intent-revealed");
     wrap.appendChild(row);
