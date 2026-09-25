@@ -76,7 +76,12 @@ async function main() {
   assert.equal((await checkForUpdates("1.0.1", { fetchImpl: fetched("", { status: 403, headers: { "x-ratelimit-remaining": "0" } }) })).status, "rate-limited");
   assert.equal((await checkForUpdates("1.0.1", { fetchImpl: fetched("bad json") })).status, "invalid-release");
   assert.equal((await checkForUpdates("1.0.1", { fetchImpl: fetched("x".repeat(256 * 1024 + 1)) })).status, "invalid-release");
-  assert.equal((await checkForUpdates("1.0.1", { fetchImpl: async () => { throw new TypeError("network unavailable"); } })).status, "offline");
+  assert.equal((await checkForUpdates("1.0.1", { fetchImpl: async () => {
+    throw new TypeError("fetch failed", { cause: Object.assign(new Error("dns failed"), { code: "ENOTFOUND" }) });
+  } })).status, "offline");
+  assert.equal((await checkForUpdates("1.0.1", { fetchImpl: async () => {
+    throw new TypeError("unexpected implementation error");
+  } })).status, "server-error");
   const waitForAbort = async (_url, { signal }) => new Promise((_resolve, reject) => {
     signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
   });

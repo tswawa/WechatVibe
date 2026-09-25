@@ -73,6 +73,7 @@ ASAR_SCRIPTS = (
     "scripts/real-client-preload.cjs",
     "scripts/real-client-recovery.cjs",
     "scripts/real-client-update.cjs",
+    "scripts/real-client-update-proxy.cjs",
     "scripts/real-client-update-controller.cjs",
     "scripts/real-client-update-helper.cjs",
     "scripts/update-signing.pub",
@@ -103,8 +104,11 @@ def _check_stat(path: Path, info: os.stat_result, *, directory: bool) -> None:
 def _check_private_path(relative: Path, *, directory: bool) -> None:
     parts = relative.parts
     lowered = tuple(part.casefold() for part in parts)
-    if (any(part in FORBIDDEN_DIRS or part.startswith(".env.") for part in lowered[:-1]) or
-            (directory and (lowered[-1] in FORBIDDEN_DIRS or lowered[-1].startswith(".env.")))):
+    undici_cache = (lowered[:6] == ("resources", "client", "node_modules", "undici", "lib", "cache") or
+                    lowered[:7] == ("resources", "client", "node_modules", "undici", "lib", "web", "cache"))
+    forbidden_dirs = FORBIDDEN_DIRS - {"cache"} if undici_cache else FORBIDDEN_DIRS
+    if (any(part in forbidden_dirs or part.startswith(".env.") for part in lowered[:-1]) or
+            (directory and (lowered[-1] in forbidden_dirs or lowered[-1].startswith(".env.")))):
         raise ValueError(f"private or generated directory is forbidden: {relative}")
     if directory:
         return

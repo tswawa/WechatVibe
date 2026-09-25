@@ -14,7 +14,9 @@ async function main() {
     on() {}, once() {}, setWindowOpenHandler() {}, loadURL() {},
   };
   const window = { webContents: contents, isDestroyed: () => false, on() {} };
-  const calls = { update: 0 };
+  const calls = { update: 0, fallback: 0, proxyCreated: 0 };
+  const environment = {};
+  const proxyFetch = async () => ({ ok: true });
   const app = {
     setAppUserModelId() {}, setPath() {}, requestSingleInstanceLock: () => true,
     on() {}, whenReady: () => Promise.resolve(), getVersion: () => "1.0.1",
@@ -24,6 +26,7 @@ async function main() {
     ipcMain: { on() {}, handle: (name, callback) => handles.set(name, callback) },
     session: { defaultSession: {
       setPermissionRequestHandler() {}, setPermissionCheckHandler() {}, on() {},
+      resolveProxy: async () => "DIRECT",
       webRequest: { onBeforeRequest() {} },
     } }, shell: {},
   };
@@ -37,12 +40,32 @@ async function main() {
       if (name === "./real-client-recovery.cjs") return { monitorBridge() {} };
       if (name === "./real-client-update.cjs") return {
         RELEASES_URL: "https://github.com/tswawa/WechatVibe/releases",
-        checkForUpdates: async version => { calls.update++; assert.equal(version, "1.0.1"); return { status: "current" }; },
+        checkForUpdates: async (version, options) => {
+          calls.update++;
+          assert.equal(version, "1.0.1");
+          assert.equal(options.fetchImpl, proxyFetch);
+          return { status: calls.update === 1 ? "offline" : "current" };
+        },
+        errorStatus: () => "server-error",
+      };
+      if (name === "./real-client-update-proxy.cjs") return {
+        createUpdateProxyFetch: ({ session, ProxyAgent }) => {
+          assert.equal(session, electron.session.defaultSession);
+          assert.equal(ProxyAgent.name, "FakeProxyAgent");
+          calls.proxyCreated++;
+          return { fetchImpl: proxyFetch, enableSavedLoopbackFallback: async () => {
+            calls.fallback++;
+            return true;
+          } };
+        },
+      };
+      if (name.endsWith(path.join("node_modules", "undici"))) return {
+        ProxyAgent: class FakeProxyAgent {},
       };
       throw new Error(`Unexpected require: ${name}`);
     },
     __dirname, URL, process: {
-      platform: "win32", env: {}, argv: ["electron", "shell", "--client-url", frames.mainFrame.url, "--self-test"],
+      platform: "win32", env: environment, argv: ["electron", "shell", "--client-url", frames.mainFrame.url, "--self-test"],
       stderr: { write() {} },
     },
   });
@@ -61,7 +84,10 @@ async function main() {
   ]);
   assert.equal(first.status, "current");
   assert.equal(second.status, "current");
-  assert.equal(calls.update, 1);
+  assert.equal(calls.update, 2);
+  assert.equal(calls.fallback, 1);
+  assert.equal(calls.proxyCreated, 1);
+  assert.deepEqual(environment, {});
   frames.mainFrame.url = "http://127.0.0.1:34567/other";
   assert.equal(handles.get("real-client:app-version")(trusted), null);
   assert.equal((await handles.get("real-client:check-updates")(trusted)).status, "blocked");

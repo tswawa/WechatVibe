@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = (
     "start-real-client.py", "start-real-client.cmd", "desktop-main.cjs",
     "real-client-shell.cjs", "real-client-preload.cjs", "real-client-recovery.cjs",
-    "real-client-update.cjs", "real-client-update-controller.cjs",
+    "real-client-update.cjs", "real-client-update-proxy.cjs",
+    "real-client-update-controller.cjs",
     "real-client-update-helper.cjs", "real-client-update-extract.py",
     "update-signing.pub",
 )

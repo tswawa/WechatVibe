@@ -17,6 +17,7 @@
 | `@huggingface/tokenizers` | 0.2.0 | Apache-2.0；安装包内 `LICENSE` |
 | `onnxruntime-node` / `onnxruntime-common` | 1.30.0 | MIT；上游 [LICENSE](https://github.com/microsoft/onnxruntime/blob/v1.30.0/LICENSE)，全文见下文 |
 | `tsx` | 4.23.15 | MIT；安装包内 `LICENSE` |
+| `undici` | 7.29.1 | MIT；安装包内 `LICENSE`，用于应用内更新的 HTTP 代理连接 |
 | Electron | 44.4.3 | MIT 及 Chromium 第三方条款；便携目录内 `LICENSE.electron.txt`、`LICENSES.chromium.html` |
 | Electron Builder | 26.15.3 | MIT；仅构建期使用，安装包内 `LICENSE` |
 | TypeScript / `@types/node` | 7.0.2 / 26.6.2 | Apache-2.0 / MIT；仅开发期使用，安装包内许可证 |

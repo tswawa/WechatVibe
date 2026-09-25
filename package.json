@@ -1,6 +1,6 @@
 {
   "name": "wechatvibe",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "type": "module",
   "description": "WechatVibe 本机只读微信会话分析桌面客户端",
@@ -21,7 +21,8 @@
   "dependencies": {
     "@huggingface/tokenizers": "0.2.0",
     "onnxruntime-node": "1.30.0",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "undici": "7.29.1"
   },
   "devDependencies": {
     "@types/node": "26.6.2",

@@ -131,6 +131,7 @@ class BuildReleaseTests(unittest.TestCase):
             "resources/client/token.dat", "resources/client/api_key.txt",
             "resources/client/id_ed25519.pub",
             "resources/client/.env.production", "resources/client/logs/app.log",
+            "resources/client/node_modules/other/lib/cache/state.js",
             "resources/client/app.log.1", "resources/client/screenshot.png",
             "resources/client/IMG_0001.jpg", "resources/client/chatui/assets/IMG_0001.jpg",
         )
@@ -143,6 +144,14 @@ class BuildReleaseTests(unittest.TestCase):
                     self.assertFalse((self.root / f"out-{index}").exists())
                 finally:
                     path.unlink()
+
+    def test_undici_runtime_cache_modules_are_allowed(self):
+        self.add_file("resources/client/node_modules/undici/lib/cache/memory-cache-store.js")
+        self.add_file("resources/client/node_modules/undici/lib/web/cache/cachestorage.js")
+        archive = builder.build_release(self.source, self.root / "undici", "1.0.2")
+        with zipfile.ZipFile(archive) as release:
+            self.assertIn("win-unpacked/resources/client/node_modules/undici/lib/cache/memory-cache-store.js",
+                          release.namelist())
 
     def test_symlink_and_output_containment(self):
         with self.assertRaisesRegex(ValueError, "output directory cannot"):

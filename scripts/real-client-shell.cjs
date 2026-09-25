@@ -3,7 +3,8 @@ const { execFile } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { monitorBridge } = require("./real-client-recovery.cjs");
-const { checkForUpdates, RELEASES_URL } = require("./real-client-update.cjs");
+const { checkForUpdates, downloadAndStageUpdate, errorStatus, RELEASES_URL } = require("./real-client-update.cjs");
+const { createUpdateProxyFetch } = require("./real-client-update-proxy.cjs");
 
 const ROOT = process.env.WECHATVIBE_CLIENT_ROOT ?
   path.resolve(process.env.WECHATVIBE_CLIENT_ROOT) : path.resolve(__dirname, "..");
@@ -59,7 +60,36 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
   let bridgeExitState = "idle";
   let updateCheckPromise = null;
   let updateController = null;
+  let updateNetwork = null;
+  let savedUpdateFallbackActive = false;
   const testState = { themes: [], blockedPopups: 0, themeWaiter: null };
+
+  async function checkWithUpdateNetwork(version) {
+    if (!updateNetwork) return { status: "server-error" };
+    const options = { fetchImpl: updateNetwork.fetchImpl };
+    const first = await checkForUpdates(version, options);
+    if ((first.status === "offline" || first.status === "timeout") &&
+        !savedUpdateFallbackActive && await updateNetwork.enableSavedLoopbackFallback()) {
+      savedUpdateFallbackActive = true;
+      return checkForUpdates(version, options);
+    }
+    return first;
+  }
+
+  async function stageWithUpdateNetwork(version, installRoot, onProgress) {
+    const options = { fetchImpl: updateNetwork.fetchImpl };
+    try {
+      return await downloadAndStageUpdate(version, installRoot, onProgress, options);
+    } catch (error) {
+      const status = errorStatus(error);
+      if (!savedUpdateFallbackActive && (status === "offline" || status === "timeout") &&
+          await updateNetwork.enableSavedLoopbackFallback()) {
+        savedUpdateFallbackActive = true;
+        return downloadAndStageUpdate(version, installRoot, onProgress, options);
+      }
+      throw error;
+    }
+  }
 
   function trustedFrame(event) {
     return window && !window.isDestroyed() && event.sender === window.webContents &&
@@ -114,7 +144,8 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
       if (!trustedFrame(event)) return { status: "blocked" };
       if (updateController) return updateController.check();
       if (!updateCheckPromise) {
-        updateCheckPromise = checkForUpdates(app.getVersion()).finally(() => { updateCheckPromise = null; });
+        updateCheckPromise = checkWithUpdateNetwork(app.getVersion())
+          .finally(() => { updateCheckPromise = null; });
       }
       return updateCheckPromise;
     });
@@ -186,6 +217,10 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
     });
 
     app.whenReady().then(() => {
+      updateNetwork = createUpdateProxyFetch({
+        session: session.defaultSession,
+        ProxyAgent: require(path.join(ROOT, "node_modules", "undici")).ProxyAgent,
+      });
       session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
       session.defaultSession.setPermissionCheckHandler(() => false);
       session.defaultSession.on("will-download", (event) => event.preventDefault());
@@ -276,6 +311,8 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
         const { createUpdateController } = require("./real-client-update-controller.cjs");
         updateController = createUpdateController({
           app, root: ROOT, port: Number(new URL(url).port), instanceId,
+          checkImpl: checkWithUpdateNetwork,
+          stageImpl: stageWithUpdateNetwork,
           onState: state => {
             if (window && !window.isDestroyed()) window.webContents.send("real-client:update-state", state);
           },

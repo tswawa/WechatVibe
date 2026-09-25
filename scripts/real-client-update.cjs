@@ -283,8 +283,9 @@ function errorStatus(error, options = {}) {
   if (options.signal?.aborted || error?.name === "AbortError" ||
       error?.name === "TimeoutError") return "timeout";
   if (error?.status) return error.status;
-  if (error instanceof TypeError || ["ENOTFOUND", "EAI_AGAIN", "ENETUNREACH",
-      "ECONNREFUSED", "ECONNRESET"].includes(error?.cause?.code)) return "offline";
+  if (["ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH",
+      "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT",
+      "UND_ERR_HEADERS_TIMEOUT"].includes(error?.cause?.code || error?.code)) return "offline";
   return "server-error";
 }
 
@@ -386,4 +387,4 @@ async function downloadAndStageUpdate(currentVersion, installRoot, onProgress, o
 }
 
 module.exports = { RELEASES_URL, parseVersion, compareVersions, assessRelease,
-  checkForUpdates, downloadAndStageUpdate, verifySignedManifest };
+  checkForUpdates, downloadAndStageUpdate, verifySignedManifest, errorStatus };

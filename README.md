@@ -89,12 +89,12 @@
 
 ## 下载安装
 
-当前版本为 **[WechatVibe 1.0.3](https://github.com/tswawa/WechatVibe/releases/tag/v1.0.3)**。请下载 Windows 运行版并解压整个文件夹；后续版本可在软件内更新。
+当前版本为 **[WechatVibe 1.0.4](https://github.com/tswawa/WechatVibe/releases/tag/v1.0.4)**。请下载 Windows 运行版并解压整个文件夹；后续版本可在软件内更新。
 
 | 文件 | 用途 |
 | --- | --- |
-| [WechatVibe-1.0.3-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.3/WechatVibe-1.0.3-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |
-| [WechatVibe-1.0.3-source.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.3/WechatVibe-1.0.3-source.zip) | 干净源码，用于查看、修改或自行构建。 |
+| [WechatVibe-1.0.4-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.4/WechatVibe-1.0.4-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |
+| [WechatVibe-1.0.4-source.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.4/WechatVibe-1.0.4-source.zip) | 干净源码，用于查看、修改或自行构建。 |
 
 ### 运行要求
 
@@ -109,7 +109,7 @@
 
 ## 软件更新
 
-打开「设置 → 关于 → 当前版本」，即可检查更新。发现新版本后，点击「下载并安装」；软件会显示进度，校验下载文件，安装完成后自动重启。
+打开「设置 → 关于 → 当前版本」，即可检查更新。发现新版本后，点击「下载并安装」；软件会显示进度，校验下载文件，安装完成后自动重启。Windows 使用系统 HTTP 代理时，更新器会沿用该代理连接 GitHub。
 
 更新会保留本地账号数据库、分析结果和画像。安装失败时会恢复旧版；更新成功后，可以在同一窗口回退到上一版。回退使用本地备份，只保留最近一次可回退版本。
 

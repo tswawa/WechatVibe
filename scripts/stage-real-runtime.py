@@ -34,10 +34,10 @@ PYTHON_ROOT_PACKAGES = (
 # These are declared upstream but absent in the already-working read-only host.
 # Their imports are confined to optional GUI/OCR/media paths, not this bridge.
 KNOWN_MISSING_OPTIONAL = {"winsdk", "imageio-ffmpeg", "pyautogui"}
-NODE_ROOT_PACKAGES = ("@huggingface/tokenizers", "onnxruntime-node", "tsx")
+NODE_ROOT_PACKAGES = ("@huggingface/tokenizers", "onnxruntime-node", "tsx", "undici")
 SKIP_PARTS = {"__pycache__", "test", "tests", "testing", "demo", "demos", "examples",
               ".git", ".cache", "cache"}
-SKIP_NAMES = {"direct_url.json", "auth.json", "credentials.json"}
+SKIP_NAMES = {"direct_url.json", "auth.json", "credentials.json", ".gitkeep"}
 STATS = {"python_stdlib": [0, 0], "python_packages": [0, 0],
          "node_runtime": [0, 0], "node_packages": [0, 0]}
 
@@ -67,10 +67,11 @@ def copy_file(source: Path, destination: Path, category: str) -> None:
     STATS[category][1] += source.stat().st_size
 
 
-def safe_name(path: Path) -> bool:
+def safe_name(path: Path, *, node_package: str | None = None) -> bool:
     parts = {part.lower() for part in path.parts}
     name = path.name.lower()
-    return (not parts.intersection(SKIP_PARTS) and name not in SKIP_NAMES and
+    excluded = SKIP_PARTS - {"cache"} if node_package == "undici" else SKIP_PARTS
+    return (not parts.intersection(excluded) and name not in SKIP_NAMES and
             not name.startswith("credentials") and
             path.suffix.lower() not in {".pyc", ".pyo", ".pdb", ".key", ".p12", ".pfx", ".pem"})
 
@@ -239,13 +240,14 @@ def stage_node_packages() -> dict:
         relative_root = source.relative_to(NODE_MODULES)
         count = size = 0
         for base, directories, files in os.walk(source):
-            directories[:] = [name for name in directories if name.lower() not in SKIP_PARTS |
+            excluded = SKIP_PARTS - {"cache"} if package["name"] == "undici" else SKIP_PARTS
+            directories[:] = [name for name in directories if name.lower() not in excluded |
                              {"node_modules", ".git", "docs", "benchmark", "benchmarks"} and
                              not (Path(base) / name).is_symlink()]
             for name in files:
                 current = Path(base) / name
                 relative = current.relative_to(source)
-                if (not safe_name(relative) or name.endswith(".map") or
+                if (not safe_name(relative, node_package=package["name"]) or name.endswith(".map") or
                         not node_platform_file_matches(package["name"], relative)):
                     continue
                 copy_file(current, STAGE / "node_modules" / relative_root / relative, "node_packages")
