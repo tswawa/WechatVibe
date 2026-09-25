@@ -342,7 +342,7 @@ async function main(): Promise<void> {
   if (initialProvider !== "cpu" && initialProvider !== "gpu") {
     throw new Error("invalid runtime provider");
   }
-  configureModelDir(path.resolve(process.cwd(), ".models", "laya"));
+  configureModelDir(path.resolve(process.env.LAYA_MODEL_DIR || path.join(process.cwd(), ".models", "laya")));
   const model = await configureAnalysisRuntime(initialProvider);
   emit({ ready: model.state === "ready", model, analysisVersion: ANALYSIS_VERSION });
 
