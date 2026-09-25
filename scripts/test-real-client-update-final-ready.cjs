@@ -45,7 +45,8 @@ async function main() {
       requestSingleInstanceLock: () => true, on() {}, whenReady: () => Promise.resolve(),
       getVersion: () => "1.0.2", quit() {} };
     const electron = { app, BrowserWindow: class { constructor() { return window; } },
-      clipboard: {}, ipcMain: { on() {}, handle: (name, handler) => handlers.set(name, handler) },
+      clipboard: {}, dialog: { showErrorBox() {} },
+      ipcMain: { on() {}, handle: (name, handler) => handlers.set(name, handler) },
       session: { defaultSession: { setPermissionRequestHandler() {},
         setPermissionCheckHandler() {}, on() {}, webRequest: { onBeforeRequest() {} } } }, shell: {} };
     const source = fs.readFileSync(path.join(__dirname, "real-client-shell.cjs"), "utf8");
@@ -61,6 +62,7 @@ async function main() {
         if (name === "electron") return electron;
         if (name === "node:fs") return fs;
         if (name === "node:path") return path;
+        if (name === "node:child_process") return { execFile() { throw new Error("ready check must not stop a bridge"); } };
         if (name === "./real-client-recovery.cjs") return { monitorBridge: () => () => {} };
         if (name === "./real-client-update.cjs") return {
           RELEASES_URL: "https://github.com/tswawa/WechatVibe/releases",

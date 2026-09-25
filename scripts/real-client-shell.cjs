@@ -1,4 +1,5 @@
-const { app, BrowserWindow, clipboard, ipcMain, session, shell } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } = require("electron");
+const { execFile } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { monitorBridge } = require("./real-client-recovery.cjs");
@@ -53,6 +54,9 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
   let stopBridgeMonitor = null;
   let validationTimer = null;
   let exiting = false;
+  let updateHandoff = "none";
+  let quitRequestedDuringHandoff = false;
+  let bridgeExitState = "idle";
   let updateCheckPromise = null;
   let updateController = null;
   const testState = { themes: [], blockedPopups: 0, themeWaiter: null };
@@ -250,6 +254,12 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
           }
         });
       }
+      window.on("close", event => {
+        if (updateHandoff === "preparing") {
+          quitRequestedDuringHandoff = true;
+          event.preventDefault();
+        }
+      });
       window.on("closed", () => { window = null; stopBridgeMonitor?.(); });
       if (!selfTest && !updateValidation) {
         const startBridgeMonitor = () => {
@@ -269,9 +279,19 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
           onState: state => {
             if (window && !window.isDestroyed()) window.webContents.send("real-client:update-state", state);
           },
-          pauseRecovery: () => { exiting = true; stopBridgeMonitor?.(); stopBridgeMonitor = null; },
-          resumeRecovery: () => { exiting = false; startBridgeMonitor(); },
-          quit: () => app.quit(),
+          pauseRecovery: () => {
+            updateHandoff = "preparing";
+            exiting = true;
+            const drained = stopBridgeMonitor?.();
+            stopBridgeMonitor = null;
+            return drained;
+          },
+          resumeRecovery: () => {
+            updateHandoff = "none";
+            if (quitRequestedDuringHandoff) setImmediate(() => app.quit());
+            else { exiting = false; startBridgeMonitor(); }
+          },
+          quit: () => { updateHandoff = "ready"; app.quit(); },
         });
         startBridgeMonitor();
       }
@@ -280,10 +300,47 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
       process.stderr.write(String(error) + "\n");
       app.exit(1);
     });
-    app.on("before-quit", () => {
+    app.on("before-quit", event => {
       exiting = true;
       if (validationTimer) clearTimeout(validationTimer);
-      stopBridgeMonitor?.();
+      const recoveryDrain = stopBridgeMonitor?.() || Promise.resolve();
+      if (updateHandoff === "preparing") {
+        quitRequestedDuringHandoff = true;
+        event.preventDefault();
+        return;
+      }
+      if (selfTest || updateValidation || updateHandoff === "ready" || bridgeExitState === "done") return;
+      event.preventDefault();
+      if (bridgeExitState === "running") return;
+      bridgeExitState = "running";
+      const bundledPython = path.join(ROOT, "runtime", "python", "python.exe");
+      const python = process.env.WECHATVIBE_PYTHON ||
+        (fs.existsSync(bundledPython) ? bundledPython : "python");
+      const launcher = path.join(ROOT, "scripts", "start-real-client.py");
+      const finish = (error, stdout) => {
+        bridgeExitState = "done";
+        let stopped = false;
+        try {
+          const result = JSON.parse(stdout);
+          stopped = !error && (result.stopped === true || result.alreadyStopped === true);
+        } catch (_) { /* A missing result is a shutdown failure. */ }
+        if (!stopped) {
+          dialog.showErrorBox("WechatVibe 退出提示",
+            "本地分析服务未能安全关闭，程序文件可能仍被占用。请在任务管理器中检查此安装目录的后台进程。");
+        }
+        app.quit();
+      };
+      void Promise.resolve(recoveryDrain).catch(() => {}).then(() => {
+        try {
+          execFile(python, [launcher, "--stop-owned-bridge", "--json"], {
+            cwd: ROOT, windowsHide: true, timeout: 40000, maxBuffer: 65536,
+            env: { ...process.env, CHATUI_PORT: String(new URL(url).port),
+              WECHATVIBE_CLIENT_ROOT: ROOT, WECHATVIBE_PYTHON: python },
+          }, finish);
+        } catch (error) {
+          finish(error, "");
+        }
+      });
     });
     app.on("window-all-closed", () => app.quit());
   }

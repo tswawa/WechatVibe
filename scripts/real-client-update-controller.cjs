@@ -126,24 +126,30 @@ function createUpdateController({ app, root, port, instanceId, onState, pauseRec
       expectedVersion, previousVersion: currentVersion, parentPid: process.pid,
       port, instanceId };
     fs.writeFileSync(operationFile, JSON.stringify(operation), { flag: "wx" });
-    pauseRecovery?.();
     let stopped = false;
     try {
+      await pauseRecovery?.();
       const result = await runLauncher(python, root, port, ["--stop-owned-bridge", "--json"]);
       if (result?.stopped !== true && result?.alreadyStopped !== true) {
         throw new Error("本地分析服务未能安全退出");
       }
       stopped = true;
+      if (fs.existsSync(path.join(root, ".local", "real-client-runtime", "no-auto-recovery.json"))) {
+        const error = new Error("当前账号已清除，更新已取消");
+        error.accountCleared = true;
+        throw error;
+      }
       notify("installing", { latestVersion: expectedVersion });
       await spawnHelper(helper, operationFile, workDir);
       notify("restarting", { latestVersion: expectedVersion });
       setImmediate(() => quit());
       return getState();
     } catch (error) {
-      resumeRecovery?.();
-      if (stopped) {
-        void runLauncher(python, root, port, ["--no-open", "--json"]).catch(() => {});
+      if (stopped && !error.accountCleared) {
+        try { await runLauncher(python, root, port, ["--no-open", "--json"]); }
+        catch (_) { /* The monitor or normal exit will handle an unavailable bridge. */ }
       }
+      resumeRecovery?.();
       throw error;
     }
   }

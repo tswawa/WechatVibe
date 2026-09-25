@@ -91,6 +91,8 @@
 
 当前版本为 **[WechatVibe 1.0.2](https://github.com/tswawa/WechatVibe/releases/tag/v1.0.2)**。请下载 Windows 运行版并解压整个文件夹；后续版本可在软件内更新。
 
+**已下载过 1.0.2 的用户请重新下载。** 本次修补沿用 1.0.2 版本号，并更换了更新签名。旧包不会提示同版本修补，也无法验证后续使用新签名的版本；请从本页手动重新下载一次。
+
 | 文件 | 用途 |
 | --- | --- |
 | [WechatVibe-1.0.2-windows-x64.zip](https://github.com/tswawa/WechatVibe/releases/download/v1.0.2/WechatVibe-1.0.2-windows-x64.zip) | Windows 运行版，包含模型和运行环境。 |

@@ -12,6 +12,7 @@ function monitorBridge({ root, url, instanceId, isOpen, onRecovered }) {
   const noAutoRecovery = path.join(root, '.local', 'real-client-runtime', 'no-auto-recovery.json');
   let checking = false;
   let recovering = false;
+  let recoveryDone = Promise.resolve();
   let stopped = false;
   let retryAfter = 0;
 
@@ -52,18 +53,28 @@ function monitorBridge({ root, url, instanceId, isOpen, onRecovered }) {
     recovering = true;
     // The existing launcher verifies process identity and service ownership, and
     // never stops another process or creates a duplicate bridge.
-    execFile(python, [launcher, '--no-open', '--recovery'],
-      { cwd: root, windowsHide: true, env: { ...process.env, CHATUI_PORT: String(port) } }, error => {
+    recoveryDone = new Promise(resolve => {
+      try {
+        execFile(python, [launcher, '--no-open', '--recovery'],
+          { cwd: root, windowsHide: true, timeout: 60000,
+            env: { ...process.env, CHATUI_PORT: String(port) } }, error => {
+            recovering = false;
+            retryAfter = Date.now() + 10000;
+            try {
+              if (!error && !stopped && isOpen() && !fs.existsSync(noAutoRecovery)) onRecovered();
+            } finally { resolve(); }
+          });
+      } catch (_) {
         recovering = false;
-        retryAfter = Date.now() + 10000;
-        if (!error && !stopped && isOpen() && !fs.existsSync(noAutoRecovery)) onRecovered();
-      });
+        resolve();
+      }
+    });
   }
 
   const timer = setInterval(() => { void check(); }, 3000);
   timer.unref();
   void check();
-  return () => { stopped = true; clearInterval(timer); };
+  return () => { stopped = true; clearInterval(timer); return recoveryDone; };
 }
 
 module.exports = { monitorBridge };

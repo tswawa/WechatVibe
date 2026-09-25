@@ -98,6 +98,18 @@ async function main() {
   await flush();
   assert.equal(wrong.recovered(), 0);
   wrong.stop();
+
+  const draining = fixture(false);
+  await flush();
+  assert.equal(draining.calls.length, 1);
+  let finished = false;
+  const drained = draining.stop().then(() => { finished = true; });
+  await flush();
+  assert.equal(finished, false, 'quit must wait for an in-flight recovery launcher');
+  draining.calls[0].done(null);
+  await drained;
+  assert.equal(finished, true);
+  assert.equal(draining.recovered(), 0, 'a stopped monitor must not report recovery');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
