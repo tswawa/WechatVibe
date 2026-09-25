@@ -171,6 +171,8 @@ let startupStage = "account";
 let startupStageEpoch = 0;
 let startupAttempt = 0;
 let startupWatchdog = null;
+let startupAccountRetryUsed = false;
+let startupAccountRetryTimer = null;
 function showStartup(stage, message, options = {}) {
   if (!startupActive) return;
   startupStage = stage;
@@ -194,12 +196,18 @@ function completeStartup() {
   startupActive = false;
   startupAttempt++;
   clearTimeout(startupWatchdog);
+  clearTimeout(startupAccountRetryTimer);
+  startupAccountRetryTimer = null;
+  startupAccountRetryUsed = false;
   byId("startupOverlay").hidden = true;
   byId("appWindow").removeAttribute("inert");
 }
 function retryStartup() {
   if (!startupActive || accountClearedExiting) return;
   startupAttempt++;
+  clearTimeout(startupAccountRetryTimer);
+  startupAccountRetryTimer = null;
+  startupAccountRetryUsed = true;
   showStartup(currentAccount ? "messages" : "sessions", currentAccount ? `正在准备聊天记录 ${preloadDone}/${preloadTotal}` : "正在读取会话列表…");
   void loadSessions();
 }
@@ -380,6 +388,8 @@ function placeReplyPrediction(scroll = true) {
   if (scroll) requestAnimationFrame(() => { if (!card.hidden && card.isConnected) card.scrollIntoView({ block: "nearest" }); });
 }
 function resetAccountView(message = "当前微信账号未就绪", preserveOtherCaches = false) {
+  clearTimeout(startupAccountRetryTimer);
+  startupAccountRetryTimer = null;
   clearInlineIntentPending();
   clearTimeout(selectedAnalysisTimer);
   selectedAnalysisTimer = null;
@@ -478,6 +488,9 @@ function accountUnavailableError(error) {
 }
 function accountChangedError(error) {
   return error?.status === 503 && error?.code === "AccountChangedError";
+}
+function contactSnapshotStaleError(error) {
+  return error?.status === 503 && error?.code === "ContactSnapshotStaleError";
 }
 function handleAccountBoundaryError(error) {
   if (accountChangedError(error)) {
@@ -688,6 +701,8 @@ async function loadSessions(retryChanged = true) {
     }
     accountUnavailable = false;
     currentAccount = data.account;
+    clearTimeout(startupAccountRetryTimer);
+    startupAccountRetryTimer = null;
     const nextSessions = new Map();
     for (const session of data.sessions) if (session?.username) nextSessions.set(session.username, session);
     if (signature === sessionSignature && [...nextSessions.values()].every(session => sessionWindowReady(data.account, session))) return;
@@ -726,10 +741,33 @@ async function loadSessions(retryChanged = true) {
       if (retryChanged !== false) followup = false;
       else showStartup("account", "微信账号已变化，请重试", { retry: true });
     } else if (accountUnavailableError(error)) {
+      const autoRetry = startupActive && !startupAccountRetryUsed;
       if (!accountUnavailable || currentAccount !== null || sessions.size) resetAccountView("当前微信账号未就绪");
       accountUnavailable = true;
       status(byId("sessionList"), "当前微信账号未就绪", () => { void loadSessions(); });
-      showStartup("account", "当前微信账号未就绪", { retry: true, continueEmpty: true });
+      if (autoRetry) {
+        startupAccountRetryUsed = true;
+        showStartup("account", "正在重试连接微信…");
+        const attempt = startupAttempt;
+        const pendingRequest = sessionRequest;
+        startupAccountRetryTimer = setTimeout(() => {
+          startupAccountRetryTimer = null;
+          if (startupActive && startupAttempt === attempt && sessionRequest === pendingRequest &&
+              accountUnavailable && !accountClearedExiting) {
+            void loadSessions();
+          }
+        }, 2500);
+      } else showStartup("account", "当前微信账号未就绪", { retry: true, continueEmpty: true });
+    } else if (contactSnapshotStaleError(error)) {
+      if (currentAccount !== null || sessions.size || !startupActive) {
+        resetAccountView("联系人资料更新中…", true);
+      }
+      status(byId("sessionList"), "联系人资料更新中…", () => { void loadSessions(); });
+      showStartup("sessions", "联系人资料更新中…", { retry: true });
+      const pendingRequest = sessionRequest;
+      setTimeout(() => {
+        if (pendingRequest === sessionRequest && !accountClearedExiting) void loadSessions();
+      }, 2000);
     } else {
       if (!sessions.size && !accountUnavailable) status(byId("sessionList"), "会话读取失败，请重试", () => { void loadSessions(); });
       if (startupActive) showStartup(currentAccount && preloadTotal ? "messages" : "sessions",
@@ -2894,6 +2932,9 @@ loadCatalog();
 setInterval(() => { if (!catalogReady && !document.hidden) loadCatalog(); }, 30000);
 async function startInitialLoad() {
   const attempt = ++startupAttempt;
+  clearTimeout(startupAccountRetryTimer);
+  startupAccountRetryTimer = null;
+  startupAccountRetryUsed = false;
   showStartup("account", "正在连接当前微信账号…");
   let healthReady = false;
   try {
