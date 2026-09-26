@@ -6,6 +6,8 @@ import re
 
 
 def classify(message_type, content):
+    type_name = (message_type if isinstance(message_type, str) else
+                 str(message_type) if isinstance(message_type, int) else "消息")
     text = content if isinstance(content, str) else ""
     text = re.sub(r"^(?:wxid_[\w-]+|[\w-]+@chatroom)\s*:\s*", "", text.strip())
     if text.startswith(("<msg", "<?xml", "<sysmsg", "<revokemsg")):
@@ -22,10 +24,10 @@ def classify(message_type, content):
             match = re.search(r"<title>(.*?)</title>", text, re.S)
             return "other", re.sub(r"<[^>]+>", "", match.group(1))[:80] if match else "[应用消息]"
         return "other", "[消息]"
-    if message_type != "文本":
-        if "图片" in message_type:
+    if type_name != "文本":
+        if "图片" in type_name:
             return "image", "[图片]"
-        return "other", "[" + str(message_type) + "]"
+        return "other", "[" + type_name + "]"
     return "text", text
 
 

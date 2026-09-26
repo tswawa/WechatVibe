@@ -89,6 +89,14 @@ async function startShell(extraEnv = {}, extraArgs = [], monitorDrain) {
         RELEASES_URL: "https://github.com/tswawa/WechatVibe/releases",
         checkForUpdates: async () => ({ status: "current" }),
       };
+      if (name === "./real-client-update-proxy.cjs") return {
+        createUpdateProxyFetch: () => ({ fetchImpl: async () => ({}),
+          enableSavedLoopbackFallback: async () => false }),
+      };
+      if (name === "./real-client-model.cjs") return {
+        ModelDownload: class { cancel() {} getState() { return { phase: "idle" }; } },
+      };
+      if (name === path.join(ROOT, "node_modules", "undici")) return { ProxyAgent: class {} };
       if (name === "./real-client-update-controller.cjs") return {
         createUpdateController(options) {
           updateOptions = options;

@@ -11,6 +11,10 @@ ipcRenderer.on("real-client:update-state", (_event, state) => {
   if (state && typeof state === "object")
     window.dispatchEvent(new CustomEvent("wechatvibe-update-state", { detail: state }));
 });
+ipcRenderer.on("real-client:model-download-state", (_event, state) => {
+  if (state && typeof state === "object")
+    window.dispatchEvent(new CustomEvent("wechatvibe-model-download-state", { detail: state }));
+});
 
 const DOC_URLS = new Set([
   "https://www.myersbriggs.org/my-mbti-personality-type/the-mbti-preferences/",
@@ -62,6 +66,19 @@ contextBridge.exposeInMainWorld("desktopHost", Object.freeze({
   getAppVersion() {
     if (window.top !== window) return Promise.resolve(null);
     return ipcRenderer.invoke("real-client:app-version");
+  },
+  getModelDownloadState() {
+    if (window.top !== window) return Promise.resolve({ phase: "blocked" });
+    return ipcRenderer.invoke("real-client:model-download-state");
+  },
+  downloadLayaModel() {
+    if (window.top !== window || !navigator.userActivation.isActive)
+      return Promise.resolve({ phase: "blocked" });
+    return ipcRenderer.invoke("real-client:model-download");
+  },
+  chooseModelDirectory() {
+    if (window.top !== window || !navigator.userActivation.isActive) return Promise.resolve(null);
+    return ipcRenderer.invoke("real-client:model-choose-directory");
   },
   checkForUpdates() {
     if (window.top !== window) return Promise.resolve({ status: "blocked" });

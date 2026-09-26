@@ -54,7 +54,7 @@ FORBIDDEN_FILES = {
 PRIVATE_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".pem", ".key", ".pub", ".p12", ".pfx", ".jks", ".kdbx", ".log"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".jfif", ".webp", ".avif", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".ico"}
 SENSITIVE_STEM_RE = re.compile(r"(?:auth|authorization|credentials?|secrets?|tokens?|keys?|api[-_]?key|private[-_]?key)(?:[._-].*)?\Z")
-PUBLIC_CODE_SUFFIXES = {".py", ".pyi", ".pyd", ".js", ".cjs", ".mjs", ".ts", ".md"}
+PUBLIC_CODE_SUFFIXES = {".py", ".pyi", ".pyd", ".js", ".cjs", ".mjs", ".ts", ".mts", ".md"}
 DATABASE_SUFFIX_RE = re.compile(r"\.(?:db|sqlite|sqlite3)(?:[-.](?:wal|shm|journal|bak|backup))?\Z")
 ALLOWED_APP_IMAGES = {
     ("resources", "client", "chatui", "assets", "wechatvibe-icon.png"),
@@ -64,6 +64,12 @@ DEPENDENCY_IMAGE_ROOTS = (
     ("resources", "client", "runtime", "python", "lib", "site-packages", "win32com"),
     ("resources", "client", "runtime", "python", "lib", "site-packages", "wechatauto"),
 )
+SDK_CODE_ROOTS = (
+    ("resources", "client", "node_modules", "@anthropic-ai", "sdk"),
+    ("resources", "client", "node_modules", "openai"),
+)
+SDK_CODE_DIRS = {"messages", "sessions", "credentials"}
+SDK_CODE_SUFFIXES = {".js", ".mjs", ".ts", ".mts", ".map"}
 # Keep the builder's preflight in lockstep with the receiving extractor.
 REQUIRED_FILES = extractor.REQUIRED_FILES
 ALLOWED_PUBLIC_KEY = ("resources", "client", "scripts", "update-signing.pub")
@@ -74,6 +80,7 @@ ASAR_SCRIPTS = (
     "scripts/real-client-recovery.cjs",
     "scripts/real-client-update.cjs",
     "scripts/real-client-update-proxy.cjs",
+    "scripts/real-client-model.cjs",
     "scripts/real-client-update-controller.cjs",
     "scripts/real-client-update-helper.cjs",
     "scripts/update-signing.pub",
@@ -106,12 +113,18 @@ def _check_private_path(relative: Path, *, directory: bool) -> None:
     lowered = tuple(part.casefold() for part in parts)
     undici_cache = (lowered[:6] == ("resources", "client", "node_modules", "undici", "lib", "cache") or
                     lowered[:7] == ("resources", "client", "node_modules", "undici", "lib", "web", "cache"))
-    forbidden_dirs = FORBIDDEN_DIRS - {"cache"} if undici_cache else FORBIDDEN_DIRS
+    sdk_root = next((root for root in SDK_CODE_ROOTS if lowered[:len(root)] == root), None)
+    sdk_code_path = bool(sdk_root and any(part in SDK_CODE_DIRS for part in lowered[len(sdk_root):]))
+    forbidden_dirs = FORBIDDEN_DIRS - ({"cache"} if undici_cache else set())
+    if sdk_code_path:
+        forbidden_dirs -= SDK_CODE_DIRS
     if (any(part in forbidden_dirs or part.startswith(".env.") for part in lowered[:-1]) or
             (directory and (lowered[-1] in forbidden_dirs or lowered[-1].startswith(".env.")))):
         raise ValueError(f"private or generated directory is forbidden: {relative}")
     if directory:
         return
+    if sdk_code_path and relative.suffix.casefold() not in SDK_CODE_SUFFIXES:
+        raise ValueError(f"non-code file in SDK code directory is forbidden: {relative}")
     name = lowered[-1]
     if lowered == ALLOWED_PUBLIC_KEY:
         return
@@ -277,7 +290,7 @@ def _write_archive(temp: Path, rows: list[tuple[Path, Path, bool, os.stat_result
 
 
 def build_release(source: Path, output_dir: Path, version: str,
-                  node_exe: Path | None = None) -> Path:
+                  node_exe: Path | None = None, *, with_model: bool = False) -> Path:
     if not isinstance(version, str) or len(version) > 80 or not VERSION_RE.fullmatch(version):
         raise ValueError("version must be stable SemVer X.Y.Z")
     source = Path(source).absolute()
@@ -288,21 +301,24 @@ def build_release(source: Path, output_dir: Path, version: str,
         raise ValueError("output directory cannot be inside package input")
     rows = _scan(source)
     _require_package(rows, version, node_exe)
+    included = (rows if with_model else
+                [row for row in rows if row[1].parts[:3] != ("resources", "client", ".models")])
     output_dir.mkdir(parents=True, exist_ok=True)
     _check_stat(output_dir, output_dir.lstat(), directory=True)
-    target = output_dir / f"WechatVibe-{version}-windows-x64.zip"
+    suffix = "-windows-x64-full.zip" if with_model else "-windows-x64.zip"
+    target = output_dir / f"WechatVibe-{version}{suffix}"
     if target.exists() or target.is_symlink():
         raise FileExistsError(f"release archive already exists: {target}")
     handle, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=output_dir)
     os.close(handle)
     temp = Path(temp_name)
     try:
-        _write_archive(temp, rows)
+        _write_archive(temp, included)
         if temp.stat().st_size > MAX_ARCHIVE_BYTES:
             raise ValueError("compressed archive exceeds 2 GiB signing limit")
         with zipfile.ZipFile(temp) as archive:
             inspected = extractor.inspect(archive)
-            if len(inspected) != len(rows) + 1:
+            if len(inspected) != len(included) + 1:
                 raise ValueError("archive member count changed during build")
             bad = archive.testzip()
             if bad is not None:
@@ -322,9 +338,12 @@ def main() -> None:
     parser.add_argument("--version", required=True, help="stable X.Y.Z version")
     parser.add_argument("--output-dir", type=Path, required=True, help="directory for the unsigned release ZIP")
     parser.add_argument("--node-exe", type=Path, help="Node executable with project @electron/asar installed")
+    parser.add_argument("--with-model", action="store_true",
+                        help="include the Laya model in a separate -windows-x64-full.zip archive")
     args = parser.parse_args()
     try:
-        archive = build_release(args.input, args.output_dir, args.version, args.node_exe)
+        archive = build_release(args.input, args.output_dir, args.version, args.node_exe,
+                                with_model=args.with_model)
     except (OSError, ValueError, json.JSONDecodeError, zipfile.BadZipFile, RuntimeError) as error:
         parser.exit(1, f"Windows release build rejected: {error}\n")
     print(json.dumps({"archive": str(archive), "bytes": archive.stat().st_size, "version": args.version}, ensure_ascii=True))

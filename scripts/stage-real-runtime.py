@@ -34,7 +34,10 @@ PYTHON_ROOT_PACKAGES = (
 # These are declared upstream but absent in the already-working read-only host.
 # Their imports are confined to optional GUI/OCR/media paths, not this bridge.
 KNOWN_MISSING_OPTIONAL = {"winsdk", "imageio-ffmpeg", "pyautogui"}
-NODE_ROOT_PACKAGES = ("@huggingface/tokenizers", "onnxruntime-node", "tsx", "undici")
+NODE_ROOT_PACKAGES = (
+    "@anthropic-ai/sdk", "@google/genai", "@huggingface/tokenizers",
+    "ollama", "onnxruntime-node", "openai", "tsx", "undici",
+)
 SKIP_PARTS = {"__pycache__", "test", "tests", "testing", "demo", "demos", "examples",
               ".git", ".cache", "cache"}
 SKIP_NAMES = {"direct_url.json", "auth.json", "credentials.json", ".gitkeep"}
@@ -71,8 +74,12 @@ def safe_name(path: Path, *, node_package: str | None = None) -> bool:
     parts = {part.lower() for part in path.parts}
     name = path.name.lower()
     excluded = SKIP_PARTS - {"cache"} if node_package == "undici" else SKIP_PARTS
+    # SDKs ship importable credentials.mjs/js modules. These contain code, not
+    # user credentials; the private JSON/key formats remain excluded below.
+    sdk_credentials_code = (node_package in {"openai", "@anthropic-ai/sdk"} and
+                            path.suffix.lower() in {".js", ".mjs", ".ts", ".mts"})
     return (not parts.intersection(excluded) and name not in SKIP_NAMES and
-            not name.startswith("credentials") and
+            (not name.startswith("credentials") or sdk_credentials_code) and
             path.suffix.lower() not in {".pyc", ".pyo", ".pdb", ".key", ".p12", ".pfx", ".pem"})
 
 
@@ -259,6 +266,18 @@ def stage_node_packages() -> dict:
     return {"packages": summaries, "uninstalledOptional": sorted(set(omitted))}
 
 
+def verify_staged_sdk_imports() -> None:
+    """Reject a portable build whose filtered SDK tree cannot load at all."""
+    node_exe = STAGE / "runtime" / "node" / "node.exe"
+    for package in ("openai", "@anthropic-ai/sdk", "@google/genai", "ollama"):
+        probe = subprocess.run(
+            [str(node_exe), "--input-type=module", "-e", f"await import({json.dumps(package)})"],
+            cwd=STAGE, capture_output=True, text=True, check=False,
+        )
+        if probe.returncode != 0:
+            raise RuntimeError(f"staged model SDK cannot load: {package}")
+
+
 def stage_node_runtime() -> dict:
     executable = os.environ.get("WECHATVIBE_BUILD_NODE") or shutil.which("node")
     if not executable:
@@ -322,6 +341,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Node executable staged: {node['version']}; license={node['license']}")
     node.update(stage_node_packages())
     print(f"Node package closure staged: {len(node['packages'])} packages")
+    verify_staged_sdk_imports()
+    print("Staged model SDK imports verified")
     manifest = {"python": python, "node": node,
                 "stagedInventory": {
                     "python": staged_inventory(STAGE / "runtime" / "python"),

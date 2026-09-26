@@ -1,6 +1,6 @@
 {
   "name": "wechatvibe",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "type": "module",
   "description": "WechatVibe 本机只读微信会话分析桌面客户端",
@@ -19,8 +19,12 @@
     "build:portable": "python scripts/build-portable-clean.py"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
+    "@google/genai": "2.24.0",
     "@huggingface/tokenizers": "0.2.0",
+    "ollama": "0.6.3",
     "onnxruntime-node": "1.30.0",
+    "openai": "7.23.0",
     "tsx": "4.23.15",
     "undici": "7.29.1"
   },

@@ -13,15 +13,17 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = (
     "start-real-client.py", "start-real-client.cmd", "desktop-main.cjs",
     "real-client-shell.cjs", "real-client-preload.cjs", "real-client-recovery.cjs",
-    "real-client-update.cjs", "real-client-update-proxy.cjs",
+    "real-client-update.cjs", "real-client-update-proxy.cjs", "real-client-model.cjs",
     "real-client-update-controller.cjs",
     "real-client-update-helper.cjs", "real-client-update-extract.py",
-    "update-signing.pub",
+    "update-signing.pub", "model-files.json", "model-asset.json",
 )
 BRIDGE = (
-    "account_api.py", "account_store.py", "analysis_server.ts", "batch_engine.py",
+    "account_api.py", "account_store.py", "conversation_selection.py",
+    "analysis_server.ts", "batch_engine.py",
     "batch_state.py", "cache_source.py", "chat_server.py", "history_browser.py",
-    "instance_identity.py", "live_source.py", "profile_signals.py", "profile_state.py",
+    "instance_identity.py", "live_source.py", "model_source.py", "model_bundle.py",
+    "local_model_source.py", "model_install.py", "profile_signals.py", "profile_state.py",
     "real_backend.py", "real_http.py", "snapshot_cache.py", "wechat_bridge.py",
     "windows_file_owners.py",
 )
@@ -41,19 +43,18 @@ MODEL_FILES = (
     "model.onnx", "onnx_config.json", "rl_agent_config.json", "README.md",
     "tokenizer/tokenizer.json", "tokenizer/tokenizer_config.json",
 )
-# Keep these in sync with the pinned bundle in setup-models.ts. README is a notice, not a model input.
-MODEL_PINS = {
-    "model.onnx": (646870871, "0b095e005a4c295cae74d47b7eb6931c369d48f5b720b45278d774165798310c"),
-    "tokenizer/tokenizer.json": (34363188, "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"),
-    "rl_agent_config.json": (473, "9a669a70961064c3c6cc76d2afb8bc5fb10dcd8349bb66e5f7b9b1afb74440d5"),
-    "onnx_config.json": (332, "13db475255d076da580a3435f28904e3360fe7f6380d7e3c75ee586e966ca5f0"),
-    "tokenizer/tokenizer_config.json": (524, "6c6b2d8e3c84ce0e671c129cd6b374b235d6f9863042a5836358d00a89bbb5a1"),
-}
+# One manifest pins staging, local selection and the separately downloaded model.
+_model_manifest = json.loads((ROOT / "scripts/model-files.json").read_text(encoding="utf-8"))
+MODEL_PINS = {name: (entry["bytes"], entry["sha256"])
+              for name, entry in _model_manifest["files"].items()}
+if _model_manifest.get("schema") != 1 or set(MODEL_FILES) != set(MODEL_PINS):
+    raise RuntimeError("pinned model manifest differs from stage allowlist")
 PUBLIC_FILES = (
     "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "chatui/index.html",
     "chatui/app.js", "chatui/style.css", "chatui/kaomoji.js",
     "chatui/data/analysis-catalog.json", "chatui/assets/wechatvibe-icon.png",
     "chatui/assets/wechatvibe-icon.ico", "electron/analysis.ts",
+    "electron/model-connectors.ts", "electron/api-insights.ts",
     "shared/contracts.ts", "src/lib/labels.ts", "native-reader/THIRD_PARTY_NOTICES.md",
 )
 

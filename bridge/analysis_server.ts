@@ -1,5 +1,6 @@
-// Local Laya analysis server (JSONL over stdin/stdout) for the real-data chat UI.
-// Reuses the existing production analysis entry; no network, text stays local.
+// Analysis server (JSONL over stdin/stdout) for the real-data chat UI.
+// The default Laya worker stays local; --api-only makes explicit SDK requests
+// to the user-selected model endpoint for message insights.
 //
 // Protocol (one JSON object per line on stdin, one per line on stdout):
 //   {"id":N,"cmd":"observe","text":"..."}
@@ -34,6 +35,12 @@ import { EXPRESSIONS } from "../electron/laya/expression";
 import { SOCIAL_NEEDS } from "../electron/laya/social-intents";
 import { GENERAL_LABEL_SCHEMA } from "../electron/laya/general-intent";
 import { MessageBatchInputError, type BatchMessage, type BatchContext } from "../electron/laya/message-batch";
+import {
+  generateStructured, listModels, ModelConnectorError, testConnection,
+  type ModelConfig, type Protocol,
+} from "../electron/model-connectors";
+import { analyzeApiInsights, updateApiPortrait,
+  type ApiInsightMessage, type ApiPortrait, type ApiPortraitMessage } from "../electron/api-insights";
 
 // Observed, unattributed text has model-only generic labels; v3 is reserved for fine targets.
 const OBSERVED_LABEL_SCHEMA = "generic-v3";
@@ -59,6 +66,18 @@ function top(items: Score[] | undefined): Score | null {
 
 function emit(obj: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify(obj) + "\n");
+}
+
+function connectorConfig(req: Record<string, unknown>, requireModel: boolean): ModelConfig {
+  if (typeof req.protocol !== "string" || typeof req.baseUrl !== "string" ||
+      (req.apiKey !== undefined && req.apiKey !== null && typeof req.apiKey !== "string") ||
+      (requireModel && typeof req.model !== "string") ||
+      (!requireModel && req.model !== undefined && typeof req.model !== "string")) {
+    throw new ModelConnectorError("invalid-request", "模型配置格式不正确");
+  }
+  return { protocol: req.protocol as Protocol, baseUrl: req.baseUrl,
+    apiKey: typeof req.apiKey === "string" ? req.apiKey : "",
+    model: typeof req.model === "string" ? req.model : "" };
 }
 
 const EVIDENCE_AXES = {
@@ -339,11 +358,13 @@ async function main(): Promise<void> {
   }
   const providerFlag = process.argv.indexOf("--provider");
   const initialProvider = providerFlag < 0 ? "gpu" : process.argv[providerFlag + 1];
+  const apiOnly = process.argv.includes("--api-only");
   if (initialProvider !== "cpu" && initialProvider !== "gpu") {
     throw new Error("invalid runtime provider");
   }
+  let localProvider: "cpu" | "gpu" = initialProvider;
   configureModelDir(path.resolve(process.env.LAYA_MODEL_DIR || path.join(process.cwd(), ".models", "laya")));
-  const model = await configureAnalysisRuntime(initialProvider);
+  const model = apiOnly ? { state: "ready" as const } : await configureAnalysisRuntime(initialProvider);
   emit({ ready: model.state === "ready", model, analysisVersion: ANALYSIS_VERSION });
 
   const rl = readline.createInterface({ input: process.stdin });
@@ -363,13 +384,77 @@ async function main(): Promise<void> {
     const id = req.id;
     const cmd = typeof req.cmd === "string" ? req.cmd : "observe";
     try {
+      if (cmd === "model:list") {
+        const result = await listModels(connectorConfig(req, false));
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result });
+        continue;
+      }
+      if (cmd === "model:test") {
+        const result = await testConnection(connectorConfig(req, true));
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result });
+        continue;
+      }
+      if (cmd === "model:generate") {
+        if (typeof req.system !== "string" || typeof req.prompt !== "string" ||
+            !Number.isInteger(req.maxOutputTokens) ||
+            (req.maxOutputTokens as number) < 1 || (req.maxOutputTokens as number) > 2048) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
+        const result = await generateStructured(connectorConfig(req, true), {
+          system: req.system, prompt: req.prompt,
+          maxOutputTokens: req.maxOutputTokens as number,
+        });
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result });
+        continue;
+      }
+      if (cmd === "model:insights") {
+        if (!Array.isArray(req.messages) || !Array.isArray(req.targetIds)) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
+        const result = await analyzeApiInsights(connectorConfig(req, true), {
+          messages: req.messages as ApiInsightMessage[],
+          targetIds: req.targetIds as string[],
+        });
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result });
+        continue;
+      }
+      if (cmd === "model:portrait") {
+        if (!Array.isArray(req.messages) ||
+            (req.previous !== null && (!req.previous || typeof req.previous !== "object" ||
+                                       Array.isArray(req.previous)))) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
+        const result = await updateApiPortrait(connectorConfig(req, true),
+          req.previous as ApiPortrait | null, req.messages as ApiPortraitMessage[]);
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result });
+        continue;
+      }
       if (cmd === "configure-runtime") {
+        if (apiOnly) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
         if (req.provider !== "cpu" && req.provider !== "gpu") {
           emit({ id, error: "bad-request:provider" });
           continue;
         }
+        localProvider = req.provider;
         emit({ id, cmd, analysisVersion: ANALYSIS_VERSION,
-          modelStatus: await configureAnalysisRuntime(req.provider) });
+          modelStatus: await configureAnalysisRuntime(localProvider) });
+        continue;
+      }
+      if (cmd === "configure-model-dir") {
+        if (apiOnly || typeof req.modelDir !== "string" || req.modelDir.length > 4096 ||
+            !path.isAbsolute(req.modelDir)) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "bad-request:model-dir" });
+          continue;
+        }
+        configureModelDir(req.modelDir);
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION,
+          modelStatus: await configureAnalysisRuntime(localProvider) });
         continue;
       }
       if (cmd === "status") {
@@ -381,6 +466,10 @@ async function main(): Promise<void> {
         continue;
       }
       if (cmd === "targets") {
+        if (apiOnly) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
         const status = getModelStatus();
         if (status.state !== "ready") {
           emit({ id, error: `model-${status.state}` });
@@ -390,6 +479,10 @@ async function main(): Promise<void> {
         continue;
       }
       if (cmd === "batch") {
+        if (apiOnly) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
         const status = getModelStatus();
         if (status.state !== "ready") {
           emit({ id, error: `model-${status.state}` });
@@ -399,12 +492,20 @@ async function main(): Promise<void> {
         continue;
       }
       if (cmd === "forecast") {
+        if (apiOnly) {
+          emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
+          continue;
+        }
         const status = getModelStatus();
         if (status.state !== "ready") {
           emit({ id, error: `model-${status.state}` });
           continue;
         }
         await handleForecast(id, req);
+        continue;
+      }
+      if (apiOnly) {
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
         continue;
       }
       const text = typeof req.text === "string" ? req.text : "";
@@ -414,11 +515,12 @@ async function main(): Promise<void> {
       }
       await handleObserve(id, text);
     } catch (error) {
-      emit({ id, error: error instanceof MessageBatchInputError ? "bad-request:batch" :
+      emit({ id, error: error instanceof ModelConnectorError ? error.code :
+        error instanceof MessageBatchInputError ? "bad-request:batch" :
         error instanceof Error ? error.name : "error", modelStatus: getModelStatus() });
     }
   }
-  await disposeAnalysisModel();
+  if (!apiOnly) await disposeAnalysisModel();
 }
 
 void main().catch((error: unknown) => {

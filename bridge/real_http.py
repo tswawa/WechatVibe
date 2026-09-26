@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 from real_backend import Backend, ForecastRequestError, WeChatSource, ROOT
 from account_store import AccountConflict, AccountNotFound
 from instance_identity import default_port, instance_id
+from model_source import ModelSourceUnavailable
 
 CHATUI = ROOT / "chatui"
 CONTROL_TOKEN_ENV = "WECHATVIBE_CONTROL_TOKEN"
@@ -89,9 +90,11 @@ def make_handler(backend, accounts=None, control_token=None):
 
         def do_GET(self):
             lease = getattr(backend, "request_lease", None)
+            reader_scope = getattr(getattr(backend, "source", None), "request_scope", None)
             try:
                 with lease() if callable(lease) else nullcontext():
-                    return self._do_GET()
+                    with reader_scope() if callable(reader_scope) else nullcontext():
+                        return self._do_GET()
             except RuntimeError:
                 return self.send(503, {"error": "bridge-closing"})
 
@@ -106,11 +109,34 @@ def make_handler(backend, accounts=None, control_token=None):
                                            "appVersion": APP_VERSION})
                 if parsed.path == "/api/runtime":
                     return self.send(200, backend.runtime())
+                if parsed.path == "/api/local-model":
+                    return self.send(200, backend.local_model_status())
+                if parsed.path == "/api/model-source":
+                    try:
+                        return self.send(200, backend.model_source())
+                    except Exception:
+                        return self.send(503, {"error": "model source unavailable"})
+                if parsed.path == "/api/model-insights":
+                    raw_ids = query.get("ids")
+                    ids = None
+                    if raw_ids is not None:
+                        ids = json.loads(raw_ids)
+                        if not isinstance(ids, list):
+                            raise ValueError("invalid API insight ids")
+                    return self.send(200, backend.model_insights(user_value(query.get("user")), ids))
+                if parsed.path == "/api/model-portrait":
+                    member = query.get("member")
+                    return self.send(200, backend.model_portrait(user_value(query.get("user")),
+                                                                 user_value(member) if member else None))
+                if parsed.path == "/api/analysis-cache":
+                    return self.send(200, backend.analysis_cache_status())
                 if parsed.path == "/api/sessions":
                     data = backend.source.sessions()
                     if accounts is not None:
                         accounts.observe(data)
                     return self.send(200, data)
+                if parsed.path == "/api/conversation-selection":
+                    return self.send(200, backend.conversation_selection())
                 if parsed.path == "/api/accounts" and accounts is not None:
                     return self.send(200, accounts.list())
                 if parsed.path == "/api/messages":
@@ -150,9 +176,11 @@ def make_handler(backend, accounts=None, control_token=None):
 
         def do_POST(self):
             lease = getattr(backend, "request_lease", None)
+            reader_scope = getattr(getattr(backend, "source", None), "request_scope", None)
             try:
                 with lease() if callable(lease) else nullcontext():
-                    return self._do_POST()
+                    with reader_scope() if callable(reader_scope) else nullcontext():
+                        return self._do_POST()
             except RuntimeError:
                 return self.send(503, {"error": "bridge-closing"})
 
@@ -172,7 +200,13 @@ def make_handler(backend, accounts=None, control_token=None):
                 self.send(202, {"stopping": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return
-            if endpoint not in ("/api/analyze", "/api/predict-reply", "/api/messages/batch", "/api/runtime"):
+            model_endpoints = ("/api/model-source/list", "/api/model-source/test",
+                               "/api/model-source/activate", "/api/model-source/clear-key")
+            if endpoint not in ("/api/analyze", "/api/predict-reply", "/api/messages/batch",
+                                 "/api/runtime", "/api/local-model", "/api/model-insights",
+                                 "/api/model-portrait", "/api/analysis-cache/clear",
+                                 "/api/analysis-cache/resume", "/api/conversation-selection",
+                                 *model_endpoints):
                 return self.send(404, {"error": "not found"})
             content_type = [part.strip().lower() for part in self.headers.get("Content-Type", "").split(";")]
             if content_type[0] != "application/json" or any(part != "charset=utf-8" for part in content_type[1:]):
@@ -185,10 +219,60 @@ def make_handler(backend, accounts=None, control_token=None):
                 request = json.loads(self.rfile.read(length).decode("utf-8"))
                 if not isinstance(request, dict) or "texts" in request:
                     raise ValueError("invalid request")
+                if endpoint in model_endpoints:
+                    try:
+                        if endpoint == "/api/model-source/list":
+                            return self.send(200, backend.model_source_list(request))
+                        if endpoint == "/api/model-source/test":
+                            return self.send(200, backend.model_source_test(request))
+                        if endpoint == "/api/model-source/activate":
+                            return self.send(200, backend.model_source_activate(request))
+                        return self.send(200, backend.model_source_clear_key(request))
+                    except ValueError:
+                        return self.send(400, {"error": "invalid model source request"})
+                    except ModelSourceUnavailable as exc:
+                        return self.send(503, {"error": str(exc)})
+                    except Exception:
+                        return self.send(503, {"error": "model source unavailable"})
+                if endpoint == "/api/conversation-selection":
+                    if set(request) != {"expectedAccount", "session", "selected"} or type(request["selected"]) is not bool:
+                        raise ValueError("invalid conversation selection")
+                    return self.send(200, backend.set_conversation_selected(
+                        user_value(request["expectedAccount"]), user_value(request["session"]),
+                        request["selected"]))
                 if endpoint == "/api/runtime":
                     if set(request) != {"provider"} or request["provider"] not in ("cpu", "gpu"):
                         raise ValueError("invalid provider")
                     return self.send(200, backend.configure_runtime(request["provider"]))
+                if endpoint == "/api/local-model":
+                    value = request.get("path")
+                    if set(request) != {"path"} or not isinstance(value, str) or not 1 <= len(value) <= 4096 or any(ord(char) < 32 for char in value):
+                        raise ValueError("invalid model path")
+                    return self.send(200, backend.configure_local_model(value))
+                if endpoint == "/api/model-insights":
+                    account = user_value(request.get("account"))
+                    user = user_value(request.get("user"))
+                    limit = integer(request.get("limit"), 4, 8)
+                    around = request.get("around")
+                    return self.send(202, backend.start_model_insights(
+                        account, user, limit, request.get("targetIds"), around))
+                if endpoint == "/api/model-portrait":
+                    if set(request) not in ({"account", "user"},
+                                            {"account", "user", "member"}):
+                        raise ValueError("invalid portrait request")
+                    member = request.get("member")
+                    return self.send(202, backend.start_model_portrait(
+                        user_value(request.get("account")), user_value(request.get("user")),
+                        user_value(member) if member is not None else None))
+                if endpoint in ("/api/analysis-cache/clear", "/api/analysis-cache/resume"):
+                    if set(request) != {"account", "sourceId"}:
+                        raise ValueError("invalid cache request")
+                    account = user_value(request.get("account"))
+                    source_id = user_value(request.get("sourceId"))
+                    result = (backend.analysis_cache_clear(account, source_id)
+                              if endpoint.endswith("/clear") else
+                              backend.analysis_cache_resume(account, source_id))
+                    return self.send(200, result)
                 if endpoint == "/api/messages/batch":
                     account = user_value(request.get("account"))
                     users = request.get("users")
@@ -215,6 +299,7 @@ def make_handler(backend, accounts=None, control_token=None):
                         member = user_value(member)
                     return self.send(200, backend.predict_reply(user, account, request_id, draft, expected, member))
                 user = user_value(request.get("user"))
+                expected_account = user_value(request.get("account"))
                 mode = request.get("mode")
                 if mode not in ("recent", "history", "incremental"):
                     raise ValueError("invalid mode")
@@ -222,7 +307,8 @@ def make_handler(backend, accounts=None, control_token=None):
                          "all" if mode == "history" and request.get("limit") == "all" else
                          integer(request.get("limit"), 80 if mode == "recent" else 500,
                                  80 if mode == "recent" else 5000))
-                return self.send(202, {"job": backend.start(user, mode, limit)})
+                return self.send(202, {"job": backend.start(user, mode, limit,
+                                                             expected_account=expected_account)})
             except ForecastRequestError as exc:
                 return self.send(exc.status, {**echo, "error": exc.code, "message": exc.message})
             except (ValueError, UnicodeError, json.JSONDecodeError) as exc:

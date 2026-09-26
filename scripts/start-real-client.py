@@ -8,6 +8,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -24,10 +25,25 @@ sys.path.insert(0, str(PROJECT_ROOT / "bridge"))
 from instance_identity import default_port, instance_id
 
 PORTABLE_PYTHON = PROJECT_ROOT / "runtime" / "python" / "python.exe"
-PYTHON_EXE = Path(os.environ.get("WECHATVIBE_PYTHON") or
-                  (PORTABLE_PYTHON if PORTABLE_PYTHON.is_file() else sys.executable))
+
+
+def selected_python_exe(value=None):
+    """Resolve a PATH command before comparing it with a running Python image."""
+    value = value if value is not None else os.environ.get("WECHATVIBE_PYTHON")
+    if not value:
+        return PORTABLE_PYTHON if PORTABLE_PYTHON.is_file() else Path(sys.executable)
+    candidate = Path(value)
+    if candidate.name == value:
+        resolved = shutil.which(value)
+        if resolved:
+            return Path(resolved).resolve()
+    return candidate
+
+
+PYTHON_EXE = selected_python_exe()
 START_TIMEOUT = 20.0
 STOP_TIMEOUT = 30.0
+STOP_CLEANUP_TIMEOUT = 8.0
 CONTROL_TOKEN_ENV = "WECHATVIBE_CONTROL_TOKEN"
 CONTROL_TOKEN_HEADER = "X-WechatVibe-Control-Token"
 
@@ -384,6 +400,7 @@ def verify_owned_process(config, record):
         alive, created = process_identity(record["pid"])
         if not alive or created != record["created_filetime"]:
             raise LauncherError("Bridge process changed during ownership check")
+        return process
     except (OSError, ValueError, psutil.Error) as error:
         raise LauncherError(f"Cannot verify bridge process ownership: {error}") from error
 
@@ -403,30 +420,124 @@ def request_owned_shutdown(config, token):
         connection.close()
 
 
+def bridge_exited(record):
+    alive, created = process_identity(record["pid"])
+    return not alive or (created is not None and created != record["created_filetime"])
+
+
+def wait_for_bridge_exit(record, deadline):
+    while time.monotonic() < deadline:
+        if bridge_exited(record):
+            return True
+        time.sleep(min(0.2, max(0, deadline - time.monotonic())))
+    return bridge_exited(record)
+
+
+def owned_model_children(config, bridge_process):
+    """Recognize only this verified bridge's direct analysis workers."""
+    import psutil
+    expected_script = (config.root / "bridge" / "analysis_server.ts").resolve()
+    children = []
+    try:
+        for child in bridge_process.children():
+            try:
+                command = child.cmdline()
+                image = Path(child.exe()).resolve(strict=True)
+                if (image.name.casefold() == "node.exe" and len(command) >= 4 and
+                        command[1:3] == ["--import", "tsx"] and
+                        Path(command[3]).resolve() == expected_script):
+                    children.append(child)
+            except psutil.NoSuchProcess:
+                continue
+    except (OSError, ValueError, psutil.Error) as error:
+        raise LauncherError(f"Cannot inspect owned analysis workers: {error}") from error
+    return children
+
+
+def finish_owned_shutdown(config, record, children, timeout=STOP_CLEANUP_TIMEOUT):
+    """Bound cleanup to the exact bridge and model children verified above."""
+    import psutil
+    deadline = time.monotonic() + timeout
+    exited = bridge_exited(record)
+    if exited and not children:
+        return
+    if not exited:
+        try:
+            process = verify_owned_process(config, record)
+        except LauncherError:
+            if not bridge_exited(record):
+                raise
+        else:
+            known = {child.pid: child for child in children}
+            known.update({child.pid: child for child in owned_model_children(config, process)})
+            children = list(known.values())
+    for child in children:
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+        except psutil.Error as error:
+            raise LauncherError(f"Could not stop owned analysis worker: {error}") from error
+    _, alive_children = psutil.wait_procs(children, timeout=min(2, max(0, deadline - time.monotonic())))
+    for child in alive_children:
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+        except psutil.Error as error:
+            raise LauncherError(f"Could not stop owned analysis worker: {error}") from error
+    _, alive_children = psutil.wait_procs(alive_children, timeout=min(2, max(0, deadline - time.monotonic())))
+    if alive_children:
+        raise LauncherError("Owned analysis worker did not exit")
+    if wait_for_bridge_exit(record, min(deadline, time.monotonic() + 2)):
+        return
+    try:
+        process = verify_owned_process(config, record)
+    except LauncherError:
+        if bridge_exited(record):
+            return
+        raise
+    try:
+        process.terminate()
+    except psutil.NoSuchProcess:
+        pass
+    except psutil.Error as error:
+        raise LauncherError(f"Could not stop owned bridge: {error}") from error
+    if not wait_for_bridge_exit(record, deadline):
+        raise LauncherError(f"Owned bridge PID {record['pid']} did not exit after bounded cleanup")
+
+
 def stop_owned_bridge(config, timeout=STOP_TIMEOUT):
     with launch_mutex(config):
         state = health(config)
         if state not in ("ready", "unavailable"):
             raise LauncherError(f"Port {config.port} has a wrong service ({state}); nothing was stopped")
         records = owned_bridge_records(config)
-        if state == "unavailable":
-            if records or port_occupied(config.port):
-                raise LauncherError("Bridge is live or port is occupied without matching health; nothing was stopped")
+        if state == "unavailable" and not records:
+            if port_occupied(config.port):
+                raise LauncherError("Port is occupied without matching health; nothing was stopped")
             return {"stopped": False, "alreadyStopped": True}
         if len(records) != 1:
             raise LauncherError(f"Expected one owned bridge record; found {len(records)}; nothing was stopped")
         _, record = records[0]
-        verify_owned_process(config, record)
-        if health(config) != "ready":
-            raise LauncherError("Bridge health changed before shutdown; nothing was stopped")
-        request_owned_shutdown(config, record["control_token"])
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            alive, created = process_identity(record["pid"])
-            if not alive or (created is not None and created != record["created_filetime"]):
+        try:
+            process = verify_owned_process(config, record)
+        except LauncherError:
+            if bridge_exited(record):
                 return {"stopped": True, "pid": record["pid"]}
-            time.sleep(min(0.2, max(0, deadline - time.monotonic())))
-        raise LauncherError(f"Bridge PID {record['pid']} did not exit within {timeout:g}s after shutdown")
+            raise
+        children = owned_model_children(config, process)
+        if state == "ready":
+            current = health(config)
+            if current == "ready":
+                request_owned_shutdown(config, record["control_token"])
+            elif current != "unavailable":
+                raise LauncherError("Bridge health changed to another service; nothing was stopped")
+        if wait_for_bridge_exit(record, time.monotonic() + timeout):
+            finish_owned_shutdown(config, record, children)
+            return {"stopped": True, "pid": record["pid"]}
+        finish_owned_shutdown(config, record, children)
+        return {"stopped": True, "pid": record["pid"], "forced": True}
 
 
 def open_client(url, root=PROJECT_ROOT):

@@ -15,6 +15,10 @@
 | 组件 | 锁定版本 | 许可证与保留位置 |
 | --- | --- | --- |
 | `@huggingface/tokenizers` | 0.2.0 | Apache-2.0；安装包内 `LICENSE` |
+| `@anthropic-ai/sdk` | 0.128.0 | MIT；安装包内 `LICENSE`，用于 Anthropic 兼容接口 |
+| `@google/genai` | 2.24.0 | Apache-2.0；安装包内 `LICENSE`，用于 Gemini 兼容接口 |
+| `openai` | 7.23.0 | Apache-2.0；安装包内 `LICENSE`，用于 Responses 和 Chat Completions 接口 |
+| `ollama` | 0.6.3 | MIT；安装包内 `LICENSE`，用于 Ollama 接口 |
 | `onnxruntime-node` / `onnxruntime-common` | 1.30.0 | MIT；上游 [LICENSE](https://github.com/microsoft/onnxruntime/blob/v1.30.0/LICENSE)，全文见下文 |
 | `tsx` | 4.23.15 | MIT；安装包内 `LICENSE` |
 | `undici` | 7.29.1 | MIT；安装包内 `LICENSE`，用于应用内更新的 HTTP 代理连接 |
@@ -27,7 +31,7 @@
 
 完整 Python 版本集合见 [python-requirements.lock.txt](python-requirements.lock.txt)，Node 直接及传递版本见 [package-lock.json](package-lock.json)。读取层的来源说明见 [native-reader/THIRD_PARTY_NOTICES.md](native-reader/THIRD_PARTY_NOTICES.md)。便携构建只复制所需的 Python 包与 Node 包闭包，并保留包内实际附带的许可文件；它不复制整个开发环境。
 
-`wechatauto-replica` 声明的 `winsdk`、`imageio-ffmpeg`、`pyautogui` 在已验证的只读运行集合中未安装，分别属于其可选 GUI、OCR 或媒体路径。这里不声称这些路径可用。当前客户端不会发送微信消息，也不会把聊天数据上传给第三方服务。
+`wechatauto-replica` 声明的 `winsdk`、`imageio-ffmpeg`、`pyautogui` 在已验证的只读运行集合中未安装，分别属于其可选 GUI、OCR 或媒体路径。这里不声称这些路径可用。客户端不会发送微信消息。默认 Laya 模式在本机分析；用户主动启用 API 模式后，消息分析所需的聊天片段会发送到所配置的服务地址。
 
 ## README 演示头像
 

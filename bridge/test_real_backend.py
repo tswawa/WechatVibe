@@ -140,6 +140,11 @@ class BackendTests(unittest.TestCase):
         self.backend.tasks.join()
         return self.backend.analysis(user)["job"]
 
+    def test_stale_account_cannot_enqueue_analysis(self):
+        with self.assertRaises(AccountChangedError):
+            self.backend.start("friend", "recent", 1, expected_account="other-account")
+        self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
+
     def test_quoted_reply_is_text_but_other_app_messages_are_not(self):
         quoted_type = (57 << 32) | 49
         class FakeDB:

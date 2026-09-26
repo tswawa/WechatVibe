@@ -79,12 +79,22 @@ class BuildReleaseTests(unittest.TestCase):
             names = archive.namelist()
             self.assertEqual(names[0], "win-unpacked/")
             self.assertTrue(all(name.startswith("win-unpacked/") for name in names))
+            self.assertFalse(any(name.startswith("win-unpacked/resources/client/.models/")
+                                 for name in names))
             self.assertEqual(len(names), len(set(names)))
             self.assertTrue(all(info.date_time == builder.ZIP_TIME for info in archive.infolist()))
             self.assertIsNone(archive.testzip())
             self.assertEqual(len(builder.extractor.inspect(archive)), len(names))
         candidate = builder.extractor.extract(first, first.parent, "1.0.2")
-        self.assertEqual((candidate / "resources/client/.models/laya/model.onnx").read_bytes(), b"synthetic model")
+        self.assertFalse((candidate / "resources/client/.models").exists())
+
+    def test_full_variant_has_distinct_name_and_includes_model(self):
+        archive_path = builder.build_release(self.source, self.root / "full", "1.0.2",
+                                             with_model=True)
+        self.assertEqual(archive_path.name, "WechatVibe-1.0.2-windows-x64-full.zip")
+        with zipfile.ZipFile(archive_path) as archive:
+            self.assertEqual(archive.read(
+                "win-unpacked/resources/client/.models/laya/model.onnx"), b"synthetic model")
 
     def test_version_and_required_artifacts(self):
         for version in ("1.0.2-preview.1", "v1.0.2", "01.0.2", "1.0.2+build", "1.0.2.3", "1.٠.2"):
@@ -152,6 +162,18 @@ class BuildReleaseTests(unittest.TestCase):
         with zipfile.ZipFile(archive) as release:
             self.assertIn("win-unpacked/resources/client/node_modules/undici/lib/cache/memory-cache-store.js",
                           release.namelist())
+
+    def test_sdk_message_code_is_allowed_but_private_data_is_not(self):
+        code = "resources/client/node_modules/@anthropic-ai/sdk/resources/messages/index.js"
+        self.add_file(code)
+        archive = builder.build_release(self.source, self.root / "sdk-code", "1.0.2")
+        with zipfile.ZipFile(archive) as release:
+            self.assertIn("win-unpacked/" + code, release.namelist())
+        private = self.add_file("resources/client/node_modules/@anthropic-ai/sdk/"
+                                "resources/messages/private.txt")
+        with self.assertRaisesRegex(ValueError, "forbidden"):
+            builder.build_release(self.source, self.root / "sdk-private", "1.0.2")
+        private.unlink()
 
     def test_symlink_and_output_containment(self):
         with self.assertRaisesRegex(ValueError, "output directory cannot"):

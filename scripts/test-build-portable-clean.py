@@ -41,6 +41,7 @@ class CleanPortableBuildTests(unittest.TestCase):
         self.put(self.source / "scripts/real-client-update-extract.py", b"extractor")
         self.put(self.source / "scripts/update-signing.pub", b"public key")
         self.put(self.source / "bridge/chat_server.py", b"server")
+        self.put(self.source / "bridge/conversation_selection.py", b"selection")
         self.put(self.source / "bridge/unreviewed.py", b"unreviewed")
         self.put(self.source / "chat.db", b"private")
         self.put(self.models / "model.onnx", b"model")
@@ -54,7 +55,7 @@ class CleanPortableBuildTests(unittest.TestCase):
             mock.patch.object(stage, "SCRIPTS", ("real-client-update-helper.cjs",
                                                     "real-client-update-extract.py",
                                                     "update-signing.pub")),
-            mock.patch.object(stage, "BRIDGE", ("chat_server.py",)),
+            mock.patch.object(stage, "BRIDGE", ("chat_server.py", "conversation_selection.py")),
             mock.patch.object(stage, "NATIVE_READER", ()),
             mock.patch.object(stage, "LAYA", ()),
             mock.patch.object(stage, "MODEL_FILES", ("model.onnx",)),
@@ -83,6 +84,7 @@ class CleanPortableBuildTests(unittest.TestCase):
         self.assertTrue((self.client / "scripts/real-client-update-helper.cjs").is_file())
         self.assertTrue((self.client / "scripts/real-client-update-extract.py").is_file())
         self.assertTrue((self.client / "scripts/update-signing.pub").is_file())
+        self.assertEqual((self.client / "bridge/conversation_selection.py").read_bytes(), b"selection")
         self.assertFalse((self.client / "bridge/unreviewed.py").exists())
         self.assertFalse((self.client / "chat.db").exists())
         with self.assertRaisesRegex(ValueError, "already has a manifest"):
@@ -154,6 +156,11 @@ class CleanPortableBuildTests(unittest.TestCase):
                      "update-signing.pub"):
             self.assertIn(name, load("stage_real_client_check", "stage-real-client.py").SCRIPTS)
             self.assertTrue((builder.ROOT / "scripts" / name).is_file())
+
+    def test_real_selection_backend_is_in_stage_allowlist(self):
+        actual_stage = load("stage_selection_check", "stage-real-client.py")
+        self.assertIn("conversation_selection.py", actual_stage.BRIDGE)
+        self.assertTrue((builder.ROOT / "bridge/conversation_selection.py").is_file())
 
     def test_runtime_stage_refuses_nonempty_directory_without_replacing_it(self):
         stale = self.root / "stale-stage"

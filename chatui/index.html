@@ -9,7 +9,7 @@
 </head>
 <body>
 
-<div class="startup-overlay" id="startupOverlay" role="status" aria-live="polite">
+<div class="startup-overlay" id="startupOverlay" role="status" aria-live="polite" hidden>
   <div class="startup-card">
     <div class="startup-brand"><img src="/assets/wechatvibe-icon.png" alt=""><strong>WechatVibe</strong></div>
     <div class="startup-steps" aria-hidden="true">
@@ -26,7 +26,7 @@
 </div>
 
 <div class="desktop-titlebar" aria-hidden="true"></div>
-<div class="app-window" id="appWindow" inert>
+<div class="app-window" id="appWindow">
 
   <!-- ================= COLUMN 1: LEFT NAVIGATION RAIL ================= -->
   <aside class="nav-rail">
@@ -191,6 +191,7 @@
               <path d="M12 2a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5zm0 12c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4zm7.5-9.5l.94 2.06 2.06.94-2.06.94-.94 2.06-.94-2.06-2.06-.94 2.06-.94.94-2.06z"/>
             </svg>
             <span id="personaHeaderTitle">人物画像分析</span>
+            <span class="portrait-source-badge" id="portraitSourceBadge">本地 Laya</span>
           </div>
 
           <!-- Group Member Tabs (仅在群聊时展示，供在群聊内切换成员画像) -->
@@ -212,10 +213,10 @@
         <div class="persona-status-strip">
           <div class="status-item">
             <span class="status-dot-pulse"></span>
-            <span>消息：<strong id="stripDbPath">待读取</strong></span>
+            <span><span id="stripMessageLabel">消息：</span><strong id="stripDbPath">待读取</strong></span>
           </div>
           <div class="status-item">
-            <span>文本：<strong id="stripMsgCount">待读取</strong></span>
+            <span><span id="stripTextLabel">文本：</span><strong id="stripMsgCount">待读取</strong></span>
           </div>
           <div class="status-item" id="stripConfidenceItem" style="display:none">
           <span>已分析：<strong id="stripConfidence"></strong></span>
@@ -307,6 +308,8 @@
             <p class="bot-summary-text" id="botSummaryText">
               <!-- Dynamically rendered -->
             </p>
+            <div class="api-portrait-status" id="apiPortraitStatus" role="status" hidden></div>
+            <button type="button" class="ui-retry" id="btnRetryApiPortrait" hidden>重试 API 画像</button>
           </div>
         </div>
 
@@ -386,20 +389,117 @@
             </select>
           </div>
           <div class="settings-row">
-            <span>模型设备</span>
-            <div class="runtime-control">
-              <span id="runtimeStatus" role="status">待读取</span>
-              <select id="selectRuntimeProvider" aria-label="模型设备" disabled>
-                <option value="cpu">CPU</option>
-                <option value="gpu">GPU</option>
+            <label for="selectModelSource">模型来源</label>
+            <div class="model-source-choice">
+              <span id="modelSourceActive" role="status">待读取</span>
+              <select id="selectModelSource" aria-label="模型来源" disabled>
+                <option value="local">本地部署</option>
+                <option value="api">API 接入</option>
               </select>
             </div>
           </div>
+          <section class="model-source-panel" id="localModelSettings">
+            <div class="settings-row">
+              <span>本地模型</span>
+              <span class="model-source-value">Laya</span>
+            </div>
+            <div class="settings-row">
+              <label for="selectRuntimeProvider">模型设备</label>
+              <div class="runtime-control">
+                <span id="runtimeStatus" role="status">待读取</span>
+                <select id="selectRuntimeProvider" aria-label="模型设备" disabled>
+                  <option value="cpu">CPU</option>
+                  <option value="gpu">GPU</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-row">
+              <span>模型文件</span>
+              <div class="local-model-control">
+                <span id="localModelStatus" role="status">检测中…</span>
+                <button type="button" class="settings-action-btn" id="btnDownloadLocalModel">下载模型</button>
+                <button type="button" class="settings-action-btn" id="btnChooseLocalModelDir">选择目录</button>
+              </div>
+            </div>
+            <div class="local-model-progress" id="localModelDownloadProgress" role="status" hidden></div>
+            <div class="model-source-actions" id="localModelActions" hidden>
+              <button type="button" class="settings-action-btn" id="btnActivateLocal">启用本地模型</button>
+            </div>
+          </section>
+          <section class="model-source-panel api-model-settings" id="apiModelSettings" hidden>
+            <div class="settings-row">
+              <label for="selectApiProtocol">接口协议</label>
+              <select id="selectApiProtocol">
+                <option value="anthropic">Anthropic 兼容</option>
+                <option value="responses">Responses 兼容</option>
+                <option value="chat_completions">Completions（旧版）</option>
+                <option value="gemini">Gemini 兼容</option>
+                <option value="ollama">Ollama 兼容</option>
+              </select>
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiBaseUrl">Base URL</label>
+              <input id="inputApiBaseUrl" type="text" inputmode="url" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiKey">API Key <span id="apiKeySaved" hidden>已保存</span></label>
+              <input id="inputApiKey" type="password" placeholder="留空沿用已保存密钥" autocomplete="new-password" spellcheck="false">
+            </div>
+            <div class="model-source-discovery">
+              <button type="button" class="settings-action-btn" id="btnFetchApiModels">获取模型列表</button>
+              <span id="apiModelCount" role="status"></span>
+            </div>
+            <div class="model-source-field">
+              <label for="selectApiModel">模型列表</label>
+              <select id="selectApiModel" aria-label="模型列表" disabled>
+                <option value="">获取列表后选择</option>
+              </select>
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiModelId">模型 ID</label>
+              <input id="inputApiModelId" type="text" placeholder="可手动填写模型 ID" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiContextTokens">上下文大小（tokens）</label>
+              <input id="inputApiContextTokens" type="number" min="4096" max="1000000" step="1" placeholder="接口未提供时填写，例如 128000" inputmode="numeric">
+            </div>
+            <div class="model-source-actions">
+              <button type="button" class="settings-action-btn" id="btnTestApiModel">测试连接</button>
+              <button type="button" class="settings-action-btn model-source-primary" id="btnActivateApi">保存并启用</button>
+              <button type="button" class="settings-danger-btn" id="btnClearApiKey" hidden>清除密钥</button>
+            </div>
+            <div id="apiModelTestStatus" class="model-source-status" role="status"></div>
+          </section>
+          <div class="model-source-status-row">
+            <div id="modelSourceStatus" class="model-source-status" role="status"></div>
+            <button type="button" class="settings-action-btn" id="btnReloadModelSource" hidden>重新读取</button>
+          </div>
+          <div class="settings-row">
+            <span>信息列表</span>
+            <button type="button" class="settings-action-btn" id="btnManageConversations">管理会话</button>
+          </div>
+          <section class="conversation-manager" id="conversationManager" hidden>
+            <div class="conversation-manager-head">
+              <strong id="conversationManagerCount">会话目录</strong>
+              <input type="search" id="conversationSearch" placeholder="搜索会话" aria-label="搜索会话">
+            </div>
+            <div class="conversation-manager-list" id="conversationManagerList"></div>
+            <div id="conversationManagerStatus" class="model-source-status" role="status"></div>
+          </section>
           <div class="settings-row">
             <span>管理账号</span>
-            <button type="button" class="settings-action-btn" id="btnManageAccounts">查看账号</button>
+            <div class="account-status-control">
+              <span id="accountCheckSummary" role="status">正在连接微信…</span>
+              <button type="button" class="settings-action-btn" id="btnManageAccounts">查看账号</button>
+            </div>
           </div>
           <section class="account-manager" id="accountManager" hidden>
+            <div class="account-validation" id="accountValidation">
+              <span id="accountCheckStatus" role="status" aria-live="polite">正在确认当前账号…</span>
+              <div class="account-validation-actions">
+                <button type="button" class="settings-action-btn" id="btnRetryAccountCheck" hidden>重试</button>
+              </div>
+            </div>
             <div class="account-manager-head">
               <span>已保存的微信账号</span>
               <div class="account-manager-head-actions">
@@ -416,6 +516,21 @@
               <div class="account-confirm-actions">
                 <button type="button" class="settings-action-btn" id="btnCancelDeleteAccount">取消</button>
                 <button type="button" class="settings-danger-btn" id="btnConfirmDeleteAccount">确认清除</button>
+              </div>
+            </div>
+          </section>
+          <div class="settings-row">
+            <span>分析缓存</span>
+            <button type="button" class="settings-action-btn" id="btnManageAnalysisCache">查看缓存</button>
+          </div>
+          <section class="analysis-cache-manager" id="analysisCacheManager" hidden>
+            <div class="analysis-cache-list" id="analysisCacheList"></div>
+            <div id="analysisCacheStatus" role="status" aria-live="polite"></div>
+            <div class="analysis-cache-confirm" id="analysisCacheConfirm" hidden>
+              <p id="analysisCacheQuestion"></p>
+              <div class="account-confirm-actions">
+                <button type="button" class="settings-action-btn" id="btnCancelAnalysisCacheClear">取消</button>
+                <button type="button" class="settings-danger-btn" id="btnConfirmAnalysisCacheClear">确认清除</button>
               </div>
             </div>
           </section>

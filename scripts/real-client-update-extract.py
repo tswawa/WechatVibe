@@ -35,7 +35,6 @@ REQUIRED_FILES = (
     "resources/client/scripts/update-signing.pub",
     "resources/client/bridge/chat_server.py",
     "resources/client/chatui/index.html",
-    "resources/client/.models/laya/model.onnx",
 )
 
 

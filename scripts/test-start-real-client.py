@@ -3,6 +3,7 @@
 import importlib.util
 import io
 import json
+import shutil
 import socket
 import subprocess
 import sys
@@ -201,6 +202,72 @@ class LauncherTests(unittest.TestCase):
         path.write_text(json.dumps(record), encoding="utf-8")
         return path
 
+    def isolated_shutdown_fixture(self, *, exit_delay):
+        """Launch a data-free HTTP fixture under this test's temporary root."""
+        script = self.root / "bridge" / "chat_server.py"
+        script.write_text('''
+import json
+import os
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = json.dumps({"version": "real-ui-1", "instanceId": os.environ["FIXTURE_INSTANCE_ID"]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        if self.path != "/api/control/shutdown" or self.headers.get("X-WechatVibe-Control-Token") != "a" * 64:
+            self.send_error(403)
+            return
+        body = b'{"stopping":true}'
+        self.send_response(202)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    def log_message(self, *args):
+        pass
+
+server = HTTPServer(("127.0.0.1", int(os.environ["CHATUI_PORT"])), Handler)
+server.serve_forever()
+server.server_close()
+time.sleep(float(os.environ["FIXTURE_EXIT_DELAY"]))
+''', encoding="utf-8")
+        process = subprocess.Popen([str(self.config.python_exe), str(script)], cwd=self.root,
+                                   env={**launcher.os.environ, "CHATUI_PORT": str(self.config.port),
+                                        "FIXTURE_INSTANCE_ID": self.config.instance_id,
+                                        "FIXTURE_EXIT_DELAY": str(exit_delay)},
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+        def cleanup():
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=5)
+
+        self.addCleanup(cleanup)
+        deadline = time.monotonic() + 5
+        while launcher.health(self.config) != "ready" and time.monotonic() < deadline:
+            self.assertIsNone(process.poll(), "isolated fixture exited before health")
+            time.sleep(0.05)
+        self.assertEqual(launcher.health(self.config), "ready")
+        alive, created = launcher.process_identity(process.pid)
+        self.assertTrue(alive)
+        self.assertIsInstance(created, int)
+        self.config.runtime_dir.mkdir(parents=True, exist_ok=True)
+        (self.config.runtime_dir / f"bridge-{process.pid}.json").write_text(json.dumps({
+            "pid": process.pid, "port": self.config.port, "instance_id": self.config.instance_id,
+            "created_filetime": created, "control_token": "a" * 64,
+        }), encoding="utf-8")
+        return process
+
     def test_start_passes_control_token_only_to_bridge_environment(self):
         log = self.root / "bridge.log"
         with patch.object(launcher.subprocess, "Popen") as start:
@@ -244,7 +311,8 @@ class LauncherTests(unittest.TestCase):
     def test_stop_owned_bridge_requires_token_and_exact_process_ownership(self):
         server = self.server("real-ui-1")
         self.owned_record()
-        with patch.object(launcher, "process_identity", side_effect=[(True, 42), (True, 42), (False, None)]), \
+        with patch.object(launcher, "process_identity", side_effect=[(True, 42), (True, 42),
+                                                                    (False, None), (False, None)]), \
              patch("psutil.Process") as process:
             process.return_value.exe.return_value = str(self.config.python_exe)
             process.return_value.cmdline.return_value = [str(self.config.python_exe),
@@ -280,19 +348,103 @@ class LauncherTests(unittest.TestCase):
             launcher.stop_owned_bridge(self.config)
         self.assertEqual(server.control_tokens, [])
 
-    def test_stop_timeout_reports_failure_without_killing_process(self):
+    def test_stop_timeout_uses_only_verified_bounded_cleanup(self):
         server = self.server("real-ui-1")
         self.owned_record()
         with patch.object(launcher, "process_identity", return_value=(True, 42)), \
-             patch("psutil.Process") as process:
+             patch("psutil.Process") as process, \
+             patch.object(launcher, "finish_owned_shutdown") as finish:
             process.return_value.exe.return_value = str(self.config.python_exe)
             process.return_value.cmdline.return_value = [str(self.config.python_exe),
                                                             str(self.root / "bridge" / "chat_server.py")]
-            with self.assertRaisesRegex(launcher.LauncherError, "did not exit"):
-                launcher.stop_owned_bridge(self.config, timeout=0.05)
+            self.assertEqual(launcher.stop_owned_bridge(self.config, timeout=0.05),
+                             {"stopped": True, "pid": 47231, "forced": True})
             process.return_value.kill.assert_not_called()
             process.return_value.terminate.assert_not_called()
+            self.assertEqual(finish.call_count, 1)
+            self.assertEqual(finish.call_args.args[1]["pid"], 47231)
         self.assertEqual(server.control_tokens, ["a" * 64])
+
+    def test_unavailable_owned_bridge_is_waited_out_without_second_shutdown(self):
+        self.owned_record()
+        with patch.object(launcher, "process_identity", side_effect=[(True, 42), (True, 42),
+                                                                    (False, None), (False, None)]), \
+             patch("psutil.Process") as process, \
+             patch.object(launcher, "request_owned_shutdown") as request:
+            process.return_value.exe.return_value = str(self.config.python_exe)
+            process.return_value.cmdline.return_value = [str(self.config.python_exe),
+                                                            str(self.root / "bridge" / "chat_server.py")]
+            self.assertEqual(launcher.stop_owned_bridge(self.config, timeout=0.5),
+                             {"stopped": True, "pid": 47231})
+            request.assert_not_called()
+
+    def test_real_isolated_bridge_finishes_after_port_closes(self):
+        process = self.isolated_shutdown_fixture(exit_delay=8)
+        launcher.request_owned_shutdown(self.config, "a" * 64)
+        deadline = time.monotonic() + 3
+        while launcher.health(self.config) != "unavailable" and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertEqual(launcher.health(self.config), "unavailable")
+        self.assertIsNone(process.poll(), "bridge must still be draining after the port closes")
+        self.assertEqual(launcher.stop_owned_bridge(self.config, timeout=12),
+                         {"stopped": True, "pid": process.pid})
+        process.wait(timeout=3)
+        self.assertIsNotNone(process.poll())
+
+    def test_real_isolated_bridge_is_bounded_after_grace_timeout(self):
+        process = self.isolated_shutdown_fixture(exit_delay=60)
+        self.assertEqual(launcher.stop_owned_bridge(self.config, timeout=0.25),
+                         {"stopped": True, "pid": process.pid, "forced": True})
+        process.wait(timeout=3)
+        self.assertIsNotNone(process.poll())
+
+    def test_selected_python_command_uses_path_image(self):
+        self.assertEqual(launcher.selected_python_exe("python"),
+                         Path(shutil.which("python")).resolve())
+
+    def test_forced_cleanup_interrupts_only_verified_analysis_worker(self):
+        from unittest.mock import Mock
+        record = {"pid": 47231, "created_filetime": 42}
+        parent = Mock()
+        child = Mock(pid=12345)
+        with patch.object(launcher, "bridge_exited", side_effect=[False, False, True]), \
+             patch.object(launcher, "verify_owned_process", return_value=parent), \
+             patch.object(launcher, "owned_model_children", return_value=[child]), \
+             patch("psutil.wait_procs", return_value=([], [])):
+            launcher.finish_owned_shutdown(self.config, record, [], timeout=1)
+        child.terminate.assert_called_once()
+        parent.terminate.assert_not_called()
+
+    def test_analysis_child_match_requires_direct_child_and_exact_script(self):
+        from unittest.mock import Mock
+        node = self.root / "node.exe"
+        node.write_bytes(b"fixture")
+        script = self.root / "bridge" / "analysis_server.ts"
+        script.write_text("fixture only", encoding="utf-8")
+        expected = Mock()
+        expected.exe.return_value = str(node)
+        expected.cmdline.return_value = [str(node), "--import", "tsx", str(script), "--provider", "cpu"]
+        unrelated = Mock()
+        unrelated.exe.return_value = str(self.config.python_exe)
+        unrelated.cmdline.return_value = expected.cmdline.return_value
+        wrong_script = Mock()
+        wrong_script.exe.return_value = str(node)
+        wrong_script.cmdline.return_value = [str(node), "--import", "tsx", str(self.root / "other.ts")]
+        parent = Mock()
+        parent.children.return_value = [expected, unrelated, wrong_script]
+        self.assertEqual(launcher.owned_model_children(self.config, parent), [expected])
+
+    def test_bounded_cleanup_terminates_only_verified_bridge_after_worker_drains(self):
+        from unittest.mock import Mock
+        record = {"pid": 47231, "created_filetime": 42}
+        parent = Mock()
+        with patch.object(launcher, "bridge_exited", return_value=False), \
+             patch.object(launcher, "verify_owned_process", return_value=parent), \
+             patch.object(launcher, "owned_model_children", return_value=[]), \
+             patch.object(launcher, "wait_for_bridge_exit", side_effect=[False, True]), \
+             patch("psutil.wait_procs", return_value=([], [])):
+            launcher.finish_owned_shutdown(self.config, record, [], timeout=1)
+        parent.terminate.assert_called_once()
 
     def test_installed_runtime_rejects_external_python_image(self):
         portable = self.root / "runtime" / "python" / "python.exe"
@@ -306,13 +458,13 @@ class LauncherTests(unittest.TestCase):
             with self.assertRaisesRegex(launcher.LauncherError, "installed runtime"):
                 launcher.verify_owned_process(self.config, {"pid": 47231, "created_filetime": 42})
 
-    def test_stop_without_service_is_idempotent_but_live_unhealthy_record_aborts(self):
+    def test_stop_without_service_is_idempotent_but_unverified_record_aborts(self):
         self.assertEqual(launcher.stop_owned_bridge(self.config),
                          {"stopped": False, "alreadyStopped": True})
         self.owned_record()
         with patch.object(launcher, "process_identity", return_value=(True, 42)):
-            with self.assertRaisesRegex(launcher.LauncherError, "live or port is occupied"):
-                launcher.stop_owned_bridge(self.config)
+            with self.assertRaisesRegex(launcher.LauncherError, "Cannot verify bridge process ownership"):
+                launcher.stop_owned_bridge(self.config, timeout=0.05)
 
     def test_stop_json_command_reports_outcome(self):
         with patch.object(launcher, "PROJECT_ROOT", self.root), \

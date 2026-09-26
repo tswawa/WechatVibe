@@ -54,7 +54,14 @@ class AccountAPI:
             if self.registered.get(account) == display:
                 return
             with self.backend.source.lock:
-                actual, workdir, _ = self.backend._scoped_identity()
+                if sessions.get("messagesReady", True):
+                    actual, workdir, _ = self.backend._scoped_identity()
+                else:
+                    verified = getattr(self.backend.source, "verified_identity", None)
+                    if callable(verified):
+                        actual, workdir = verified(messages=False)
+                    else:
+                        actual, workdir = self.backend.source.identity()
                 if actual != account:
                     raise AccountConflict("微信账号已变化，请刷新")
                 self.store.register(actual, workdir, *display)

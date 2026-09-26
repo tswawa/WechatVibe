@@ -5,6 +5,7 @@ const path = require("node:path");
 const { monitorBridge } = require("./real-client-recovery.cjs");
 const { checkForUpdates, downloadAndStageUpdate, errorStatus, RELEASES_URL } = require("./real-client-update.cjs");
 const { createUpdateProxyFetch } = require("./real-client-update-proxy.cjs");
+const { ModelDownload } = require("./real-client-model.cjs");
 
 const ROOT = process.env.WECHATVIBE_CLIENT_ROOT ?
   path.resolve(process.env.WECHATVIBE_CLIENT_ROOT) : path.resolve(__dirname, "..");
@@ -61,6 +62,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
   let updateCheckPromise = null;
   let updateController = null;
   let updateNetwork = null;
+  let modelDownload = null;
   let savedUpdateFallbackActive = false;
   const testState = { themes: [], blockedPopups: 0, themeWaiter: null };
 
@@ -138,6 +140,24 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
     ipcMain.handle("real-client:app-version", (event) => {
       if (!trustedFrame(event)) return null;
       return app.getVersion();
+    });
+
+    ipcMain.handle("real-client:model-download-state", (event) => {
+      if (!trustedFrame(event)) return { phase: "blocked" };
+      return modelDownload?.getState() || { phase: "idle" };
+    });
+
+    ipcMain.handle("real-client:model-download", (event) => {
+      if (!trustedFrame(event) || selfTest || updateValidation || !modelDownload) return { phase: "blocked" };
+      return modelDownload.start();
+    });
+
+    ipcMain.handle("real-client:model-choose-directory", async (event) => {
+      if (!trustedFrame(event) || selfTest || updateValidation || !window) return null;
+      const choice = await dialog.showOpenDialog(window, {
+        title: "选择 Laya 模型目录", properties: ["openDirectory"],
+      });
+      return choice.canceled ? null : choice.filePaths[0] || null;
     });
 
     ipcMain.handle("real-client:check-updates", (event) => {
@@ -221,6 +241,14 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
         session: session.defaultSession,
         ProxyAgent: require(path.join(ROOT, "node_modules", "undici")).ProxyAgent,
       });
+      modelDownload = new ModelDownload({
+        root: ROOT, python: process.env.WECHATVIBE_PYTHON || path.join(ROOT, "runtime", "python", "python.exe"),
+        fetchImpl: updateNetwork.fetchImpl,
+        enableFallback: () => updateNetwork.enableSavedLoopbackFallback(),
+        onState: state => {
+          if (window && !window.isDestroyed()) window.webContents.send("real-client:model-download-state", state);
+        },
+      });
       session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
       session.defaultSession.setPermissionCheckHandler(() => false);
       session.defaultSession.on("will-download", (event) => event.preventDefault());
@@ -277,7 +305,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
           try {
             const themeDone = new Promise((resolve) => { testState.themeWaiter = resolve; });
             const result = await contents.executeJavaScript(
-              "(async () => ({ platform: window.desktopHost?.platform, accepted: window.desktopHost?.setTheme('light'), darkAccepted: window.desktopHost?.setTheme('dark'), rejected: window.desktopHost?.setTheme('invalid'), frozen: Object.isFrozen(window.desktopHost), copyDraftExposed: typeof window.desktopHost?.copyDraft === 'function', emptyCopyRejected: await window.desktopHost?.copyDraft('') === false, nodeAccess: typeof require, popup: window.open('https://www.myersbriggs.org/my-mbti-personality-type/the-mbti-preferences/') === null }))()",
+              "(async () => ({ platform: window.desktopHost?.platform, accepted: window.desktopHost?.setTheme('light'), darkAccepted: window.desktopHost?.setTheme('dark'), rejected: window.desktopHost?.setTheme('invalid'), frozen: Object.isFrozen(window.desktopHost), startupAccessible: document.querySelector('#startupOverlay')?.hidden === true && !document.querySelector('#appWindow')?.hasAttribute('inert'), copyDraftExposed: typeof window.desktopHost?.copyDraft === 'function', emptyCopyRejected: await window.desktopHost?.copyDraft('') === false, nodeAccess: typeof require, popup: window.open('https://www.myersbriggs.org/my-mbti-personality-type/the-mbti-preferences/') === null }))()",
             );
             await themeDone;
             process.stdout.write(JSON.stringify({ ok: true, hidden: !window.isVisible(), ...result,
@@ -339,6 +367,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
     });
     app.on("before-quit", event => {
       exiting = true;
+      modelDownload?.cancel();
       if (validationTimer) clearTimeout(validationTimer);
       const recoveryDrain = stopBridgeMonitor?.() || Promise.resolve();
       if (updateHandoff === "preparing") {
@@ -370,7 +399,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
       void Promise.resolve(recoveryDrain).catch(() => {}).then(() => {
         try {
           execFile(python, [launcher, "--stop-owned-bridge", "--json"], {
-            cwd: ROOT, windowsHide: true, timeout: 40000, maxBuffer: 65536,
+            cwd: ROOT, windowsHide: true, timeout: 90000, maxBuffer: 65536,
             env: { ...process.env, CHATUI_PORT: String(new URL(url).port),
               WECHATVIBE_CLIENT_ROOT: ROOT, WECHATVIBE_PYTHON: python },
           }, finish);

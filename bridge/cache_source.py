@@ -2,15 +2,56 @@
 from __future__ import annotations
 
 import os
+import re
 
 from wechatauto.db import WeChatDB
 from snapshot_cache import SnapshotCacheMixin
 
 
+ANCHOR_DATABASES = frozenset(("session/session.db", "contact/contact.db"))
+MESSAGE_DATABASE = re.compile(r"message/message_\d+\.db\Z")
+
+
+def database_groups(rels):
+    """Find role candidates inside the already selected account, plus message shards."""
+    rels = tuple(rels)
+    anchors = {rel for rel in rels if os.path.basename(rel.replace("\\", "/")).casefold()
+               in ("session.db", "contact.db")}
+    # Match the installed reader's case-sensitive message inventory exactly.
+    messages = {rel for rel in rels if MESSAGE_DATABASE.fullmatch(rel.replace("\\", "/"))}
+    return anchors, messages
+
+
+def resolve_anchor_rels(rels, validated):
+    """Prefer a verified canonical role; otherwise accept one verified fallback."""
+    candidates, _messages = database_groups(rels)
+    selected = {}
+    for role in ("session", "contact"):
+        valid = [rel for rel in candidates if os.path.basename(rel.replace("\\", "/")).casefold()
+                 == role + ".db" and rel in validated]
+        canonical = next((rel for rel in valid if rel.replace("\\", "/").casefold()
+                          == role + "/" + role + ".db"), None)
+        if canonical is not None:
+            selected[role] = canonical
+        elif len(valid) == 1:
+            selected[role] = valid[0]
+        else:
+            return None
+    return selected
+
+
+class IncompleteKeyCache(RuntimeError):
+    """A selected account's individually validated cache keys, without a usable reader."""
+
+    def __init__(self, keys):
+        super().__init__("local WeChat key cache unavailable for selected account")
+        self.validated_keys = dict(keys)
+
+
 class CacheOnlyWeChatDB(SnapshotCacheMixin, WeChatDB):
     def get_self_info(self):
         for rel, path, _ in self._db_files:
-            if os.path.basename(path) != "contact.db":
+            if rel != self.anchor_rels["contact"]:
                 continue
             conn = self._open(rel)
             try:
@@ -32,7 +73,8 @@ class CacheOnlyWeChatDB(SnapshotCacheMixin, WeChatDB):
         self._keys = {}
         stable = self._stable_key_file()
         cache_paths = [stable, self.keys_file, self.keys_file + ".bak"]
-        required = {rel for rel, _, _ in self._db_files}
+        files = {rel for rel, _, _ in self._db_files}
+        _anchors, messages = database_groups(files)
         for path in cache_paths:
             if not path or not os.path.isfile(path):
                 continue
@@ -40,7 +82,7 @@ class CacheOnlyWeChatDB(SnapshotCacheMixin, WeChatDB):
                 candidates = self._load_key_cache(path)
             except (AttributeError, TypeError, ValueError):
                 continue
-            for rel in required - self._keys.keys():
+            for rel in files - self._keys.keys():
                 key = candidates.get(rel)
                 if not isinstance(key, bytes) or len(key) not in (32, 48):
                     continue
@@ -51,9 +93,13 @@ class CacheOnlyWeChatDB(SnapshotCacheMixin, WeChatDB):
                     valid = False
                 if not valid:
                     del self._keys[rel]
-        if not required or required - self._keys.keys():
+        selected = resolve_anchor_rels(files, self._keys)
+        if selected is None or not messages or (set(selected.values()) | messages) - self._keys.keys():
+            validated = dict(self._keys)
             self._keys = {}
-            raise RuntimeError("local WeChat key cache unavailable for selected account")
+            raise IncompleteKeyCache(validated)
+        self.anchor_rels = selected
+        self.messages_ready = True
 
     def _auto_diagnose_key_failure(self, _rel):
         raise RuntimeError("local WeChat key cache unavailable for selected account")

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -36,6 +37,14 @@ HEX64 = re.compile(rb"[0-9a-fA-F]{64}")
 # no valid layout is silently dropped.
 SQL_KEY_LITERAL = re.compile(rb"x'([0-9a-fA-F]{64,192})'")
 CONFIG_READ_LIMIT = 64 * 1024
+MAX_CONFIG_ENTRIES_PER_DIR = 64
+MAX_REGISTRY_VALUES_PER_KEY = 128
+CONFIG_FILE_SUFFIXES = frozenset((".ini", ".json", ".txt", ".cfg"))
+CONFIG_PATH_KEYS = (
+    "dataDir", "data_dir", "fileSavePath", "savePath", "path", "defaultFileSavePath"
+)
+DATA_ROOT_NAMES = ("xwechat_files", "WeChat Files", "xwechat_files_data")
+TEXT_CONFIG_PATH = re.compile(r"[A-Za-z]:[\\/][^\s\x00-\x1f\"']+")
 
 
 @dataclass
@@ -132,14 +141,28 @@ def active_account_id(
 
 
 def _decode_config_bytes(data: bytes) -> str:
-    """Decode a small config file honouring UTF-8 / UTF-16 BOMs (bounded, never logged)."""
+    """Decode a small config file, including legacy GBK paths (bounded, never logged)."""
     if data[:3] == b"\xef\xbb\xbf":
         return data[3:].decode("utf-8", "replace")
     if data[:2] == b"\xff\xfe":
         return data[2:].decode("utf-16-le", "replace")
     if data[:2] == b"\xfe\xff":
         return data[2:].decode("utf-16-be", "replace")
-    return data.decode("utf-8", "replace")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            return data.decode("gbk")
+        except UnicodeDecodeError:
+            return data.decode("utf-8", "replace")
+
+
+def _existing_absolute_directory(value: str) -> str | None:
+    """Accept only an existing absolute directory, never a relative config value."""
+    candidate = value.strip().strip("\ufeff").strip().strip('"').strip("'")
+    if not candidate or not os.path.isabs(candidate) or not os.path.isdir(candidate):
+        return None
+    return os.path.abspath(candidate)
 
 
 def _config_line_directory(line: str) -> str | None:
@@ -152,42 +175,86 @@ def _config_line_directory(line: str) -> str | None:
     stripped = line.strip().strip("\ufeff").strip()
     if not stripped:
         return None
-    if "=" in stripped:
-        _, _, value = stripped.partition("=")
-        candidate = value.strip().strip('"').strip("'")
+    direct = _existing_absolute_directory(stripped)
+    if direct:
+        return direct
+    for separator in ("=", ":"):
+        if separator in stripped:
+            _, _, value = stripped.partition(separator)
+            candidate = _existing_absolute_directory(value)
+            if candidate:
+                return candidate
+    return None
+
+
+def _config_content_directories(content: str) -> list[str]:
+    """Extract upstream-supported JSON, plain-path and text config values."""
+    roots: list[str] = []
+    try:
+        parsed = json.loads(content.strip().lstrip("\ufeff"))
+    except (ValueError, TypeError):
+        parsed = None
+    if isinstance(parsed, dict):
+        values = (parsed.get(key) for key in CONFIG_PATH_KEYS)
+    elif isinstance(parsed, list):
+        values = iter(parsed)
+    elif isinstance(parsed, str):
+        values = iter((parsed,))
     else:
-        candidate = stripped.strip('"').strip("'")
-    if not candidate or not os.path.isabs(candidate):
-        return None
-    return candidate if os.path.isdir(candidate) else None
+        values = iter(())
+    for value in values:
+        if isinstance(value, str):
+            candidate = _existing_absolute_directory(value)
+            if candidate and candidate not in roots:
+                roots.append(candidate)
+    if isinstance(parsed, (dict, list, str)):
+        return roots
+    for line in content.splitlines():
+        candidate = _config_line_directory(line)
+        if candidate and candidate not in roots:
+            roots.append(candidate)
+        # Older WeChat config text can embed a drive path inside a setting line.
+        match = TEXT_CONFIG_PATH.search(line)
+        if match:
+            candidate = _existing_absolute_directory(match.group(0).rstrip("\\/;,"))
+            if candidate and candidate not in roots:
+                roots.append(candidate)
+    return roots
 
 
 def _config_dir_roots() -> list[str]:
-    """Parse narrow small ini files under %APPDATA%/Tencent/xwechat/config for an absolute dir.
-
-    Bounded byte read, UTF-8/UTF-16 BOM aware, and validates each candidate against the existing
-    filesystem. Only this one small config directory is inspected; no registry secrets, no disk
-    scanning, no drive/path is hard-coded.
-    """
+    """Read bounded config files in the six WeChat 4.x config locations."""
     roots: list[str] = []
-    appdata = os.environ.get("APPDATA")
-    if not appdata:
-        return roots
-    config_dir = os.path.join(appdata, "Tencent", "xwechat", "config")
-    if not os.path.isdir(config_dir):
-        return roots
-    for name in _safe_listdir(config_dir):
-        if not name.lower().endswith(".ini"):
+    for env_name in ("APPDATA", "LOCALAPPDATA"):
+        base = os.environ.get(env_name)
+        if not base:
             continue
-        try:
-            with open(os.path.join(config_dir, name), "rb") as handle:
-                data = handle.read(CONFIG_READ_LIMIT)
-        except OSError:
-            continue
-        for line in _decode_config_bytes(data).splitlines():
-            candidate = _config_line_directory(line)
-            if candidate and candidate not in roots:
-                roots.append(candidate)
+        for parts in (("Tencent", "xwechat"),
+                      ("Tencent", "xwechat", "config"),
+                      ("Tencent", "WeChat")):
+            config_dir = os.path.join(base, *parts)
+            if not os.path.isdir(config_dir):
+                continue
+            try:
+                with os.scandir(config_dir) as entries:
+                    candidates = sorted(
+                        (entry for entry in entries
+                         if os.path.splitext(entry.name)[1].lower() in CONFIG_FILE_SUFFIXES),
+                        key=lambda entry: entry.name.lower(),
+                    )[:MAX_CONFIG_ENTRIES_PER_DIR]
+                    for entry in candidates:
+                        try:
+                            if not entry.is_file(follow_symlinks=False):
+                                continue
+                            with open(entry.path, "rb") as handle:
+                                data = handle.read(CONFIG_READ_LIMIT)
+                        except OSError:
+                            continue
+                        for candidate in _config_content_directories(_decode_config_bytes(data)):
+                            if candidate not in roots:
+                                roots.append(candidate)
+            except OSError:
+                continue
     return roots
 
 
@@ -196,18 +263,22 @@ def _registry_roots() -> list[str]:
     try:
         import winreg  # type: ignore
 
-        for subkey in (r"Software\Tencent\Weixin", r"Software\Tencent\WeChat"):
+        for subkey in (r"Software\Tencent\xwechat", r"Software\Tencent\xwechat\config",
+                       r"Software\Tencent\WeChat", r"Software\Tencent\Weixin"):
             try:
                 with winreg.OpenKey(winreg.HKEY_CURRENT_USER, subkey) as handle:
-                    index = 0
-                    while True:
+                    for index in range(MAX_REGISTRY_VALUES_PER_KEY):
                         try:
-                            _name, value, _type = winreg.EnumValue(handle, index)
-                            index += 1
+                            name, value, _type = winreg.EnumValue(handle, index)
                         except OSError:
                             break
-                        if isinstance(value, str) and "xwechat" in value.lower():
-                            roots.append(value)
+                        if isinstance(value, str) and (
+                            any(token in name.lower() for token in ("path", "dir", "save"))
+                            or "xwechat" in value.lower()
+                        ):
+                            candidate = _existing_absolute_directory(value)
+                            if candidate and candidate not in roots:
+                                roots.append(candidate)
             except OSError:
                 continue
     except Exception:  # pragma: no cover - non-Windows
@@ -216,17 +287,20 @@ def _registry_roots() -> list[str]:
 
 
 def _known_roots() -> list[str]:
-    candidates: list[str] = []
-    # Narrow config/registry values first (may be an absolute data root or a dir to join).
-    for value in (*_config_dir_roots(), *_registry_roots()):
-        candidates.append(value)
-        candidates.append(os.path.join(value, "xwechat_files"))
-    home = os.path.expanduser("~")
-    candidates.append(os.path.join(home, "Documents", "xwechat_files"))
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        candidates.append(os.path.join(appdata, "Tencent", "xwechat"))
-    return [os.path.abspath(p) for p in candidates if p]
+    home = os.environ.get("USERPROFILE") or os.path.expanduser("~")
+    bases = [*_config_dir_roots(), *_registry_roots(), os.path.join(home, "Documents"), home]
+    for env_name in ("APPDATA", "LOCALAPPDATA"):
+        appdata = os.environ.get(env_name)
+        if appdata:
+            bases.extend((os.path.join(appdata, "Tencent", "xwechat"),
+                          os.path.join(appdata, "Tencent", "WeChat")))
+    roots: list[str] = []
+    for base in bases:
+        for value in (base, *(os.path.join(base, name) for name in DATA_ROOT_NAMES)):
+            candidate = _existing_absolute_directory(value)
+            if candidate and candidate not in roots:
+                roots.append(candidate)
+    return roots
 
 
 def discover_account_dirs() -> list[AccountDir]:

@@ -222,6 +222,85 @@ function copyData(source, destination, copyFile = fs.copyFileSync) {
     throw error;
   }
 }
+function preserveBundledModel(oldRoot, candidateRoot) {
+  const oldModel = path.join(oldRoot, "resources", "client", ".models", "laya");
+  const newModel = path.join(candidateRoot, "resources", "client", ".models", "laya");
+  if (present(path.join(newModel, "model.onnx")) || !present(path.join(oldModel, "model.onnx"))) return false;
+  const manifest = readJson(path.join(candidateRoot, "resources", "client", "scripts", "model-files.json"), 16 * 1024);
+  const expected = ["model.onnx", "onnx_config.json", "README.md", "rl_agent_config.json",
+    "tokenizer/tokenizer_config.json", "tokenizer/tokenizer.json"];
+  if (manifest.schema !== 1 || !manifest.files ||
+      Object.keys(manifest.files).sort().join("\n") !== expected.sort().join("\n")) {
+    fail("candidate model pin manifest is invalid");
+  }
+  const client = path.join(candidateRoot, "resources", "client");
+  const local = path.join(client, ".local");
+  const models = path.join(local, "models");
+  const target = path.join(models, "laya");
+  const createdDirs = [];
+  const createdFiles = [];
+  const ensure = directoryPath => {
+    if (present(directoryPath)) {
+      if (!noReparse(directoryPath).isDirectory()) fail("model storage path is unsafe");
+    } else {
+      fs.mkdirSync(directoryPath);
+      createdDirs.push(directoryPath);
+    }
+  };
+  try {
+    if (present(target)) {
+      if (!noReparse(target).isDirectory()) fail("existing model directory is unsafe");
+      for (const name of expected) {
+        const file = path.join(target, ...name.split("/"));
+        if (regular(file).size !== manifest.files[name].bytes || hash(file) !== manifest.files[name].sha256) {
+          fail("existing downloaded model differs from pinned version");
+        }
+      }
+      return false;
+    }
+    for (const name of expected) {
+      const spec = manifest.files[name];
+      if (!Number.isSafeInteger(spec.bytes) || spec.bytes < 1 ||
+          !/^[a-f0-9]{64}$/.test(spec.sha256)) fail("candidate model pin is invalid");
+      const source = path.join(oldModel, ...name.split("/"));
+      checkAncestors(source);
+      if (regular(source).size !== spec.bytes || hash(source) !== spec.sha256) {
+        fail("old bundled model differs from pinned version");
+      }
+    }
+    ensure(local);
+    ensure(models);
+    const temporary = path.join(models, ".laya-preserve-" + crypto.randomUUID());
+    ensure(temporary);
+    ensure(path.join(temporary, "tokenizer"));
+    for (const name of expected) {
+      const source = path.join(oldModel, ...name.split("/"));
+      const destination = path.join(temporary, ...name.split("/"));
+      try { fs.linkSync(source, destination); }
+      catch (error) {
+        if (!["EXDEV", "EPERM", "EACCES"].includes(error.code)) throw error;
+        fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+      }
+      createdFiles.push(destination);
+      if (regular(destination).size !== manifest.files[name].bytes || hash(destination) !== manifest.files[name].sha256) {
+        fail("preserved model copy differs from original");
+      }
+    }
+    fs.renameSync(temporary, target);
+    createdDirs.splice(createdDirs.indexOf(path.join(temporary, "tokenizer")), 1);
+    createdDirs.splice(createdDirs.indexOf(temporary), 1);
+    return true;
+  } catch (error) {
+    for (const file of createdFiles.reverse()) {
+      try { if (present(file)) fs.unlinkSync(file); } catch (_) { /* Preserve the original failure. */ }
+    }
+    for (const directoryPath of createdDirs.reverse()) {
+      try { if (present(directoryPath)) fs.rmdirSync(directoryPath); }
+      catch (_) { /* Preserve the original failure. */ }
+    }
+    throw error;
+  }
+}
 function pidAlive(pid) {
   try { process.kill(pid, 0); return true; }
   catch (error) {
@@ -775,6 +854,10 @@ async function runOperation(op, operationFile, overrides = {}) {
         deps.copyData(local, target);
         copiedLocal = { target, identity: fs.lstatSync(target) };
       }
+      if (preserveBundledModel(op.installRoot, op.candidatePath) && !copiedLocal) {
+        const target = path.join(op.candidatePath, "resources", "client", ".local");
+        copiedLocal = { target, identity: fs.lstatSync(target) };
+      }
     } else {
       if (present(names.staged) || present(names.oldLocal)) fail("rollback data staging already exists");
       if (present(local)) {
@@ -888,7 +971,7 @@ if (require.main === module) {
     .catch(error => { process.stderr.write("update helper: " + error.message + "\n"); process.exitCode = 1; });
 }
 
-module.exports = { validateOperation, validateCandidate, copyData, atomicJournal,
+module.exports = { validateOperation, validateCandidate, copyData, preserveBundledModel, atomicJournal,
   portVacant, healthy, startBridge, launchClient, launchValidation, waitForValidation,
   launchFinalClient, waitForFinal, waitValidationStopped, waitFinalStopped,
   runOnceAbsent, runOperation, recoverOperation, main };

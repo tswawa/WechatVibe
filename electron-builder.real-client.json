@@ -18,6 +18,7 @@
     "scripts/real-client-recovery.cjs",
     "scripts/real-client-update.cjs",
     "scripts/real-client-update-proxy.cjs",
+    "scripts/real-client-model.cjs",
     "scripts/real-client-update-controller.cjs",
     "scripts/real-client-update-helper.cjs",
     "scripts/update-signing.pub",
