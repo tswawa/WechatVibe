@@ -169,7 +169,11 @@ def make_handler(backend, accounts=None, control_token=None):
                 target = (CHATUI / (parsed.path.lstrip("/") or "index.html")).resolve()
                 if not target.is_relative_to(CHATUI.resolve()) or not target.is_file():
                     return self.send(404, {"error": "not found"})
-                mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                mime = (
+                    "text/javascript; charset=utf-8"
+                    if target.suffix.lower() in (".js", ".mjs")
+                    else mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                )
                 return self.send(200, target.read_bytes(), mime)
             except ValueError as exc:
                 return self.send(400, {"error": str(exc)})
