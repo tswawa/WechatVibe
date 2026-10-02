@@ -1170,6 +1170,9 @@ function updateLabel(message, node) {
     wrap.appendChild(row);
   }
 }
+// One hint per session: the bridge derives the image key the first time it is asked for a
+// picture, and that scan only succeeds while WeChat itself is showing an image.
+let imageKeyHintShown = false;
 function messageNode(message) {
   const session = chatState.sessions.get(chatState.currentUser);
   const item = element("div", `msg-item ${message.side === "self" ? "outgoing" : "incoming"}`);
@@ -1179,8 +1182,40 @@ function messageNode(message) {
   item.appendChild(avatarColumn);
   const wrap = element("div", "msg-content-wrap");
   if (session?.isGroup && message.side !== "self") wrap.appendChild(element("span", "msg-sender", message.senderName || message.senderId || "未知成员"));
-  wrap.appendChild(element("div", "msg-bubble", message.kind === "image" ? "[图片]" :
-    message.kind === "text" ? message.text || "" : message.text || "[不支持的消息]"));
+  if (message.kind === "image") {
+    // Images are decrypted on demand by the local bridge, so the bubble shows the picture
+    // itself and only falls back to the placeholder when it cannot be read.
+    const image = document.createElement("img");
+    image.className = "msg-image";
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.alt = "图片";
+    image.src = "/api/media?user=" + encodeURIComponent(chatState.currentUser) +
+      "&id=" + encodeURIComponent(message.id);
+    image.addEventListener("click", () => image.classList.toggle("zoomed"));
+    // The bridge may still be deriving the image key, so retry a few times before the
+    // placeholder takes over.
+    let attempts = 0;
+    image.addEventListener("error", () => {
+      if (++attempts <= 6) {
+        setTimeout(() => {
+          const base = "/api/media?user=" + encodeURIComponent(chatState.currentUser) +
+            "&id=" + encodeURIComponent(message.id);
+          image.src = base + "&retry=" + attempts;
+        }, 20000);
+        return;
+      }
+      image.replaceWith(element("div", "msg-bubble", "[图片]"));
+      if (!imageKeyHintShown) {
+        imageKeyHintShown = true;
+        toast("首次显示图片需要在微信里点开任意一张图片（用于获取解密密钥），之后会自动显示");
+      }
+    });
+    wrap.appendChild(image);
+  } else {
+    wrap.appendChild(element("div", "msg-bubble",
+      message.kind === "text" ? message.text || "" : message.text || "[不支持的消息]"));
+  }
   item.appendChild(wrap);
   updateLabel(message, item);
   return item;

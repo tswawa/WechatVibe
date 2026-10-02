@@ -115,6 +115,10 @@ class WeChatSource:
         self._self_username = None
         self.issued_images = OrderedDict()
         self.window_images = {}
+        # The image AES key is not one of the database keys we hold, so it is derived once
+        # by a background scan and then cached on disk by the reader.
+        self.image_key_lock = threading.Lock()
+        self.image_key_scan = {"running": False, "retry_at": 0.0}
         self.profile_metadata_cache = OrderedDict()
         self.profile_overview_counts_cache = OrderedDict()
         self.media_reason = threading.local()
@@ -634,6 +638,46 @@ class WeChatSource:
                 raise AccountChangedError()
             return texts
 
+    def _start_image_key_scan(self, db):
+        """Derive the image AES key once, off the request path.
+
+        The reader holds the database keys only; the image key is either derived from the
+        WeChat config dword or scanned out of Weixin.exe, which can take a minute. The scan
+        runs in the background and persists its result, so later reads are immediate.
+        """
+        # An injected factory means a synthetic reader: never scan the real WeChat process
+        # for it, and keep the deterministic failure the tests rely on.
+        if self.media_factory is not None:
+            return False
+        now = time.monotonic()
+        with self.image_key_lock:
+            if self.image_key_scan["running"] or now < self.image_key_scan["retry_at"]:
+                return self.image_key_scan["running"]
+            self.image_key_scan["running"] = True
+
+        def worker():
+            found = None
+            try:
+                from wechatauto.media import MediaDownloader
+                downloader = MediaDownloader(db)
+                # A short, bounded scan: the reader's own default keeps reading Weixin.exe
+                # for 120 seconds, which is heavy enough to make the desktop client stutter.
+                key = downloader._scan_aes_key(monitor=True, monitor_timeout=20)
+                if key:
+                    downloader._persist_key(key)
+                    found = (key, downloader._xor_key)
+            except Exception:
+                found = None
+            finally:
+                with self.image_key_lock:
+                    self.image_key_scan["running"] = False
+                    if not found:
+                        # Retry later: WeChat may have been restarted since the last attempt.
+                        self.image_key_scan["retry_at"] = time.monotonic() + 600
+
+        threading.Thread(target=worker, daemon=True).start()
+        return True
+
     def media(self, user, stable_id):
         self.require_messages_ready()
         self.media_reason.value = None
@@ -705,6 +749,8 @@ class WeChatSource:
                 else:
                     aes_key = downloader._load_persisted_key()
                     if not aes_key:
+                        if self._start_image_key_scan(db):
+                            return unavailable("local-key-pending")
                         return unavailable("local-key-unavailable")
                     xor_key = downloader._derive_xor_key(dat_path)
             data = downloader.decrypt_image(dat_path, aes_key=aes_key, xor_key=xor_key)

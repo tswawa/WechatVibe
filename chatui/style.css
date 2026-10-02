@@ -326,6 +326,29 @@ body {
   fill: currentColor;
 }
 
+/* Inline image messages: decrypted locally by the bridge on demand */
+.msg-image {
+  display: block;
+  max-width: min(240px, 60vw);
+  max-height: 240px;
+  border-radius: 6px;
+  cursor: zoom-in;
+  background-color: var(--bg-bubble-left);
+}
+.msg-image.zoomed {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  margin: auto;
+  max-width: 92vw;
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  cursor: zoom-out;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
 /* Session List Items */
 .session-list {
   flex: 1;
