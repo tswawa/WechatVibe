@@ -156,6 +156,10 @@ def make_handler(backend, accounts=None, control_token=None):
                     return self.send(200, data)
                 if parsed.path == "/api/conversation-selection":
                     return self.send(200, backend.conversation_selection())
+                if parsed.path == "/api/analysis-overview":
+                    return self.send(200, backend.analysis_overview())
+                if parsed.path == "/api/analysis-performance":
+                    return self.send(200, backend.analysis_performance())
                 if parsed.path == "/api/accounts" and accounts is not None:
                     return self.send(200, accounts.list())
                 if parsed.path == "/api/messages":

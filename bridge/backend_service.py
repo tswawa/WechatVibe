@@ -94,6 +94,7 @@ class Backend:
         self.selection_store = selection_store or ConversationSelectionStore(
             ROOT / ".local" / "real-client-data")
         self.stores = {}
+        self.text_totals = {}
         self.jobs = {}
         self.jobs_lock = threading.Lock()
         self.request_condition = threading.Condition()
@@ -1135,6 +1136,68 @@ class Backend:
                 "inventoryStatus": inventory_status, "progress": progress,
                 "suspended": store.cache_suspended(account, source_id) if mode == "api" else False,
                 "job": job}
+
+    def analysis_overview(self):
+        """Whole-account tally behind the sidebar progress bar: how many conversations
+        the local background scan has walked to the end of their history, and how many
+        texts it has analysed so far."""
+        account, workdir, store = self._scoped_identity()
+        version = self.analyzer.analysis_version()
+        metadata = self.source.sessions()
+        if metadata.get("account") != account:
+            raise AccountChangedError()
+        selected = set(self.selection_store.get(account)["selectedSessions"])
+        users = [item["username"] for item in metadata.get("sessions", [])
+                 if item.get("username") in selected]
+        known = set(users)
+        rows = store.analysis_progress_rows(account, version)
+        scanned = complete = analyzed = 0
+        for session, subject, done, state in rows:
+            # One row per analysed subject: the conversation itself, or "" for a group overall.
+            if session not in known or subject != ("" if session.endswith("@chatroom") else session):
+                continue
+            scanned += 1
+            complete += 1 if done else 0
+            try:
+                analyzed += int(json.loads(state or "{}").get("count") or 0)
+            except (TypeError, ValueError):
+                pass
+        # Text totals are plain SQL counts, so this stays cheap; cache them briefly because
+        # only new messages change the answer.
+        cached = self.text_totals.get(account)
+        now = time.monotonic()
+        if cached is None or now - cached[0] > 300:
+            cached = (now, self.source.target_text_totals(users))
+            self.text_totals[account] = cached
+        totals = cached[1]
+        text_total = sum(totals.get(user, 0) for user in users)
+        running = None
+        with self.jobs_lock:
+            for key, job in self.jobs.items():
+                if key[0] == account and job["status"] in ("queued", "running"):
+                    running = key[2]
+                    break
+        self._assert_scope((account, workdir))
+        # Local parallelism is reported by /api/analysis-workers; this endpoint stays a plain
+        # progress read so it does not depend on the parallel-analysis feature being present.
+        return {"account": account, "version": version, "conversations": len(users),
+                "scanned": scanned, "complete": complete, "analyzed": analyzed,
+                "textTotal": text_total, "running": running}
+
+
+    def analysis_performance(self):
+        """Read-only timing breakdown of local analysis, for tuning and support."""
+        account, _workdir, _store = self._scoped_identity()
+        with self.jobs_lock:
+            rows = list(self.performance.values())
+        totals = {}
+        for metrics in rows:
+            for name, value in metrics.items():
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    totals[name] = totals.get(name, 0) + value
+        totals["conversations"] = len(rows)
+        return {"account": account, "totals": totals}
+
 
     def analysis_cache_status(self):
         account, workdir, store = self._scoped_identity()

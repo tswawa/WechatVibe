@@ -116,6 +116,24 @@ class ResultStore:
             conn.execute("CREATE INDEX IF NOT EXISTS results_profile_delta_v1 ON results_v2 (account,session,version)")
             conn.execute("CREATE INDEX IF NOT EXISTS results_member_delta_v1 ON results_v2 (account,session,version,sender)")
 
+    def analysis_progress_rows(self, account, version):
+        """Per-conversation scan state for the whole-account progress read.
+
+        Returns (session, subject, complete, state_json) rows: one per analysed subject,
+        where a group's overall row carries an empty subject.
+        """
+        with self.connect() as conn:
+            tables = {row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            if "batch_progress_v1" in tables:
+                return conn.execute(
+                    "SELECT session,subject,complete,state_json FROM batch_progress_v1 "
+                    "WHERE account=? AND base_version=?", (account, version)).fetchall()
+            return [(row[0], row[0], row[1], None) for row in conn.execute(
+                "SELECT session,complete FROM progress_v1 WHERE account=? AND version=?",
+                (account, version))]
+
+
     @contextmanager
     def connect(self):
         conn = sqlite3.connect(self.path, timeout=15)
