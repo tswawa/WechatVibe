@@ -156,6 +156,8 @@ def make_handler(backend, accounts=None, control_token=None):
                     return self.send(200, data)
                 if parsed.path == "/api/conversation-selection":
                     return self.send(200, backend.conversation_selection())
+                if parsed.path == "/api/analysis-workers":
+                    return self.send(200, backend.worker_status())
                 if parsed.path == "/api/accounts" and accounts is not None:
                     return self.send(200, accounts.list())
                 if parsed.path == "/api/messages":
@@ -171,7 +173,10 @@ def make_handler(backend, accounts=None, control_token=None):
                         query=query.get("q"), day=query.get("date"),
                         before=query.get("before"), limit=integer(query.get("limit"), 50, 100)))
                 if parsed.path == "/api/analysis":
-                    return self.send(200, backend.analysis(user_value(query.get("user"))))
+                    # Background readers pass focus=0 so they cannot move the queue's focus
+                    # away from the conversation the user is looking at.
+                    return self.send(200, backend.analysis(user_value(query.get("user")),
+                                                           focus=query.get("focus") != "0"))
                 if parsed.path == "/api/profile":
                     member = query.get("member")
                     return self.send(200, backend.profile(user_value(query.get("user")),
@@ -226,6 +231,7 @@ def make_handler(backend, accounts=None, control_token=None):
                                  "/api/model-portrait", "/api/analysis-cache/clear",
                                  "/api/analysis-cache/resume", "/api/conversation-selection",
                                  "/api/data-root", "/api/data-root/clear",
+                                 "/api/analysis-workers",
                                  *model_endpoints):
                 return self.send(404, {"error": "not found"})
             content_type = [part.strip().lower() for part in self.headers.get("Content-Type", "").split(";")]
@@ -254,6 +260,14 @@ def make_handler(backend, accounts=None, control_token=None):
                         return self.send(503, {"error": str(exc)})
                     except Exception:
                         return self.send(503, {"error": "model source unavailable"})
+                if endpoint == "/api/analysis-workers":
+                    workers = request.get("workers")
+                    if workers is not None and (type(workers) is not int or not 1 <= workers <= 4):
+                        raise ValueError("invalid worker count")
+                    elastic = request.get("elastic")
+                    if elastic is not None and type(elastic) is not bool:
+                        raise ValueError("invalid elastic flag")
+                    return self.send(200, backend.set_worker_settings(workers, elastic))
                 if endpoint == "/api/conversation-selection":
                     if set(request) != {"expectedAccount", "session", "selected"} or type(request["selected"]) is not bool:
                         raise ValueError("invalid conversation selection")
@@ -344,7 +358,7 @@ def make_handler(backend, accounts=None, control_token=None):
                 limit = (None if mode == "incremental" else
                          "all" if mode == "history" and request.get("limit") == "all" else
                          integer(request.get("limit"), 80 if mode == "recent" else 500,
-                                 80 if mode == "recent" else 5000))
+                                 300 if mode == "recent" else 5000))
                 return self.send(202, {"job": backend.start(user, mode, limit,
                                                              expected_account=expected_account)})
             except ForecastRequestError as exc:
