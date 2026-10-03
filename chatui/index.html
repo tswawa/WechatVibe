@@ -84,6 +84,16 @@
     <div class="session-list" id="sessionList">
       <div class="ui-state">正在读取会话…</div>
     </div>
+
+    <!-- Overall local background-analysis progress -->
+    <div class="sweep-progress" id="sweepProgress" hidden>
+      <div class="sweep-progress-head">
+        <span class="sweep-progress-label" id="sweepProgressLabel">后台分析</span>
+        <span class="sweep-progress-value" id="sweepProgressValue"></span>
+      </div>
+      <div class="sweep-progress-bar">
+        <div class="sweep-progress-fill" id="sweepProgressFill"></div>
+      </div>
   </section>
 
   <!-- ================= COLUMN 3: RIGHT MAIN CHAT PANE ================= -->
@@ -483,6 +493,22 @@
           <div class="settings-row">
             <span>信息列表</span>
             <button type="button" class="settings-action-btn" id="btnManageConversations">管理会话</button>
+          </div>
+          <div class="settings-row">
+            <span>后台分析全部会话</span>
+            <button type="button" class="settings-action-btn" id="btnToggleBackgroundAnalyze">已开启</button>
+          </div>
+          <div class="settings-row">
+            <span>本地分析并行数</span>
+            <span class="worker-stepper">
+              <button type="button" class="settings-action-btn" id="btnWorkerMinus" aria-label="减少并行数">−</button>
+              <strong id="workerLimitValue">—</strong>
+              <button type="button" class="settings-action-btn" id="btnWorkerPlus" aria-label="增加并行数">+</button>
+              <button type="button" class="settings-action-btn" id="btnToggleElasticWorkers">跟随负载</button>
+            </span>
+          </div>
+          <div class="settings-row worker-hint-row">
+            <span id="workerLimitHint" class="model-source-status" role="status"></span>
           </div>
           <section class="conversation-manager" id="conversationManager" hidden>
             <div class="conversation-manager-head">

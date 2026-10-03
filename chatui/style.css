@@ -330,6 +330,49 @@ body {
   height: 14px;
   fill: currentColor;
 }
+/* Overall background-analysis progress (session pane footer) */
+.sweep-progress {
+  flex: 0 0 auto;
+  padding: 9px 14px 11px;
+  border-top: 1px solid var(--border-subtle);
+}
+.sweep-progress[hidden] { display: none; }
+.sweep-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.sweep-progress-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sweep-progress-value {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sweep-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--border-color);
+  overflow: hidden;
+}
+.sweep-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #427f9c, #64c7d1);
+  transition: width 0.3s ease;
+}
+.worker-stepper { display: inline-flex; align-items: center; gap: 6px; }
+.worker-stepper strong { min-width: 2ch; text-align: center; }
+.worker-hint-row { display: none; }
+.worker-hint-row.show { display: flex; }
 
 /* Session List Items */
 .session-list {
