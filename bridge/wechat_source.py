@@ -24,6 +24,24 @@ from backend_contracts import (
 )
 from history_browser import encode_cursor
 
+# Official accounts, service notifications and fold placeholders carry no conversation
+# worth analysing or listing, so a whole-account sidebar leaves them out. Real contacts,
+# group chats and filehelper/openim are kept.
+SERVICE_ACCOUNT_IDS = frozenset({
+    "brandsessionholder", "brandservicesessionholder", "notifymessage", "weixin",
+    "opencustomerservicemsg", "newsapp", "weixinliteservice", "weixinreminder",
+    "fmessage", "floatbottle", "medianote", "qqmail", "voiceinput", "exmail_tool",
+})
+SERVICE_ACCOUNT_SUFFIXES = frozenset({"placeholder_foldgroup", "weclaw", "kefu.openim"})
+
+
+def is_service_account(user):
+    """Official accounts and system rows are not conversations."""
+    if user.startswith("gh_"):
+        return True
+    base, _, suffix = user.partition("@")
+    return base.lower() in SERVICE_ACCOUNT_IDS or suffix.lower() in SERVICE_ACCOUNT_SUFFIXES
+
 
 def active_account_dir():
     """Resolve a unique live account from WeChat's open-file metadata, never DB mtimes."""
@@ -381,7 +399,7 @@ class WeChatSource:
                                         "ORDER BY sort_timestamp DESC,rowid DESC")
                     while batch := rows.fetchmany(256):
                         for user, unread, summary, last_time, sender, sender_name, sort_time, message_type, sub_type, is_top in batch:
-                            if not isinstance(user, str) or not user:
+                            if not isinstance(user, str) or not user or is_service_account(user):
                                 continue
                             contact = contact_display(contacts, user)
                             try:
