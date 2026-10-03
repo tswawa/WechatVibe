@@ -322,6 +322,24 @@ class Backend:
             raise AccountChangedError()
         return state
 
+    def set_conversation_all_selected(self, expected_account):
+        """Put every conversation of the current WeChat account into the sidebar at once."""
+        if not isinstance(expected_account, str) or not expected_account:
+            raise ValueError("invalid expected account")
+        account = self._selection_account()
+        if account != expected_account:
+            raise AccountChangedError()
+        metadata = self.source.sessions()
+        if metadata.get("account") != account:
+            raise AccountChangedError()
+        sessions = [item.get("username") for item in metadata.get("sessions", [])]
+        if self._selection_account() != account:
+            raise AccountChangedError()
+        state = self.selection_store.set_all_selected(account, sessions)
+        if self._selection_account() != account:
+            raise AccountChangedError()
+        return state
+
     def _scoped_identity(self):
         if self.closing:
             raise AccountUnavailableError()

@@ -255,6 +255,9 @@ def make_handler(backend, accounts=None, control_token=None):
                     except Exception:
                         return self.send(503, {"error": "model source unavailable"})
                 if endpoint == "/api/conversation-selection":
+                    if set(request) == {"expectedAccount", "all"} and request["all"] is True:
+                        return self.send(200, backend.set_conversation_all_selected(
+                            user_value(request["expectedAccount"])))
                     if set(request) != {"expectedAccount", "session", "selected"} or type(request["selected"]) is not bool:
                         raise ValueError("invalid conversation selection")
                     return self.send(200, backend.set_conversation_selected(

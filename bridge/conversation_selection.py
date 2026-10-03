@@ -106,3 +106,30 @@ class ConversationSelectionStore:
                     return state
             except sqlite3.DatabaseError as exc:
                 raise SelectionCorrupt("conversation selection cannot be saved") from exc
+
+    def set_all_selected(self, account, sessions):
+        """Add every known session of the account to the sidebar in one transaction."""
+        sessions = [_session_id(session) for session in sessions]
+        with self.lock:
+            path = self._path(account)
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            _check_root(self.data_dir)
+            try:
+                with closing(sqlite3.connect(path, timeout=15)) as conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    self._state(conn, account)  # Never silently repair a partial or mismatched schema.
+                    conn.execute("CREATE TABLE IF NOT EXISTS conversation_selection_meta_v1 ("
+                                 "account TEXT PRIMARY KEY, version INTEGER NOT NULL CHECK(version=1))")
+                    conn.execute("CREATE TABLE IF NOT EXISTS conversation_selection_v1 ("
+                                 "account TEXT NOT NULL, session TEXT NOT NULL, "
+                                 "PRIMARY KEY(account,session), "
+                                 "FOREIGN KEY(account) REFERENCES conversation_selection_meta_v1(account))")
+                    conn.execute("INSERT OR IGNORE INTO conversation_selection_meta_v1 VALUES (?,1)",
+                                 (account,))
+                    conn.executemany("INSERT OR IGNORE INTO conversation_selection_v1 VALUES (?,?)",
+                                     [(account, session) for session in sessions])
+                    state = self._state(conn, account)
+                    conn.commit()
+                    return state
+            except sqlite3.DatabaseError as exc:
+                raise SelectionCorrupt("conversation selection cannot be saved") from exc
