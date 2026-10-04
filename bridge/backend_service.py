@@ -2098,7 +2098,7 @@ class Backend:
         job["recent"] = {"id": uuid.uuid4().hex, "status": "queued", "total": 0, "processed": 0}
         self._enqueue((key, "recent-window", limit, store, job, scope), interactive=True)
 
-    def start(self, user, mode, limit, expected_account=None):
+    def start(self, user, mode, limit, expected_account=None, message_id=None):
         account, workdir, store = self._scoped_identity()
         if expected_account is not None and account != expected_account:
             raise AccountChangedError()
@@ -2108,6 +2108,17 @@ class Backend:
         if expected_account is not None:
             self._assert_scope((account, workdir))
         key = (account, str(store.path), user, version)
+        if mode == "message":
+            # A user asked for this one message, so it runs as its own task instead of
+            # joining the conversation's background job: recomputing a message must not
+            # disturb a sweep that is already walking the same conversation.
+            if not message_id:
+                raise ValueError("missing message id")
+            job = {"id": uuid.uuid4().hex, "status": "queued", "total": 1, "processed": 0,
+                   "requested": {"mode": mode, "limit": limit, "messageId": message_id}}
+            self._enqueue((key, "message", message_id, store, job, (account, workdir)),
+                          interactive=True)
+            return dict(job)
         with self.jobs_lock:
             current = self.jobs.get(key)
             if current and (current["status"] in ("queued", "running") or key in self.recent_windows):
@@ -2280,6 +2291,39 @@ class Backend:
             if since_yield >= 8 or self._interactive_waiting():
                 since_yield = 0
                 yield
+
+    def _run_fine_message(self, key, store, job, scope, message_id):
+        """Re-analyze one message on demand, even when a saved label already exists.
+
+        The context and the save path are the recent pass's: the message plus the three that
+        precede it, validated and stored by ``_analyze_fine_item``. What differs is the cache
+        check: the recent pass skips ids that already have this schema, this path skips
+        nothing, which is what makes the saved row get overwritten instead of reused.
+        """
+        account, _path, user, version = key
+        self._assert_scope(scope)
+        window = self.source.messages(user, int(job["requested"].get("limit") or 80))
+        self._assert_scope(scope)
+        found = None
+        for index, item in enumerate(window):
+            if item["id"] == message_id:
+                found = (index, item)
+                break
+        if found is None:
+            raise ValueError("message not in the analyzed window")
+        index, item = found
+        job["status"] = "running"
+        if item["side"] != "other" or item["kind"] != "text" or not item["text"].strip():
+            # Nothing the fine path can label; report success so the UI stops waiting.
+            job["total"] = 0
+            job["processed"] = 0
+            job["status"] = "done"
+            return
+        self._analyze_fine_item(account, user, version, store,
+                                window[max(0, index - 3):index + 1], item, scope,
+                                portrait_context=self._fine_portrait_context(account, user, version, store, item))
+        job["processed"] = 1
+        job["status"] = "done"
 
     def _run_visible_priority(self, account, user, version, store, job, scope,
                                highwater, cached_ids, counted_ids, processed_ids, limit):
@@ -2908,6 +2952,15 @@ class Backend:
                     self.quoted_backfill_iterators.pop((*key, limit), None)
                     job["status"] = "error"
                     job["error"] = str(exc)[:200]
+                return
+            if mode == "message":
+                # For this mode the third task slot carries the message id, not a limit.
+                try:
+                    self._run_fine_message(key, store, job, source_scope, limit)
+                except Exception as exc:
+                    with self.jobs_lock:
+                        job["status"] = "error"
+                        job["error"] = str(exc)[:200]
                 return
             if mode == "recent-window":
                 self._run_recent_turn(key, store, job, source_scope)

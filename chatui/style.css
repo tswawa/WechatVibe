@@ -933,6 +933,34 @@ body.theme-light .chat-status-pill .status-pill-text {
 /* ========================================================
    Interactive Popups & Overlays
    ======================================================== */
+/* Right-click menu on a single message */
+.msg-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 132px;
+  padding: 4px;
+  background-color: #2b2b2c;
+  border: 1px solid #3c3c3e;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: none;
+}
+.msg-menu:not([hidden]) { display: block; }
+.msg-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.msg-menu-item:hover { background-color: #3a3a3c; }
+.msg-menu-item:disabled { color: var(--text-muted); cursor: default; }
+
 /* Emoji Picker Popover */
 .emoji-popover {
   position: absolute;

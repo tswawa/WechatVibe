@@ -360,14 +360,22 @@ def make_handler(backend, accounts=None, control_token=None):
                 user = user_value(request.get("user"))
                 expected_account = user_value(request.get("account"))
                 mode = request.get("mode")
-                if mode not in ("recent", "history", "incremental"):
+                if mode not in ("recent", "history", "incremental", "message"):
                     raise ValueError("invalid mode")
-                limit = (None if mode == "incremental" else
-                         "all" if mode == "history" and request.get("limit") == "all" else
-                         integer(request.get("limit"), 80 if mode == "recent" else 500,
-                                 80 if mode == "recent" else 5000))
+                message_id = None
+                if mode == "message":
+                    # One message is re-analysed on demand, so the limit only decides how
+                    # far back the bridge looks for it.
+                    message_id = user_value(request.get("messageId"))
+                    limit = integer(request.get("limit"), 80, 500)
+                else:
+                    limit = (None if mode == "incremental" else
+                             "all" if mode == "history" and request.get("limit") == "all" else
+                             integer(request.get("limit"), 80 if mode == "recent" else 500,
+                                     80 if mode == "recent" else 5000))
                 return self.send(202, {"job": backend.start(user, mode, limit,
-                                                             expected_account=expected_account)})
+                                                             expected_account=expected_account,
+                                                             message_id=message_id)})
             except ForecastRequestError as exc:
                 return self.send(exc.status, {**echo, "error": exc.code, "message": exc.message})
             except (ValueError, UnicodeError, json.JSONDecodeError) as exc:

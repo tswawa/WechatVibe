@@ -4795,6 +4795,71 @@ byId("chatMessages").addEventListener("scroll", event => {
   }
 });
 byId("btnHistoryEarlier").addEventListener("click", () => void loadOlderHistory());
+// Right-click a bubble to recompute that one message. The bridge keeps its saved row and
+// overwrites it, so the schema cache that decides the bulk passes does not apply here.
+let regenerationBusy = false;
+function closeMessageMenu() {
+  byId("msgMenu").hidden = true;
+}
+function openMessageMenu(event, messageId) {
+  const menu = byId("msgMenu");
+  menu.dataset.messageId = String(messageId);
+  menu.hidden = false;
+  const margin = 8;
+  menu.style.left = Math.min(event.clientX, window.innerWidth - menu.offsetWidth - margin) + "px";
+  menu.style.top = Math.min(event.clientY, window.innerHeight - menu.offsetHeight - margin) + "px";
+}
+function fineResultFor(messageId) {
+  return labelState.results[messageId] ?? labelState.results[String(messageId)] ?? null;
+}
+async function waitForRegenerated(user, messageId, before) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, attempt < 5 ? 1500 : 3000));
+    if (user !== chatState.currentUser || chatState.historyState) return false;
+    await loadAnalysis(user, chatState.generation, chatState.controller?.signal);
+    refreshLabels();
+    if (JSON.stringify(fineResultFor(messageId)) !== before) return true;
+  }
+  return false;
+}
+async function regenerateMessage(messageId) {
+  const account = chatState.currentAccount;
+  const user = chatState.currentUser;
+  if (!account || !user || !messageId || regenerationBusy || chatState.historyState) return;
+  regenerationBusy = true;
+  const button = byId("btnRegenerateMessage");
+  button.disabled = true;
+  const before = JSON.stringify(fineResultFor(messageId));
+  try {
+    await api("/api/analyze", { method: "POST", body: JSON.stringify({
+      account, user, mode: "message", messageId,
+      limit: Math.max(80, Math.min(500, chatState.messages.length + 3)),
+    }) });
+    toast("已请求重新生成，正在重算这条消息");
+    await waitForRegenerated(user, messageId, before);
+  } catch {
+    toast("重新生成失败，请稍后重试");
+  } finally {
+    button.disabled = false;
+    regenerationBusy = false;
+  }
+}
+byId("chatMessages").addEventListener("contextmenu", event => {
+  const item = event.target instanceof Element ? event.target.closest(".msg-item") : null;
+  if (!item?.dataset.messageId) return;
+  event.preventDefault();
+  openMessageMenu(event, item.dataset.messageId);
+});
+byId("msgMenu").addEventListener("click", event => {
+  const messageId = byId("msgMenu").dataset.messageId;
+  closeMessageMenu();
+  if (event.target?.id === "btnRegenerateMessage") void regenerateMessage(messageId);
+});
+document.addEventListener("click", event => {
+  if (!byId("msgMenu").contains(event.target)) closeMessageMenu();
+});
+document.addEventListener("keydown", event => { if (event.key === "Escape") closeMessageMenu(); });
+byId("chatMessages").addEventListener("scroll", closeMessageMenu);
 byId("btnHistoryNewer").addEventListener("click", () => void loadNewerHistory());
 byId("btnReturnLatest").addEventListener("click", returnToLatest);
 byId("btnChatHistory").addEventListener("click", () => byId("historySearchPanel").hidden ? openHistorySearch() : closeHistorySearch());
