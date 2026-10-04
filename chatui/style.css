@@ -1988,6 +1988,14 @@ body.theme-light .kaomoji-mood {
 .intent-item .intent-pct {
   color: #77777a;
 }
+.intent-close {
+  padding: 0 3px;
+  border: 1px solid #4a4a4d;
+  border-radius: 3px;
+  color: #8a8a8d;
+  font-size: 10px;
+  line-height: 14px;
+}
 
 /* Toolbar Text Buttons (意图识别 / 人物画像) */
 .toolbar-text-btn {
@@ -2997,6 +3005,10 @@ body.theme-light .inline-intent-row .intent-item.primary { color: #4a4a4c; }
 .reply-prediction-close:focus-visible, .reply-prediction-retry:focus-visible, #btnPredictReply:focus-visible { outline: 2px solid var(--color-green); outline-offset: 2px; }
 .settings-action-btn, .settings-danger-btn { border: 1px solid var(--border-color); border-radius: 5px; padding: 5px 10px; background: var(--bg-search); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; }
 .settings-action-btn:hover { border-color: var(--color-green); }
+/* The 1-3 option buttons and the background switch are the settings buttons that carry
+   state; without this rule the selected one looks exactly like the others. */
+.settings-action-btn.active { border-color: var(--color-green); color: var(--color-green); background: rgba(93, 178, 192, .12); }
+body.theme-light .settings-action-btn.active { background: rgba(93, 178, 192, .10); }
 .settings-danger-btn { color: #d99595; border-color: rgba(217, 149, 149, .5); }
 .settings-danger-btn:hover:not(:disabled) { background: rgba(217, 149, 149, .12); }
 .settings-action-btn:disabled, .settings-danger-btn:disabled { opacity: .45; cursor: default; }
@@ -3019,6 +3031,9 @@ body.theme-light .inline-intent-row .intent-item.primary { color: #4a4a4c; }
 #localModelSettings .worker-hint-row { display: none; }
 #localModelSettings .worker-hint-row.show { display: block; }
 #localModelSettings .worker-hint-row.show > span { white-space: normal; }
+/* The option-count row explains itself on one line under the buttons. */
+#localModelSettings .label-options-hint { display: block; min-height: 0; }
+#localModelSettings .label-options-hint > span { white-space: normal; line-height: 1.5; }
 #localModelSettings .runtime-control, .local-model-control { justify-content: flex-end; }
 .local-model-control { min-width: 0; padding-left: 110px; flex-wrap: wrap; }
 .local-model-control .settings-action-btn { flex: none; white-space: nowrap; }

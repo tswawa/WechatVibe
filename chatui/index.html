@@ -455,6 +455,17 @@
               <span id="workerLimitHint" class="model-source-status" role="status"></span>
             </div>
             <div class="settings-row settings-row-wide">
+              <span>每条消息显示选项数</span>
+              <span class="worker-stepper">
+                <button type="button" class="settings-action-btn" id="btnLabelOptions1" aria-pressed="true" aria-label="只显示 1 个标签" title="只显示 1 个标签，与旧版一致">1</button>
+                <button type="button" class="settings-action-btn" id="btnLabelOptions2" aria-pressed="false" aria-label="显示概率最高的前 2 个候选" title="显示概率最高的前 2 个候选，并标注与第一名接近的候选">2</button>
+                <button type="button" class="settings-action-btn" id="btnLabelOptions3" aria-pressed="false" aria-label="显示概率最高的前 3 个候选" title="显示概率最高的前 3 个候选，并标注与第一名接近的候选">3</button>
+              </span>
+            </div>
+            <div class="settings-row label-options-hint">
+              <span id="labelOptionsHint" class="model-source-status" role="status" aria-live="polite">默认：每条消息只显示 1 个标签，与旧版一致；第一名与第二名接近时整行不显示（仅本地分析生效）</span>
+            </div>
+            <div class="settings-row settings-row-wide">
               <span>后台分析已添加的会话</span>
               <button type="button" class="settings-action-btn" id="btnToggleBackgroundAnalyze">已关闭</button>
             </div>

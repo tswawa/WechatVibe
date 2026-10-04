@@ -107,6 +107,7 @@ function harness(fetchImpl = async () => response({ account: "acct", sourceId: "
     appendScoreLine: row => row.appendChild(element("span", "intent-pct", "80%")),
     appendIntentLine: row => row.appendChild(element("span", "intent-name", "本地意图")),
     displayedIntent: () => [{ label: "本地意图", probability: 0.8 }],
+    labelOptionLimit: () => 1,
     clearInlineIntentPending() {}, setIntentActionState() {}, refreshLabels() {},
     submitManualRecent() {},
     handleAccountBoundaryError: () => false,

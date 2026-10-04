@@ -61,7 +61,7 @@ function getVisibleUnreadCount(session) {
   if (hasNewTime || hasNewPreview) return serverUnread;
   return 0;
 }
-const defaults = { theme: "dark", zoom: "1.0", intent: true, backgroundAnalyze: false };
+const defaults = { theme: "dark", zoom: "1.0", intent: true, backgroundAnalyze: false, labelOptions: 1 };
 const CURRENT_LABEL_SCHEMA = "generic-v9";
 const GENERIC_INTENT_LABELS = Object.freeze({
   small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助", deny: "否认",
@@ -98,6 +98,7 @@ delete settingsState.settings.historyLimit;
 if (!["dark", "light"].includes(settingsState.settings.theme)) settingsState.settings.theme = "dark";
 if (!["0.9", "1.0", "1.1", "1.25", "1.5"].includes(settingsState.settings.zoom)) settingsState.settings.zoom = "1.0";
 if (typeof settingsState.settings.intent !== "boolean") settingsState.settings.intent = true;
+if (![1, 2, 3].includes(Number(settingsState.settings.labelOptions))) settingsState.settings.labelOptions = 1;
 // Analysing every added chat in the background is opt-in: it can keep the CPU or GPU busy
 // for hours on a large account.
 if (typeof settingsState.settings.backgroundAnalyze !== "boolean") settingsState.settings.backgroundAnalyze = false;
@@ -1289,15 +1290,44 @@ function rankedEmotionScores(values) {
   }));
 }
 const ROUTINE_MESSAGE_TEXT = /^(?:收到(?:了)?|明白(?:了)?|知道(?:了)?|完成了|搞定(?:了|啦)?|同意|确认|状态报告|告知事实|分享|闲聊|一般交流|好(?:的|呀|啊|了)?|行(?:的|呀|啊|了)?|嗯+)(?:[。！!，,~～\s]*)$/u;
-function displayedEmotion(values, messageText) {
+// How many ranked candidates a message row shows is the reader's choice (1-3). The one
+// candidate default keeps the original display exactly: a near tie means no single label is
+// decisive, so the row stays blank. Asking for more candidates turns the same tie into the
+// point of the row, so it lists the runner-ups with their probabilities and tags the ones
+// that are close to the leader instead of hiding them. A runner-up only has to be worth
+// reading; the leader keeps the evidence floor the single-label rule always used.
+const LABEL_OPTION_FLOOR = 0.15;
+const LABEL_CANDIDATE_TIE = 0.15;
+function labelOptionLimit() {
+  const value = Number(settingsState.settings?.labelOptions);
+  return Number.isInteger(value) && value >= 1 && value <= 3 ? value : 1;
+}
+// The setting explains itself in one line, because "1 / 2 / 3" alone does not say what
+// changes. Only the local model path produces ranked candidates, so the hint says so.
+function labelOptionsHintText(limit) {
+  return limit <= 1
+    ? "默认：每条消息只显示 1 个标签，与旧版一致；第一名与第二名接近时整行不显示（仅本地分析生效）"
+    : `显示概率最高的前 ${limit} 个候选，各带百分比；与第一名接近的候选会标「相近」（仅本地分析生效）`;
+}
+function markCloseCandidates(entries) {
+  const top = entries[0];
+  if (!top || typeof top.probability !== "number") return entries;
+  return entries.map((entry, index) => index > 0 && typeof entry.probability === "number" &&
+    top.probability - entry.probability < LABEL_CANDIDATE_TIE ? { ...entry, close: true } : entry);
+}
+function displayedEmotion(values, messageText, limit = 1) {
   if (ROUTINE_MESSAGE_TEXT.test(String(messageText || "").trim())) return [];
   const hidden = new Set(["自然", "随和", "坦诚"]);
   const scores = rankedEmotionScores(values).filter(({ item }) => !hidden.has(String(item.label)));
   const top = scores[0];
   if (!top || top.probability < 0.30) return [];
-  const second = scores[1];
-  if (second && top.probability - second.probability < 0.15) return [];
-  return [top];
+  if (limit <= 1) {
+    const second = scores[1];
+    if (second && top.probability - second.probability < LABEL_CANDIDATE_TIE) return [];
+    return [top];
+  }
+  return markCloseCandidates(scores.filter(({ probability }) => probability >= LABEL_OPTION_FLOOR)
+    .slice(0, limit));
 }
 function hasIntentContent(messageText) {
   // Punctuation-only messages can carry tone or intent (for example “？” or
@@ -1332,7 +1362,7 @@ function lowSignalIntentOnly(messageText, candidates) {
   return !!text && !SALIENT_INTENT_CUE.test(text) && candidates.length > 0 &&
     candidates.every(item => LOW_SIGNAL_INTENT_LABELS.has(String(item.label)));
 }
-function displayedIntent(result, messageText) {
+function displayedIntent(result, messageText, limit = 1) {
   if (!hasIntentContent(messageText) || isIncompleteFragment(messageText)) return [];
   const ranked = Array.isArray(result.intent) ? result.intent
     .filter(item => typeof item?.rawLabel === "string" &&
@@ -1344,18 +1374,28 @@ function displayedIntent(result, messageText) {
     label: GENERIC_INTENT_LABELS[item.rawLabel], probability: item.probability,
   }));
   const grounded = result.groundedIntent;
-  const shown = grounded && Object.prototype.hasOwnProperty.call(GROUNDED_EVIDENCE, grounded.label) &&
+  const groundedLabel = grounded && Object.prototype.hasOwnProperty.call(GROUNDED_EVIDENCE, grounded.label) &&
       GROUNDED_EVIDENCE[grounded.label].includes(grounded.evidenceKind)
-    ? [{ label: GENERIC_INTENT_LABELS[grounded.label], probability: null }]
-    : modelCandidates.length && modelCandidates[0].probability >= 0.50
-      ? [modelCandidates[0]] : [];
-  return plainAcknowledgementOnly(messageText, shown) || lowSignalIntentOnly(messageText, shown) ? [] : shown;
+    ? GENERIC_INTENT_LABELS[grounded.label] : null;
+  if (limit <= 1) {
+    const single = groundedLabel
+      ? [{ label: groundedLabel, probability: null }]
+      : modelCandidates.length && modelCandidates[0].probability >= 0.50 ? [modelCandidates[0]] : [];
+    return plainAcknowledgementOnly(messageText, single) || lowSignalIntentOnly(messageText, single) ? [] : single;
+  }
+  const weighted = modelCandidates.filter(candidate => candidate.probability >= LABEL_OPTION_FLOOR);
+  const shown = groundedLabel
+    ? [{ label: groundedLabel, probability: null },
+       ...weighted.filter(candidate => candidate.label !== groundedLabel)]
+    : modelCandidates.length && modelCandidates[0].probability >= 0.50 ? weighted : [];
+  const limited = markCloseCandidates(shown.slice(0, limit));
+  return plainAcknowledgementOnly(messageText, limited) || lowSignalIntentOnly(messageText, limited) ? [] : limited;
 }
 labelState.messageLabels = null;
 function messageLabelsApi() {
   if (!labelState.messageLabels) {
     labelState.messageLabels = window.MessageLabels.create({
-      element,
+      element, percent,
     });
   }
   return labelState.messageLabels;
@@ -1370,7 +1410,7 @@ function messageInsightView(result, text) {
   const emotionPicker = typeof displayedEmotion === "function" ? displayedEmotion : rankedEmotionScores;
   return window.MessageInsightAdapters.localView(result, text, {
     rankedEmotionScores, displayedEmotion: emotionPicker, displayedIntent, hasIntentContent, isIncompleteFragment,
-    labelSchema: CURRENT_LABEL_SCHEMA,
+    labelSchema: CURRENT_LABEL_SCHEMA, optionCount: labelOptionLimit(),
   });
 }
 function clearInlineIntentPending() {
@@ -1420,7 +1460,8 @@ function updateLabel(message, node) {
       result.state === "done" && result.labelSchema === CURRENT_LABEL_SCHEMA));
   const signature = pending ? "local:pending" : eligible && fineMessageResult(result) && result.state === "done" ?
     `local:${JSON.stringify([result.emotion, result.intentBroad, result.intent, result.groundedIntent,
-      result.labelSchema, labelState.catalogReady, labelState.catalogLabelRevision])}` : "";
+      settingsState.settings.labelOptions, result.labelSchema, labelState.catalogReady,
+      labelState.catalogLabelRevision])}` : "";
   if (node.dataset.analysisSignature === signature) return;
   const revealing = signature !== "local:pending" && !!wrap.querySelector(".inline-intent-pending");
   node.querySelector(".msg-avatar-column .msg-mood")?.remove();
@@ -3381,6 +3422,17 @@ function applySettings() {
   byId("btnToggleBackgroundAnalyze").classList.toggle("active", settingsState.settings.backgroundAnalyze);
   byId("btnToggleBackgroundAnalyze").setAttribute("aria-pressed", String(settingsState.settings.backgroundAnalyze));
   byId("btnToggleBackgroundAnalyze").textContent = settingsState.settings.backgroundAnalyze ? "已开启" : "已关闭";
+  const labelOptions = labelOptionLimit();
+  for (const count of [1, 2, 3]) {
+    const node = byId(`btnLabelOptions${count}`);
+    node.classList.toggle("active", labelOptions === count);
+    node.setAttribute("aria-pressed", String(labelOptions === count));
+    node.setAttribute("aria-label", count === 1 ? "只显示 1 个标签" : `显示概率最高的前 ${count} 个候选`);
+    node.title = count === 1
+      ? "只显示 1 个标签，与旧版一致"
+      : `显示概率最高的前 ${count} 个候选，并标注与第一名接近的候选`;
+  }
+  byId("labelOptionsHint").textContent = labelOptionsHintText(labelOptions);
   if (settingsState.analysisOverviewSnapshot) renderAnalysisOverview(settingsState.analysisOverviewSnapshot);
   refreshLabels();
 }
@@ -5175,6 +5227,13 @@ byId("btnToggleBackgroundAnalyze").addEventListener("click", () => {
   applySettings();
   if (settingsState.settings.backgroundAnalyze) void backgroundAnalyzeAll();
 });
+for (const count of [1, 2, 3]) {
+  byId(`btnLabelOptions${count}`).addEventListener("click", () => {
+    settingsState.settings.labelOptions = count;
+    save();
+    applySettings();
+  });
+}
 byId("btnWorkerMinus").addEventListener("click", () => { void changeWorkerSettings(-1); });
 byId("btnWorkerPlus").addEventListener("click", () => { void changeWorkerSettings(1); });
 byId("btnToggleElasticWorkers").addEventListener("click", () => {

@@ -22,12 +22,13 @@ function element(tag, className, textContent = "") {
 }
 const context = vm.createContext({
   element,
-  percent: value => `${value * 100}%`,
+  percent: value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? `${Math.round(value * 100)}%` : "",
   window: { Kaomoji: { pick: () => null } },
 });
 installViewState(context);
 vm.runInContext(labelsSource, context);
 vm.runInContext(section("const GENERIC_INTENT_LABELS", "settingsState.settings = undefined;") +
+  section("const LABEL_OPTION_FLOOR", "function displayedEmotion(") +
   section("function hasIntentContent(", "function clearInlineIntentPending(") +
   "globalThis.displayedIntentForTest = displayedIntent;" +
   "globalThis.appendScoreLineForTest = appendScoreLine;" +

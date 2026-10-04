@@ -38,7 +38,7 @@ it("defines the sweep, overview and worker-settings entry points", () => {
     assert.match(app, new RegExp(`(?:async )?function ${name}\\(`), `app.js must define ${name}`);
   }
   // Opt-in: on a large account the sweep keeps the CPU or GPU busy for hours.
-  assert.match(app, /backgroundAnalyze: false \}/u, "background analysis is off by default");
+  assert.match(app, /backgroundAnalyze: false, labelOptions: 1 \}/u, "background analysis is off by default");
   assert.match(app, /settingsState\.settings\.backgroundAnalyze = false;/u,
     "settings saved before the switch existed also start with it off");
   assert.match(app, /void backgroundAnalyzeAll\(\)/u);
