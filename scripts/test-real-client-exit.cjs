@@ -111,6 +111,7 @@ async function startShell(extraEnv = {}, extraArgs = [], monitorDrain, options =
           };
         },
       };
+      if (name === "./runtime-paths.cjs") return require("./runtime-paths.cjs");
       throw new Error(`Unexpected require: ${name}`);
     },
     __dirname: SHELL_DIR,

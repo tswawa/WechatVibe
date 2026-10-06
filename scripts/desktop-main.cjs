@@ -4,6 +4,7 @@ const { app, dialog } = require("electron");
 const { execFile } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { PROFILE_ENV, profileFromArgv, shellDataDir } = require("./runtime-paths.cjs");
 
 const root = app.isPackaged ? path.join(process.resourcesPath, "client") : path.resolve(__dirname, "..");
 const bundledPython = path.join(root, "runtime", "python", "python.exe");
@@ -14,11 +15,14 @@ const python = process.env.WECHATVIBE_PYTHON || (fs.existsSync(bundledPython) ? 
 const node = process.env.WECHATVIBE_NODE || (fs.existsSync(bundledNode) ? bundledNode : "node");
 const launcher = path.join(root, "scripts", "start-real-client.py");
 let profileReady = false;
+let instanceProfile = null;
 // True only when this launch created the bridge (not when it reused a ready one).
 let bridgeCreated = false;
 try {
-  // Set this before app ready so Electron's single-instance lock is per installation.
-  const userData = path.join(root, ".local", "real-client-shell");
+  // Set this before app ready so Electron's single-instance lock is per profile, not just
+  // per installation: two profiles have to run side by side.
+  instanceProfile = profileFromArgv(process.argv);
+  const userData = shellDataDir(root, instanceProfile);
   fs.mkdirSync(userData, { recursive: true });
   app.setPath("userData", userData);
   profileReady = true;
@@ -38,6 +42,10 @@ function stopOwnedBridge(callback) {
   }
   const environment = {
     ...process.env, WECHATVIBE_CLIENT_ROOT: root, WECHATVIBE_PYTHON: python,
+    // The launcher resolves which instance it may stop from this variable. This path runs
+    // before the normal launch environment reaches process.env, so a `--profile` that only
+    // exists in argv has to be carried here or the cleanup would stop the default instance.
+    ...(instanceProfile ? { [PROFILE_ENV]: instanceProfile } : {}),
   };
   try {
     execFile(python, [launcher, "--stop-owned-bridge", "--json"], {
@@ -70,6 +78,10 @@ app.whenReady().then(() => {
     WECHATVIBE_NODE: node,
     PATH: (path.isAbsolute(node) ? path.dirname(node) + path.delimiter : "") + (process.env.PATH || ""),
   };
+  if (instanceProfile) {
+    // Passed on to the launcher and the bridge so all three agree on the instance.
+    environment[PROFILE_ENV] = instanceProfile;
+  }
   // Desktop launches derive their port from this installation, even when a
   // terminal or parent process exported an older client's CHATUI_PORT.
   delete environment.CHATUI_PORT;

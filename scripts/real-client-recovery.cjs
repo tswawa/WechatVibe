@@ -3,6 +3,7 @@ const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const { profileName, runtimeDir } = require('./runtime-paths.cjs');
 
 function launcherCreatedBridge(stdout) {
   if (typeof stdout !== 'string') return false;
@@ -22,7 +23,9 @@ function monitorBridge({ root, url, instanceId, isOpen, onRecovered }) {
   const bundledPython = path.join(root, 'runtime', 'python', 'python.exe');
   const python = process.env.WECHATVIBE_PYTHON || (fs.existsSync(bundledPython) ? bundledPython : 'python');
   const launcher = path.join(root, 'scripts', 'start-real-client.py');
-  const noAutoRecovery = path.join(root, '.local', 'real-client-runtime', 'no-auto-recovery.json');
+  // Per profile: one instance clearing its account must not disable recovery for another.
+  const noAutoRecovery = path.join(runtimeDir(root, profileName(process.env.WECHATVIBE_PROFILE)),
+    'no-auto-recovery.json');
   let checking = false;
   let recovering = false;
   let recoveryDone = Promise.resolve();

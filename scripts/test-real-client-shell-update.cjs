@@ -63,6 +63,7 @@ async function main() {
       if (name.endsWith(path.join("node_modules", "undici"))) return {
         ProxyAgent: class FakeProxyAgent {},
       };
+      if (name === "./runtime-paths.cjs") return require("./runtime-paths.cjs");
       throw new Error(`Unexpected require: ${name}`);
     },
     __dirname, URL, process: {

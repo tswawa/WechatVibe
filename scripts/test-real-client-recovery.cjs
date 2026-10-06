@@ -41,7 +41,8 @@ function fixture(markerPresent, healthMode = 'offline') {
   vm.runInNewContext(source, {
     module,
     require: name => ({ 'node:child_process': fakeChild, 'node:fs': fakeFs,
-      'node:http': fakeHttp, 'node:path': path })[name],
+      'node:http': fakeHttp, 'node:path': path,
+      './runtime-paths.cjs': require('./runtime-paths.cjs') })[name],
     process: { env: { WECHATVIBE_PYTHON: 'python' } },
     URL,
     setInterval: callback => { tick = callback; return { unref() {} }; },

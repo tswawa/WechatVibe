@@ -66,6 +66,7 @@ async function checkJunctionParent(parent) {
       if (name === "node:child_process") return mockedChildProcess;
       if (name === "./real-client-update.cjs") return {};
       if (["node:crypto", "node:fs", "node:path"].includes(name)) return require(name);
+      if (name === "./runtime-paths.cjs") return require("./runtime-paths.cjs");
       throw new Error(`Unexpected controller import: ${name}`);
     },
     process: { platform: "win32", pid: process.pid, env: {} }, setImmediate,

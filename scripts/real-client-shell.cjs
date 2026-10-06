@@ -6,9 +6,15 @@ const { monitorBridge } = require("./real-client-recovery.cjs");
 const { checkForUpdates, downloadAndStageUpdate, errorStatus, RELEASES_URL } = require("./real-client-update.cjs");
 const { createUpdateProxyFetch } = require("./real-client-update-proxy.cjs");
 const { ModelDownload, ownedDirectory } = require("./real-client-model.cjs");
+const { profileName, shellDataDir } = require("./runtime-paths.cjs");
 
 const ROOT = process.env.WECHATVIBE_CLIENT_ROOT ?
   path.resolve(process.env.WECHATVIBE_CLIENT_ROOT) : path.resolve(__dirname, "..");
+// A profiled instance must not install an update: it would rewrite the shared installation
+// directory under the default instance. It reports this state so the UI can say why.
+function profileManagedUpdate() {
+  return { phase: "profile-managed", currentVersion: app.getVersion() };
+}
 const THEMES = Object.freeze({
   dark: { color: "#1b1b1b", symbolColor: "#e6e7eb", height: 36 },
   light: { color: "#edf3f7", symbolColor: "#28333d", height: 36 },
@@ -49,7 +55,9 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
   app.exit(1);
 } else {
   app.setAppUserModelId("com.local.wechatvibe.real-client");
-  const userData = path.join(ROOT, ".local", selfTest ? "real-client-shell-self-test" : "real-client-shell");
+  const instanceProfile = profileName(process.env.WECHATVIBE_PROFILE);
+  const userData = shellDataDir(ROOT, instanceProfile,
+    selfTest ? "real-client-shell-self-test" : "real-client-shell");
   fs.mkdirSync(userData, { recursive: true });
   app.setPath("userData", userData);
   let window = null;
@@ -202,6 +210,9 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
 
     ipcMain.handle("real-client:check-updates", (event) => {
       if (!trustedFrame(event)) return { status: "blocked" };
+      // Instances share one installation, and installing an update rewrites the directory
+      // the other instance is running from. Only the default instance updates.
+      if (instanceProfile) return profileManagedUpdate();
       if (updateController) return updateController.check();
       if (!updateCheckPromise) {
         updateCheckPromise = checkWithUpdateNetwork(app.getVersion())
@@ -212,16 +223,17 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
 
     ipcMain.handle("real-client:update-state", (event) => {
       if (!trustedFrame(event)) return { phase: "blocked" };
+      if (instanceProfile) return profileManagedUpdate();
       return updateController?.getState() || { phase: "idle", currentVersion: app.getVersion() };
     });
 
     ipcMain.handle("real-client:begin-update", (event) => {
-      if (!trustedFrame(event) || !updateController) return { phase: "blocked" };
+      if (!trustedFrame(event) || !updateController || instanceProfile) return { phase: "blocked" };
       return updateController.begin();
     });
 
     ipcMain.handle("real-client:rollback-update", (event) => {
-      if (!trustedFrame(event) || !updateController) return { phase: "blocked" };
+      if (!trustedFrame(event) || !updateController || instanceProfile) return { phase: "blocked" };
       return updateController.rollback();
     });
 
@@ -441,7 +453,8 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
           });
         };
         const { createUpdateController } = require("./real-client-update-controller.cjs");
-        updateController = createUpdateController({
+        // No controller for a profiled instance: it neither checks nor installs.
+        updateController = instanceProfile ? null : createUpdateController({
           app, root: ROOT, port: Number(new URL(url).port), instanceId,
           checkImpl: checkWithUpdateNetwork,
           stageImpl: stageWithUpdateNetwork,

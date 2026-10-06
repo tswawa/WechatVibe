@@ -77,6 +77,7 @@ async function main() {
           createUpdateController: () => ({ getState: () => ({ phase: "idle" }),
             check: async () => ({ phase: "current" }), begin: async () => ({}), rollback: async () => ({}) }),
         };
+        if (name === "./runtime-paths.cjs") return require("./runtime-paths.cjs");
         throw new Error(`Unexpected dependency: ${name}`);
       },
     });

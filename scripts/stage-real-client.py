@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = (
     "start-real-client.py", "start-real-client.cmd", "desktop-main.cjs",
+    "runtime-paths.cjs",
     "real-client-shell.cjs", "real-client-preload.cjs", "real-client-recovery.cjs",
     "real-client-update.cjs", "real-client-update-proxy.cjs", "real-client-model.cjs",
     "real-client-update-controller.cjs",
@@ -22,7 +23,7 @@ SCRIPTS = (
     "advisor-companion.cjs", "advisor-preload.cjs",
 )
 BRIDGE = (
-    "account_api.py", "account_store.py", "conversation_selection.py",
+    "account_api.py", "account_store.py", "account_pin_source.py", "conversation_selection.py",
     "analysis_server.ts", "batch_engine.py",
     "batch_state.py", "cache_source.py", "chat_server.py", "data_root_source.py", "history_browser.py",
     "instance_identity.py", "live_source.py", "model_source.py", "model_bundle.py",

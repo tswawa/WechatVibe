@@ -22,7 +22,7 @@ from pathlib import Path
 VERSION = "real-ui-1"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "bridge"))
-from instance_identity import default_port, instance_id
+from instance_identity import PROFILE_ENV, default_port, instance_id, profile_name, runtime_dir
 
 PORTABLE_PYTHON = PROJECT_ROOT / "runtime" / "python" / "python.exe"
 
@@ -62,10 +62,12 @@ class Config:
     python_exe: Path
     port: int
     timeout: float = START_TIMEOUT
+    # None is the default instance: its port, runtime directory and identity are unchanged.
+    profile: str | None = None
 
     @property
     def runtime_dir(self):
-        return self.root / ".local" / "real-client-runtime"
+        return runtime_dir(self.root, self.profile)
 
     @property
     def no_auto_recovery_marker(self):
@@ -77,7 +79,7 @@ class Config:
 
     @property
     def instance_id(self):
-        return instance_id(self.root)
+        return instance_id(self.root, self.profile)
 
 
 def health(config):
@@ -309,6 +311,19 @@ def stop_new_child_after_record_failure(process):
         raise LauncherError(f"Could not confirm newly launched bridge PID {process.pid} exited: {error}") from error
 
 
+def mutex_name(config):
+    """The launcher mutex for one instance.
+
+    The default instance must keep the exact name it had before profiles existed, or an old and
+    a new launcher would stop excluding each other mid-upgrade. A profile only appends.
+    """
+    identity = f"{config.root.resolve()}:{config.port}"
+    if config.profile:
+        identity = f"{identity}:{config.profile}"
+    digest = hashlib.sha256(identity.casefold().encode("utf-8")).hexdigest()[:24]
+    return "Local\\HaoGanDuRealClient-" + digest
+
+
 @contextmanager
 def launch_mutex(config):
     if os.name != "nt":
@@ -320,8 +335,9 @@ def launch_mutex(config):
     kernel32.WaitForSingleObject.restype = ctypes.c_uint32
     kernel32.ReleaseMutex.argtypes = [ctypes.c_void_p]
     kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
-    identity = f"{config.root.resolve()}:{config.port}".casefold().encode("utf-8")
-    name = "Local\\HaoGanDuRealClient-" + hashlib.sha256(identity).hexdigest()[:24]
+    # The default instance must keep the exact name it had before profiles existed, or an old
+    # and a new launcher would stop excluding each other mid-upgrade.
+    name = mutex_name(config)
     handle = kernel32.CreateMutexW(None, False, name)
     if not handle:
         raise LauncherError(f"Cannot create launch mutex: {ctypes.get_last_error()}")
@@ -342,6 +358,9 @@ def start_service(config, log_path, control_token):
     environment = os.environ.copy()
     environment["CHATUI_PORT"] = str(config.port)
     environment[CONTROL_TOKEN_ENV] = control_token
+    if config.profile:
+        # The bridge reads its profile from here to pick its own runtime paths and pins.
+        environment[PROFILE_ENV] = config.profile
     with log_path.open("ab", buffering=0) as log_file:
         return subprocess.Popen(
             [str(config.python_exe), str(config.root / "bridge" / "chat_server.py")],
@@ -737,13 +756,15 @@ def stop_owned_bridge(config, timeout=STOP_TIMEOUT):
         return {"stopped": True, "pid": record["pid"], "forced": True}
 
 
-def open_client(url, root=PROJECT_ROOT):
+def open_client(url, root=PROJECT_ROOT, profile=None):
     electron = root / "node_modules" / "electron" / "dist" / "electron.exe"
     script = root / "scripts" / "real-client-shell.cjs"
     if not electron.is_file() or not script.is_file():
         raise LauncherError("Dedicated Electron shell is unavailable; install project dependencies before opening the client")
     try:
-        environment = {**os.environ, "WECHATVIBE_INSTANCE_ID": instance_id(root)}
+        environment = {**os.environ, "WECHATVIBE_INSTANCE_ID": instance_id(root, profile)}
+        if profile:
+            environment[PROFILE_ENV] = profile
         subprocess.Popen([str(electron), str(script), "--client-url", url],
                          cwd=str(root), env=environment, close_fds=True)
     except OSError as error:
@@ -775,7 +796,7 @@ def run_command(args, config):
         if log_path:
             print(f"Bridge log: {log_path}")
     if not args.no_open:
-        open_client(config.url, config.root)
+        open_client(config.url, config.root, config.profile)
     return 0
 
 
@@ -786,20 +807,25 @@ def main(argv=None):
     parser.add_argument("--stop-owned-bridge", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--recovery", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--profile", default=None,
+                        help="run an independent instance of this installation")
     args = parser.parse_args(argv)
     try:
+        # Falls back to WECHATVIBE_PROFILE; both unset means the default instance.
+        profile = profile_name(args.profile)
         explicit = os.environ.get("CHATUI_PORT")
-        port = int(explicit) if explicit else default_port(PROJECT_ROOT)
+        port = int(explicit) if explicit else default_port(PROJECT_ROOT, profile)
         if not 1 <= port <= 65535:
             raise ValueError("out of range")
-        config = Config(PROJECT_ROOT, PYTHON_EXE, port)
+        config = Config(PROJECT_ROOT, PYTHON_EXE, port, profile=profile)
         if explicit:
             # Updater and recovery pass their established port explicitly.
             return run_command(args, config)
-        with launch_mutex(Config(PROJECT_ROOT, PYTHON_EXE, 0)):
+        with launch_mutex(Config(PROJECT_ROOT, PYTHON_EXE, 0, profile=profile)):
             chosen = selected_port(config, allow_fallback=not (
                 args.status or args.stop_owned_bridge or args.recovery))
-            return run_command(args, Config(PROJECT_ROOT, PYTHON_EXE, chosen))
+            return run_command(args, Config(PROJECT_ROOT, PYTHON_EXE, chosen,
+                                            profile=profile))
     except (ValueError, LauncherError, OSError) as error:
         if args.stop_owned_bridge and args.json:
             print(json.dumps({"stopped": False, "error": str(error)}))

@@ -9,9 +9,9 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 
 async function launch(isPackaged, stdout, options = {}) {
   const calls = { errors: [], launches: [], shellLoads: 0, profiles: [], quit: 0 };
-  const env = { CHATUI_PORT: '8805', PATH: 'synthetic-path' };
+  const env = { CHATUI_PORT: '8805', PATH: 'synthetic-path', ...(options.env || {}) };
   const processStub = {
-    env, argv: [], resourcesPath: path.join(__dirname, 'synthetic-resources'),
+    env, argv: options.argv || [], resourcesPath: path.join(__dirname, 'synthetic-resources'),
   };
   const app = {
     isPackaged,
@@ -37,6 +37,7 @@ async function launch(isPackaged, stdout, options = {}) {
         if (options.shellThrows) throw new Error('synthetic shell init failure');
         return {};
       }
+      if (name === './runtime-paths.cjs') return require('./runtime-paths.cjs');
       throw new Error(`Unexpected import: ${name}`);
     },
     process: processStub, __dirname,
@@ -44,6 +45,12 @@ async function launch(isPackaged, stdout, options = {}) {
   await tick();
   await tick();
   return { calls, processStub };
+}
+
+// Mirrors how desktop-main resolves `root` from app.isPackaged and resourcesPath.
+function rootFor(isPackaged) {
+  return isPackaged ? path.join(__dirname, 'synthetic-resources', 'client')
+    : path.resolve(__dirname, '..');
 }
 
 function validResult(created) {
@@ -71,6 +78,50 @@ async function main() {
     assert.equal(calls.quit, 0);
     assert.equal(calls.profiles.length, 1);
     assert.equal(calls.profiles[0].name, 'userData');
+    // Unprofiled launches must keep the original directory, lock and env byte for byte.
+    assert.equal(calls.profiles[0].value,
+      path.join(rootFor(isPackaged), '.local', 'real-client-shell'));
+    assert.equal(processStub.env.WECHATVIBE_PROFILE, undefined);
+  }
+
+  // A profile gives each instance its own user-data directory, Electron single-instance
+  // lock, port and bridge, and is handed down to the launcher and the bridge.
+  for (const argv of [['electron', '.', '--profile', 'secondary'],
+    ['electron', '.', '--profile=secondary']]) {
+    const profiled = await launch(true, validResult(true), { argv });
+    assert.equal(profiled.calls.profiles[0].value,
+      path.join(rootFor(true), '.local', 'real-client-shell', 'secondary'));
+    assert.equal(profiled.calls.launches[0].options.env.WECHATVIBE_PROFILE, 'secondary');
+    assert.equal(profiled.processStub.env.WECHATVIBE_PROFILE, 'secondary');
+    // The inherited CHATUI_PORT is still dropped, so the port follows the profile.
+    assert.equal(profiled.calls.launches[0].options.env.CHATUI_PORT, undefined);
+    assert.equal(profiled.calls.errors.length, 0);
+  }
+
+  // With no --profile argument the module falls back to the inherited variable. The helper
+  // resolves it from the real process (it is loaded as a normal module, not sandboxed), so
+  // set that rather than the sandbox's stub.
+  const previousProfile = process.env.WECHATVIBE_PROFILE;
+  process.env.WECHATVIBE_PROFILE = 'beta';
+  let viaEnv;
+  try {
+    viaEnv = await launch(true, validResult(true));
+  } finally {
+    if (previousProfile === undefined) delete process.env.WECHATVIBE_PROFILE;
+    else process.env.WECHATVIBE_PROFILE = previousProfile;
+  }
+  assert.equal(viaEnv.calls.profiles[0].value,
+    path.join(rootFor(true), '.local', 'real-client-shell', 'beta'));
+  assert.equal(viaEnv.calls.launches[0].options.env.WECHATVIBE_PROFILE, 'beta');
+
+  // An unusable profile must fail before any launcher or bridge work happens. An empty
+  // value is not one of these: it means "default instance".
+  for (const bad of ['bad name', '../escape', 'x'.repeat(33), 'semi;colon']) {
+    const rejected = await launch(true, validResult(true),
+      { argv: ['electron', '.', '--profile', bad] });
+    assert.equal(rejected.calls.launches.length, 0, `profile ${JSON.stringify(bad)}`);
+    assert.equal(rejected.calls.errors.length, 1, `profile ${JSON.stringify(bad)}`);
+    assert.equal(rejected.calls.quit, 1, `profile ${JSON.stringify(bad)}`);
   }
 
   // A reused ready bridge is never stopped on a startup failure.
@@ -103,6 +154,17 @@ async function main() {
   assert.equal(cleanupLaunches(corrupt.calls).length, 1);
   const corruptReused = await launch(true, 'not json at all');
   assert.equal(cleanupLaunches(corruptReused.calls).length, 0);
+
+  // That cleanup must target the instance this launch created. The launcher decides which
+  // bridge it may stop from its environment, and this failure path runs before the normal
+  // launch environment reaches process.env, so a `--profile` given only in argv has to be
+  // carried into the stop call — otherwise it stops the default instance's bridge.
+  assert.equal(cleanupLaunches(corrupt.calls)[0].options.env.WECHATVIBE_PROFILE, undefined);
+  const corruptProfiled = await launch(true, 'x "created": true y',
+    { argv: ['electron', '.', '--profile', 'secondary'] });
+  const profiledCleanups = cleanupLaunches(corruptProfiled.calls);
+  assert.equal(profiledCleanups.length, 1);
+  assert.equal(profiledCleanups[0].options.env.WECHATVIBE_PROFILE, 'secondary');
 
   // The launcher cleans up a bridge it started before reporting an error, so the
   // desktop must not issue a second stop.
