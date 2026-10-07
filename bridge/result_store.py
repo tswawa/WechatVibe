@@ -676,17 +676,23 @@ class ResultStore:
     def _add_emotion(summary, emotion, rank, tail=None):
         if not emotion:
             return
+        # tail maps rawLabel -> (label, accumulated probability) for the rows after the one
+        # being inserted. A row can outlive the summary that counted it (issue #24: the
+        # details are kept while the progress record is cleared), so recover the label
+        # instead of failing the run with KeyError.
         tail = tail or {}
         for entry in emotion:
             raw = entry.get("rawLabel") or entry["label"]
             values = summary["mood"].setdefault(raw, {"label": entry["label"], "sum": 0.0,
                                                        "weighted": 0.0})
             values["sum"] += entry["probability"]
-            values["weighted"] += rank * entry["probability"] + tail.get(raw, 0.0)
+            values["weighted"] += rank * entry["probability"] + tail.get(raw, ("", 0.0))[1]
             values["label"] = entry["label"]
-        for raw, probability in tail.items():
+        for raw, (label, probability) in tail.items():
             if raw not in {entry.get("rawLabel") or entry["label"] for entry in emotion}:
-                summary["mood"][raw]["weighted"] += probability
+                values = summary["mood"].setdefault(raw, {"label": label or raw, "sum": 0.0,
+                                                           "weighted": 0.0})
+                values["weighted"] += probability
         summary["moodCount"] += 1
 
     def _ensure_summary(self, conn, account, user, version):
@@ -759,7 +765,8 @@ class ResultStore:
                         tail_score += tail_score_value
                         for entry in json.loads(tail_json).get("emotion") or []:
                             raw = entry.get("rawLabel") or entry["label"]
-                            tail_mood[raw] = tail_mood.get(raw, 0.0) + entry["probability"]
+                            label, probability = tail_mood.get(raw, (entry["label"], 0.0))
+                            tail_mood[raw] = (label, probability + entry["probability"])
             inserted = conn.execute("INSERT OR IGNORE INTO results_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                                     (account, user, message["id"], seq, shard, local_id, message["senderId"],
                                      message["side"], json.dumps(result, ensure_ascii=False), score, version))

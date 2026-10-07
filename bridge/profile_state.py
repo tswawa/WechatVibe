@@ -33,7 +33,11 @@ def add_result(state, result, score, side, position, words, tails=()):
         for tail in tail_emotions:
             for entry in tail:
                 raw = entry.get("rawLabel") or entry["label"]
-                state["mood"][raw]["weighted"] += entry["probability"]
+                # Out-of-order backfill can find a label the saved state no longer carries
+                # (issue #24); recover it instead of raising KeyError.
+                values = state["mood"].setdefault(raw, {"label": entry["label"], "sum": 0.0,
+                                                        "weighted": 0.0})
+                values["weighted"] += entry["probability"]
         for entry in emotion:
             raw = entry.get("rawLabel") or entry["label"]
             values = state["mood"].setdefault(raw, {"label": entry["label"], "sum": 0.0, "weighted": 0.0})

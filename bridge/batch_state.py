@@ -133,7 +133,12 @@ def _merge(state, result, targets, latest, words, is_group, subject,
         for tail in tail_emotions:
             for entry in tail:
                 raw = entry.get("rawLabel") or entry["label"]
-                state["mood"][raw]["weighted"] += targets * entry["probability"]
+                # A tail row can outlive the progress state that counted it (issue #24: the
+                # analysis details are kept while the progress record is cleared). Recover the
+                # label instead of failing the whole run with KeyError.
+                total = state["mood"].setdefault(raw, {"label": entry["label"], "sum": 0.0,
+                                                       "weighted": 0.0})
+                total["weighted"] += targets * entry["probability"]
         for entry in emotion:
             raw = entry.get("rawLabel") or entry["label"]
             total = state["mood"].setdefault(raw, {"label": entry["label"], "sum": 0.0, "weighted": 0.0})
