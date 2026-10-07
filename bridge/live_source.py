@@ -28,8 +28,16 @@ PAGE_SIZE = 4096
 MAX_DB_FILES = 128
 RETRY_SECONDS = 30
 CONFIG_SCAN_CHUNK = 8 * 1024 * 1024
-CONFIG_SCAN_PASS_BYTES = 2 * 1024 * 1024 * 1024
-CONFIG_SCAN_TOTAL_BYTES = 4 * 1024 * 1024 * 1024
+# Raising these limits costs nothing unless they are reached: the scan's cost is the bytes it
+# actually reads, so a budget that is never used reads nothing extra. They are raised because the
+# original 2 GiB pass could not reach the Config.Cipher anchor of a WeChat process whose memory
+# had grown: the scan reported anchors=0 / pairs=0 / candidates=0 with limit_hit=byte_limit, and
+# the account stayed "not ready" for as long as that process lived. Measured independently,
+# a process at 1.1 GB working set needed 1.2 GiB (55% of the old budget) and one at 2.7 GB needed
+# about 6.1 GiB, which puts the failure threshold near a 2.1 GB working set. The scan stays
+# bounded by these budgets and by CONFIG_SCAN_SECONDS.
+CONFIG_SCAN_PASS_BYTES = 4 * 1024 * 1024 * 1024
+CONFIG_SCAN_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
 CONFIG_SCAN_REGIONS = 65_536
 CONFIG_SCAN_CANDIDATES = 256
 CONFIG_SCAN_SECONDS = 90
