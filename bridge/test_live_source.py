@@ -398,6 +398,40 @@ class LiveKeyPreparationTests(unittest.TestCase):
             self.assertNotIn(key.hex(), public)
         self.assertIsNone(factory.preparation_status("other-synthetic-account"))
 
+    def test_a_transient_identity_failure_retries_long_before_a_full_backoff(self):
+        """Churn during an account change must not cost the full retry delay.
+
+        While WeChat is switching accounts, the ownership query behind
+        `active_account_snapshot` can raise before any memory is read. Retrying that after the
+        full backoff turned a few seconds of churn into a minute or more of "preparing".
+        """
+        factory = LiveWeChatFactory(retry_seconds=30)
+        flaky = patch("live_source.active_account_snapshot",
+                      side_effect=OSError(234, "file ownership changed repeatedly"))
+        with flaky, redirect_stderr(self.log):
+            with self.assertRaisesRegex(RuntimeError, "preparation pending"):
+                factory(db_dir=str(self.db_dir), account=self.account, selection=self.selection)
+        status = factory.preparation_status(self.account)
+        self.assertEqual(status["state"], "failed")
+        self.assertIn(status["reason"], live_source.TRANSIENT_PREPARATION_REASONS)
+        self.assertLessEqual(status["retryAfterSeconds"],
+                             live_source.TRANSIENT_RETRY_SECONDS + 1)
+
+    def test_a_scan_limit_keeps_the_full_retry_delay(self):
+        """A failure a retry cannot fix must keep the long backoff, not hammer the scan."""
+        def byte_limited(_pid, _pages, metrics):
+            metrics.update({"anchors": 0, "scan_bytes": live_source.CONFIG_SCAN_PASS_BYTES,
+                            "limit_hit": "byte_limit"})
+            return {}
+        factory = LiveWeChatFactory(retry_seconds=30)
+        with patch("live_source._scan_config_cipher_keys", side_effect=byte_limited), \
+                redirect_stderr(self.log):
+            with self.assertRaisesRegex(RuntimeError, "preparation pending"):
+                factory(db_dir=str(self.db_dir), account=self.account, selection=self.selection)
+        status = factory.preparation_status(self.account)
+        self.assertEqual(status["reason"], "scan_limit")
+        self.assertGreater(status["retryAfterSeconds"], live_source.TRANSIENT_RETRY_SECONDS)
+
 
 if __name__ == "__main__":
     unittest.main()

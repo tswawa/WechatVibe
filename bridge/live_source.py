@@ -28,6 +28,17 @@ from wr import crypto, discovery
 PAGE_SIZE = 4096
 MAX_DB_FILES = 128
 RETRY_SECONDS = 30
+# A scan can also fail because the world moved under it: the account was switched, the pages
+# changed, or a Restart Manager query hit the middle of a WeChat account change. Those failures
+# happen before any memory is read (or right after), so retrying them after the full
+# RETRY_SECONDS turned a few seconds of churn into a minute or more of "preparing" - observed
+# taking 120 s across three such failures while WeChat was logging an account out. Retry those
+# quickly instead, and keep the long backoff for failures that a retry cannot fix.
+TRANSIENT_RETRY_SECONDS = 2
+TRANSIENT_PREPARATION_REASONS = frozenset({
+    "process_identity_error", "process_identity_unavailable", "process_scan_error",
+    "final_identity_error", "account_changed", "database_changed",
+})
 CONFIG_SCAN_CHUNK = 8 * 1024 * 1024
 CONFIG_SCAN_PASS_BYTES = 4 * 1024 * 1024 * 1024
 CONFIG_SCAN_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
@@ -584,12 +595,14 @@ class LiveWeChatFactory:
 
     def __init__(self, cache_factory=CacheOnlyWeChatDB, volatile_factory=VolatileKeyWeChatDB,
                  scanner=None, retry_seconds=RETRY_SECONDS,
+                 transient_retry_seconds=TRANSIENT_RETRY_SECONDS,
                  session_factory=SessionOnlyWeChatDB):
         self.cache_factory = cache_factory
         self.volatile_factory = volatile_factory
         self.session_factory = session_factory
         self.scanner = scanner
         self.retry_seconds = retry_seconds
+        self.transient_retry_seconds = transient_retry_seconds
         self.lock = threading.Lock()
         self.slots: dict[tuple, _ScanSlot] = {}
 
@@ -775,14 +788,16 @@ class LiveWeChatFactory:
             else:
                 slot.diagnostic = diagnostic
                 slot.scanning = False
+                delay = (self.transient_retry_seconds if reason in TRANSIENT_PREPARATION_REASONS
+                         else self.retry_seconds)
                 if messages_ready:
                     slot.state, slot.keys = "ready", keys
                 elif sessions_ready:
                     slot.state, slot.keys = "sessions", keys
-                    slot.retry_at = time.monotonic() + self.retry_seconds
+                    slot.retry_at = time.monotonic() + delay
                 else:
                     slot.state, slot.keys = "failed", None
-                    slot.retry_at = time.monotonic() + self.retry_seconds
+                    slot.retry_at = time.monotonic() + delay
         print(f"live_wechat_preparation result={reason} required={len(pages)} "
               f"matched={matched} cache={cache_count} scan_new={scan_new_count} union={matched} "
               f"{_database_counts(pages, matched_rels)} "
