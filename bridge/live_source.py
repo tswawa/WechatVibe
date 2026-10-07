@@ -128,10 +128,15 @@ def _account_database_files(account):
     return anchors or files
 
 
-def _account_from_file_owners(accounts, processes, *, fresh=True):
-    """Ask Windows which discovered process owns each account's SQLite files."""
+def _account_matches(accounts, processes, *, fresh=True) -> dict[Path, set[tuple[int, float | None]]]:
+    """Every discovered account location owned by a live WeChat process.
+
+    This is the raw attribution, keyed by the account location, and it is deliberately NOT a
+    selection: with several accounts logged in at once it returns several entries. Callers
+    decide how to disambiguate (see `_account_from_file_owners` and `live_account_selections`).
+    """
     known = {process.pid for process in processes}
-    matches = {}
+    matches: dict[Path, set[tuple[int, float | None]]] = {}
     for account in accounts:
         owned = set()
         for pid, created in _owned_processes(_account_database_files(account), fresh=fresh):
@@ -152,6 +157,12 @@ def _account_from_file_owners(accounts, processes, *, fresh=True):
         if owned:
             location = Path(account.path).parent.resolve()
             matches.setdefault(location, set()).update(owned)
+    return matches
+
+
+def _account_from_file_owners(accounts, processes, *, fresh=True):
+    """Ask Windows which discovered process owns each account's SQLite files."""
+    matches = _account_matches(accounts, processes, fresh=fresh)
     if len(matches) != 1:
         return None
     location, owners = next(iter(matches.items()))
@@ -192,6 +203,43 @@ def active_account_snapshot(*, fresh=True) -> ActiveSelection | None:
     match = next((account for account in accounts if account.id == active_id), None)
     return (ActiveSelection(Path(match.path).parent.resolve(), tuple(sorted(processes)))
             if match else None)
+
+
+def live_account_selections(*, fresh=True) -> list[ActiveSelection]:
+    """Every account currently owned by a live WeChat process; empty when none.
+
+    Unlike `active_account_snapshot` this never collapses an ambiguous set: the account picker
+    needs to show the user each candidate so one instance can be pinned to each. It answers an
+    explicit user action, so it asks for a fresh answer instead of a reused one.
+    """
+    accounts = discovery.discover_account_dirs()
+    processes = discovery.find_weixin_processes()
+    if not accounts or not processes:
+        return []
+    matches = _account_matches(accounts, processes, fresh=fresh)
+    return [ActiveSelection(location, tuple(sorted(owners)))
+            for location, owners in sorted(matches.items(), key=lambda item: str(item[0]))]
+
+
+def selection_for_account(account_dir, *, fresh=True) -> ActiveSelection | None:
+    """The live selection for one account, without surveying every other account.
+
+    Asking Windows which process owns an account's files (Restart Manager) costs hundreds of
+    milliseconds per account, and a pinned instance only ever needs its own. `fresh=False` is
+    for ordinary reads that may reuse a bounded answer; an account change or a save asks the
+    default question again.
+    """
+    target = Path(account_dir).resolve()
+    accounts = discovery.discover_account_dirs()
+    processes = discovery.find_weixin_processes()
+    if not accounts or not processes:
+        return None
+    for account in accounts:
+        if Path(account.path).parent.resolve() != target:
+            continue
+        owners = _account_matches([account], processes, fresh=fresh).get(target)
+        return ActiveSelection(target, tuple(sorted(owners))) if owners else None
+    return None
 
 
 def _pages(account_dir: Path) -> dict[str, tuple[Path, bytes, bytes]]:
@@ -584,14 +632,32 @@ class LiveWeChatFactory:
 
     def __init__(self, cache_factory=CacheOnlyWeChatDB, volatile_factory=VolatileKeyWeChatDB,
                  scanner=None, retry_seconds=RETRY_SECONDS,
-                 session_factory=SessionOnlyWeChatDB):
+                 session_factory=SessionOnlyWeChatDB, locator=None):
         self.cache_factory = cache_factory
         self.volatile_factory = volatile_factory
         self.session_factory = session_factory
         self.scanner = scanner
         self.retry_seconds = retry_seconds
+        # A pinned instance resolves its account through its own locator. Without one the
+        # process-wide snapshot decides, which is the unpinned behaviour and is ambiguous
+        # (None) as soon as a second account logs in.
+        self.locator = locator
         self.lock = threading.Lock()
         self.slots: dict[tuple, _ScanSlot] = {}
+
+    def _still_selected(self, selection: ActiveSelection) -> bool:
+        """Re-evaluate account identity mid-scan; a stale scan must not publish its keys.
+
+        The unpinned branch reads the module attribute at call time rather than capturing a
+        reference at import, so patching `active_account_snapshot` in tests still drives the
+        real decision here.
+        """
+        if self.locator is None:
+            return active_account_snapshot() == selection
+        try:
+            return self.locator() == selection
+        except Exception:
+            return False
 
     def forget_account(self, account):
         """Discard scoped in-memory keys; a running scan will discard its late result."""
@@ -690,7 +756,7 @@ class LiveWeChatFactory:
                 if created is None:
                     reason = "process_identity_unavailable"
                     break
-                if active_account_snapshot() != selection:
+                if not self._still_selected(selection):
                     reason = "account_changed"
                     break
                 stage = "process_scan"
@@ -734,7 +800,7 @@ class LiveWeChatFactory:
             reason = stage + "_error"
         try:
             stage = "final_identity"
-            if active_account_snapshot() != selection:
+            if not self._still_selected(selection):
                 reason = "account_changed"
                 keys = {}
             else:

@@ -1110,6 +1110,156 @@ class BackendTests(unittest.TestCase):
             server.server_close()
             thread.join()
 
+    def test_account_pin_endpoints_report_select_and_clear(self):
+        """The pin is a separate endpoint; the account boundary itself must stay unchanged."""
+
+        class FakePin:
+            def __init__(self):
+                self.selected = []
+                self.cleared = 0
+
+            @staticmethod
+            def _live():
+                return [{"accountDir": "C:\\xwechat_files\\wxid_a", "account": "wxid_a"}]
+
+            def status(self, include_live=True, resolved=None):
+                return {"state": "unpinned-ambiguous", "pinned": None,
+                        "live": self._live() if include_live else []}
+
+            def select(self, value):
+                self.selected.append(value)
+                return {"state": "pinned-ready",
+                        "pinned": {"accountDir": value, "account": "wxid_a"}, "live": self._live()}
+
+            def clear(self):
+                self.cleared += 1
+                return {"state": "unpinned-ambiguous", "pinned": None, "live": self._live()}
+
+        pin = FakePin()
+        source = WeChatSource(factory=lambda **_kwargs: None, active_account_locator=lambda: None)
+        backend = Backend(source, self.analyzer, self.store_factory, account_pin_store=pin)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(backend))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            def call(method, path, payload=None):
+                body = None if payload is None else json.dumps(payload).encode("utf-8")
+                headers = {} if body is None else {
+                    "Content-Type": "application/json;charset=utf-8",
+                    "Content-Length": str(len(body))}
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                conn.request(method, path, body=body, headers=headers)
+                response = conn.getresponse()
+                result = response.status, json.loads(response.read())
+                conn.close()
+                return result
+
+            status, health = call("GET", "/api/health")
+            self.assertEqual(status, 200)
+            self.assertEqual(health["data"]["accountPin"]["state"], "unpinned-ambiguous")
+            # Health reports the state only; the live list belongs to the picker endpoint,
+            # because building it costs a Restart Manager query per logged-in account.
+            self.assertEqual(health["data"]["accountPin"]["live"], [])
+
+            status, body = call("GET", "/api/account-pin")
+            self.assertEqual((status, body["state"]), (200, "unpinned-ambiguous"))
+            self.assertEqual([item["account"] for item in body["live"]], ["wxid_a"])
+
+            status, body = call("POST", "/api/account-pin",
+                                {"accountDir": "C:\\xwechat_files\\wxid_a"})
+            self.assertEqual((status, body["state"]), (200, "pinned-ready"))
+            self.assertEqual(pin.selected, ["C:\\xwechat_files\\wxid_a"])
+
+            # The endpoint takes exactly one field, so a typo cannot silently unpin.
+            for payload in ({}, {"account": "wxid_a"}, {"accountDir": "a", "extra": 1}):
+                status, _body = call("POST", "/api/account-pin", payload)
+                self.assertEqual(status, 400, payload)
+            self.assertEqual(pin.selected, ["C:\\xwechat_files\\wxid_a"])
+
+            status, body = call("POST", "/api/account-pin/clear", {})
+            self.assertEqual((status, body["state"], pin.cleared), (200, "unpinned-ambiguous", 1))
+            status, _body = call("POST", "/api/account-pin/clear", {"accountDir": "x"})
+            self.assertEqual(status, 400)
+            self.assertEqual(pin.cleared, 1)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+    def test_health_hands_a_failed_probe_back_to_the_pin(self):
+        """A live account whose reader is still preparing must not read as a missing pin.
+
+        `identity()` fails both when no account is live and when the pinned account is live but
+        its key scan has not finished. Only the first is an answer the pin may reuse: a cold
+        start used to report a valid pin as `pinned-missing` and prompt the user to choose an
+        account that was already chosen.
+        """
+        from account_pin_source import UNRESOLVED
+
+        seen = []
+
+        class RecordingPin:
+            def status(self, include_live=True, resolved=UNRESOLVED):
+                seen.append((include_live, resolved))
+                return {"state": "pinned-ready",
+                        "pinned": {"accountDir": "C:\\x\\wxid_a", "account": "wxid_a"},
+                        "live": []}
+
+        source = WeChatSource(factory=lambda **_kwargs: None, active_account_locator=lambda: None)
+        backend = Backend(source, self.analyzer, self.store_factory,
+                          account_pin_store=RecordingPin())
+
+        health = backend.health()
+        self.assertEqual(health["data"]["state"], "account-unavailable")
+        self.assertIs(seen[-1][1], UNRESOLVED)
+        self.assertFalse(seen[-1][0], "health must not build the picker's live list")
+        self.assertEqual(health["data"]["accountPin"]["state"], "pinned-ready")
+
+        # A probe that did answer still spares the pin its own Restart Manager round.
+        source.identity = lambda: ("wxid_a", None)
+        seen.clear()
+        health = backend.health()
+        self.assertEqual(health["data"]["state"], "ready")
+        self.assertEqual(seen[-1][1], "wxid_a")
+
+    def test_account_pin_labels_come_from_the_saved_registry(self):
+        """A wxid cannot be told apart by eye; the picker needs the nickname its owner knows."""
+        from account_store import account_id
+        from real_http import labelled_pin_status
+
+        class FakeStore:
+            @staticmethod
+            def list():
+                return {"accounts": [
+                    {"accountId": account_id("wxid_known"), "wechatId": "wxid_known_short",
+                     "nickname": "nickname-known", "current": False, "bytes": 12345678},
+                    {"accountId": account_id("wxid_blank"), "wechatId": "wxid_blank_short",
+                     "nickname": "", "current": False, "bytes": 0},
+                ], "currentAccountId": None}
+
+        class FakeAccounts:
+            store = FakeStore()
+
+        status = {"state": "unpinned-ambiguous", "pinned": None, "live": [
+            {"accountDir": "C:\\x\\wxid_known", "account": "wxid_known"},
+            {"accountDir": "C:\\x\\wxid_blank", "account": "wxid_blank"},
+            {"accountDir": "C:\\x\\wxid_unknown", "account": "wxid_unknown"},
+        ]}
+        first, second, third = labelled_pin_status(status, FakeAccounts())["live"]
+        self.assertEqual((first["label"], first["wechatId"], first["bytes"]),
+                         ("nickname-known", "wxid_known_short", 12345678))
+        # A blank nickname falls back to the short id instead of rendering nothing.
+        self.assertEqual(second["label"], "wxid_blank_short")
+        # An account this client never opened keeps its wxid and gains no invented fields.
+        self.assertEqual(third["label"], "wxid_unknown")
+        self.assertNotIn("nickname", third)
+        # The original payload is not mutated.
+        self.assertNotIn("label", status["live"][0])
+
+        # A missing or broken registry must pass the status through, never fail the request.
+        self.assertIs(labelled_pin_status(status, None), status)
+        self.assertIs(labelled_pin_status(status, object()), status)
+
     def test_affinity_reference_and_stable_identity(self):
         self.assertEqual(affinity([1, -1]), 33)
         row = {"local_id": 1, "sort_seq": 5, "server_id": 9}

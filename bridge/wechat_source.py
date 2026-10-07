@@ -122,8 +122,12 @@ class WeChatSource:
         self.dynamic_account = factory is None or active_account_locator is not None
         self._ownership_cache_enabled = self.live_account
         if self.live_account:
-            from live_source import active_account_snapshot
-            self.active_account_locator = active_account_snapshot
+            # Production resolves through this instance's pin. Unpinned it delegates to the
+            # process-wide snapshot, so a single-account machine behaves exactly as before;
+            # pinned it names one account instead of failing closed on the ambiguity.
+            from account_pin_source import AccountPinSource
+            from instance_identity import profile_name
+            self.active_account_locator = AccountPinSource(ROOT, profile_name()).locator()
         else:
             self.active_account_locator = active_account_locator or active_account_dir
         self.lock = threading.RLock()
@@ -275,7 +279,10 @@ class WeChatSource:
                 if self.factory is None:
                     if self.live_account:
                         from live_source import LiveWeChatFactory
-                        self.factory = LiveWeChatFactory()
+                        # The scan re-verifies identity while it runs; it must use the same
+                        # locator as this source, otherwise a pinned instance is judged
+                        # against the process-wide (ambiguous) snapshot and never prepares keys.
+                        self.factory = LiveWeChatFactory(locator=self.active_account_locator)
                     else:
                         from cache_source import CacheOnlyWeChatDB
                         self.factory = CacheOnlyWeChatDB
@@ -307,7 +314,7 @@ class WeChatSource:
             if self.factory is None:
                 if self.live_account:
                     from live_source import LiveWeChatFactory
-                    self.factory = LiveWeChatFactory()
+                    self.factory = LiveWeChatFactory(locator=self.active_account_locator)
                 else:
                     from cache_source import CacheOnlyWeChatDB
                     self.factory = CacheOnlyWeChatDB

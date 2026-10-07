@@ -154,6 +154,9 @@ class DataRootSourceTests(unittest.TestCase):
         def file_owners(paths):
             return [(42, 10.0)] if any(Path(path).parent.parent.name in owners for path in paths) else []
 
+        # The ownership policy itself is tested separately; this test is about the mapping
+        # from raw ownership to a selection, so it must see every call. Since 1.3.0 the
+        # ownership query is fresh by default, so no cache window has to be disabled here.
         with patch.object(live_source, "file_owners", side_effect=file_owners), \
                 patch.object(discovery, "psutil", fake_psutil):
             processes = [discovery.WeixinProcess(pid=42)]
@@ -166,6 +169,43 @@ class DataRootSourceTests(unittest.TestCase):
             self.assertEqual(live_source._account_from_file_owners(accounts, processes).account_dir,
                              other.resolve())
             owners.add("synthetic-a")
+            self.assertIsNone(live_source._account_from_file_owners(accounts, processes))
+
+    def test_live_account_selections_enumerates_the_ambiguous_set(self):
+        """The picker needs every live account, which the fail-closed selector drops.
+
+        Both functions must read the same attribution, so the assertion pairs the newly
+        enumerated set against the unchanged None from `_account_from_file_owners`.
+        """
+        import live_source
+        from wr import discovery
+        other = self.data / "synthetic-b"
+        (other / "db_storage").mkdir(parents=True)
+        for account in (self.account, other):
+            (account / "db_storage" / "session.db").write_bytes(b"synthetic")
+        self.store.select(str(self.data))
+        accounts = discovery.discover_account_dirs(roots=[str(self.data)])
+        processes = [discovery.WeixinProcess(pid=42)]
+        owners = set()
+        fake_psutil = SimpleNamespace(
+            Process=lambda _pid: SimpleNamespace(name=lambda: "Weixin.exe", create_time=lambda: 10.0),
+            NoSuchProcess=RuntimeError, AccessDenied=PermissionError)
+
+        def file_owners(paths):
+            return [(42, 10.0)] if any(Path(path).parent.parent.name in owners for path in paths) else []
+
+        with patch.object(live_source, "file_owners", side_effect=file_owners), \
+                patch.object(live_source, "OWNERSHIP_TTL_SECONDS", 0), \
+                patch.object(discovery, "psutil", fake_psutil), \
+                patch.object(discovery, "discover_account_dirs", return_value=accounts), \
+                patch.object(discovery, "find_weixin_processes", return_value=processes):
+            self.assertEqual(live_source.live_account_selections(), [])
+            owners.add("synthetic-a")
+            self.assertEqual([item.account_dir for item in live_source.live_account_selections()],
+                             [self.account.resolve()])
+            owners.add("synthetic-b")
+            self.assertEqual([item.account_dir for item in live_source.live_account_selections()],
+                             [self.account.resolve(), other.resolve()])
             self.assertIsNone(live_source._account_from_file_owners(accounts, processes))
 
 

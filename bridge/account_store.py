@@ -32,6 +32,18 @@ def account_id(account):
     return hashlib.sha256(account.encode("utf-8")).hexdigest()
 
 
+def default_snapshot_root():
+    return Path(tempfile.gettempdir()) / "wechatauto_db"
+
+
+def default_stable_keys_dir():
+    configured = os.environ.get("WECHATAUTO_KEYS_DIR")
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("USERPROFILE")
+    return Path(configured) if configured else (Path(base) / "wechatauto_keys" if base else None)
+
+
+
+
 def _safe_account(account):
     return (isinstance(account, str) and bool(account) and account not in (".", "..") and
             not any(char in account for char in "/\\:\0") and
@@ -73,14 +85,10 @@ def _same_checked_directory(left, right):
 class AccountStore:
     def __init__(self, data_dir, snapshot_root=None, stable_keys_dir=None):
         self.data_dir = Path(os.path.abspath(data_dir))
-        self.snapshot_root = Path(os.path.abspath(
-            snapshot_root or Path(tempfile.gettempdir()) / "wechatauto_db"
-        ))
+        self.snapshot_root = Path(os.path.abspath(snapshot_root or default_snapshot_root()))
         self.registry = self.data_dir / "accounts.json"
         if stable_keys_dir is None:
-            configured = os.environ.get("WECHATAUTO_KEYS_DIR")
-            base = os.environ.get("LOCALAPPDATA") or os.environ.get("USERPROFILE")
-            stable_keys_dir = configured or (Path(base) / "wechatauto_keys" if base else None)
+            stable_keys_dir = default_stable_keys_dir()
         self.stable_keys_dir = Path(os.path.abspath(stable_keys_dir)) if stable_keys_dir else None
         self.lock = threading.RLock()
 

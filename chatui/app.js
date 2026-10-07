@@ -202,6 +202,7 @@ function showStartup(stage, message, options = {}) {
   }
   text("startupStatus", message);
   byId("startupRetry").hidden = !options.retry;
+  byId("startupPickAccount").hidden = !options.pickAccount;
   byId("startupContinue").hidden = !options.continueEmpty;
   clearTimeout(startupWatchdog);
   if (!options.retry) startupWatchdog = setTimeout(() => {
@@ -375,10 +376,10 @@ async function api(path, options = {}, signal) {
   if (data.error) throw new Error(String(data.error));
   return data;
 }
-function status(container, message, retry) {
+function status(container, message, retry, retryLabel) {
   container.replaceChildren(element("div", "ui-state", message));
   if (retry) {
-    const button = element("button", "ui-retry", "重试");
+    const button = element("button", "ui-retry", retryLabel || "重试");
     button.addEventListener("click", retry);
     container.appendChild(button);
   }
@@ -1295,8 +1296,20 @@ async function loadSessions(retryChanged = true) {
       const autoRetry = !scanFailed && startupActive && !startupAccountRetryUsed;
       if (!accountUnavailable || chatState.currentAccount !== null || chatState.sessions.size) resetAccountView(reason);
       accountUnavailable = true;
-      status(byId("sessionList"), reason, () => { void loadSessions(); });
-      if (autoRetry) {
+      // "Not ready" also covers several accounts being logged in at once, which is
+      // recoverable: offer the picker instead of only a retry. Every other cause keeps the
+      // preparation message, which says what the scan is waiting for.
+      const pin = await loadAccountPin();
+      const ambiguous = accountPinNeedsChoice(pin);
+      const unavailableMessage = ambiguous ? accountUnavailableMessage(pin) : reason;
+      // Retrying can never resolve an ambiguous account — only choosing one can — so the
+      // sidebar action opens the picker instead of offering a retry that cannot succeed.
+      status(byId("sessionList"), unavailableMessage,
+        ambiguous ? () => { void openAccountPicker(); } : () => { void loadSessions(); },
+        ambiguous ? "选择账号" : null);
+      if (ambiguous) {
+        showStartup("account", unavailableMessage, { retry: true, pickAccount: true, continueEmpty: true });
+      } else if (autoRetry) {
         startupAccountRetryUsed = true;
         showStartup("account", "正在重试连接微信…");
         const attempt = startupAttempt;
@@ -4523,7 +4536,11 @@ function renderManagedAccounts() {
     const item = element("button", `account-item${account.accountId === selectedManagedAccountId ? " active" : ""}`);
     item.type = "button";
     item.setAttribute("aria-pressed", String(account.accountId === selectedManagedAccountId));
-    item.appendChild(element("span", "account-wechat-id", account.wechatId));
+    // Show the nickname its owner recognises; the wxid stays on hover and in the delete text.
+    const accountLabel = account.nickname && account.nickname !== account.wechatId ?
+      account.nickname : account.wechatId;
+    item.title = accountLabel === account.wechatId ? accountLabel : `${accountLabel}（${account.wechatId}）`;
+    item.appendChild(element("span", "account-wechat-id", accountLabel));
     if (managedAccountIsCurrent(account)) item.appendChild(element("span", "account-current", "正在使用"));
     item.addEventListener("click", () => {
       if (accountDeleteBusy) return;
@@ -4553,6 +4570,172 @@ function renderManagedAccounts() {
     list.appendChild(row);
   }
 }
+// --- which WeChat account this window reads -------------------------------------------
+// One instance reads one account. The pin only matters when several accounts are logged in
+// at once: without it the backend keeps its original fail-closed behaviour, and a single
+// logged-in account is used automatically. A second instance picks the other account.
+let accountPinRequest = 0;
+let accountPinBusy = false;
+
+function accountPinNeedsChoice(data) {
+  return data?.state === "unpinned-ambiguous" || data?.state === "pinned-missing";
+}
+
+// A window locked to one account whose account is logged out must not be told that several
+// accounts were detected: that wording invites the user to switch accounts, and switching is
+// the one action this design reserves for an explicit decision.
+function accountUnavailableMessage(data) {
+  if (data?.state === "unpinned-ambiguous") return "检测到多个微信账号，请选择本窗口使用的账号";
+  if (data?.state === "pinned-missing") {
+    return `本窗口锁定的账号 ${accountPinLabel(data)} 未登录，请登录该账号或重新选择`;
+  }
+  return "当前微信账号未就绪";
+}
+
+function formatBytes(value) {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  let size = value;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
+}
+
+function accountPinLabel(data) {
+  if (!data) return "自动";
+  if (data.pinned) {
+    const label = data.pinned.label || data.pinned.account || data.pinned.accountDir || "已选择";
+    // A nickname can be as terse as "."; pair it with the id so this row settles the
+    // question it exists to answer — which account is this window reading.
+    return data.pinned.wechatId && data.pinned.wechatId !== label
+      ? `${label}（${data.pinned.wechatId}）` : label;
+  }
+  if (data.state === "unpinned-ambiguous") return "检测到多个账号，请选择";
+  if (data.state === "unpinned-none") return "未检测到登录账号";
+  if (data.state === "invalid") return "账号锁定配置不可用";
+  return "自动";
+}
+
+function renderAccountPin(data) {
+  const label = accountPinLabel(data);
+  text("accountPinStatus", label);
+  const row = byId("accountPinStatus");
+  row.dataset.state = accountPinNeedsChoice(data) ? "attention" : "ready";
+  row.title = label;
+  byId("btnClearAccountPin").hidden = !data || !data.pinned;
+}
+
+async function loadAccountPin() {
+  const request = ++accountPinRequest;
+  try {
+    const data = await api("/api/account-pin");
+    if (request !== accountPinRequest) return null;
+    renderAccountPin(data);
+    return data;
+  } catch (error) {
+    if (request !== accountPinRequest) return null;
+    text("accountPinStatus", "账号锁定读取失败");
+    return null;
+  }
+}
+
+function renderAccountPicker(data) {
+  const list = byId("accountPickerList");
+  list.replaceChildren();
+  const live = Array.isArray(data?.live) ? data.live : [];
+  const pinnedDir = data?.pinned?.accountDir || null;
+  if (!live.length) {
+    status(list, "没有检测到登录中的微信账号", () => { void openAccountPicker(); });
+    return;
+  }
+  for (const item of live) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "account-picker-row";
+    if (item.accountDir === pinnedDir) row.classList.add("active");
+    const info = element("span", "account-picker-info");
+    // The nickname is the name its owner sees inside WeChat; a bare wxid cannot be told apart.
+    info.appendChild(element("span", "account-picker-name",
+      item.label || item.account || item.accountDir || ""));
+    const details = [];
+    if (item.wechatId) details.push(item.wechatId);
+    const cached = formatBytes(item.bytes);
+    // Cache size separates "the one I have been reading" from "the one I just logged into".
+    details.push(cached ? `已缓存 ${cached}` : "尚无缓存");
+    info.appendChild(element("span", "account-picker-meta", details.join(" · ")));
+    row.append(info);
+    if (item.accountDir === pinnedDir) {
+      row.append(element("span", "account-picker-badge", "正在使用"));
+    }
+    row.addEventListener("click", () => { void chooseAccountPin(item.accountDir); });
+    list.append(row);
+  }
+}
+
+async function openAccountPicker(open = true) {
+  const panel = byId("accountPicker");
+  panel.hidden = !open;
+  if (!open) return;
+  text("accountPickerStatus", "");
+  status(byId("accountPickerList"), "正在读取登录中的账号…");
+  const data = await loadAccountPin();
+  if (data) renderAccountPicker(data);
+  else status(byId("accountPickerList"), "账号读取失败，请重试", () => { void openAccountPicker(); });
+}
+
+async function chooseAccountPin(accountDir) {
+  if (accountPinBusy || typeof accountDir !== "string" || !accountDir) return;
+  accountPinBusy = true;
+  text("accountPickerStatus", "正在切换账号…");
+  try {
+    // A refused pin explains itself in the body ("another instance is using this account"),
+    // so read the response here instead of through api(), which drops it.
+    const response = await fetch("/api/account-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountDir }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      text("accountPickerStatus", typeof body?.error === "string" && body.error
+        ? body.error : "账号切换失败");
+      return;
+    }
+    // Invalidate any read that started earlier: an older status must not repaint over this.
+    accountPinRequest += 1;
+    renderAccountPin(body);
+    byId("accountPicker").hidden = true;
+    // Every cached view belongs to the previous account, so start the view over.
+    resetAccountView("正在读取会话…");
+    void loadSessions();
+  } catch (error) {
+    text("accountPickerStatus", "账号切换失败");
+  } finally {
+    accountPinBusy = false;
+  }
+}
+
+async function clearAccountPin() {
+  if (accountPinBusy) return;
+  accountPinBusy = true;
+  try {
+    const cleared = await api("/api/account-pin/clear", {
+      method: "POST", body: JSON.stringify({}),
+    });
+    accountPinRequest += 1;
+    renderAccountPin(cleared);
+    resetAccountView("正在读取会话…");
+    void loadSessions();
+  } catch (error) {
+    text("accountPinStatus", "恢复自动失败");
+  } finally {
+    accountPinBusy = false;
+  }
+}
+
 async function loadAccounts() {
   if (accountDeleteBusy) return;
   const request = ++accountManagerRequest;
@@ -5247,6 +5430,8 @@ function updateStatusMessage(state) {
     timeout: "检查超时，请重试",
     offline: "网络不可用，请重试",
     "server-error": "暂时无法检查更新",
+    // Several instances share one installation; only the default one may replace it.
+    "profile-managed": "请在默认实例中检查更新（多开实例共用一个安装目录）",
   }[updatePhase(state)] || "暂时无法检查更新";
 }
 function renderUpdateState() {
@@ -5446,6 +5631,10 @@ byId("btnManageAccounts").addEventListener("click", () => {
   if (!panel.hidden) void loadAccounts();
 });
 byId("btnRefreshAccounts").addEventListener("click", () => { void loadAccounts(); });
+byId("btnChooseAccountPin").addEventListener("click", () => { void openAccountPicker(); });
+byId("btnClearAccountPin").addEventListener("click", () => { void clearAccountPin(); });
+byId("btnCancelAccountPicker").addEventListener("click", () => { void openAccountPicker(false); });
+byId("startupPickAccount").addEventListener("click", () => { void openAccountPicker(); });
 byId("btnRetryAccountCheck").addEventListener("click", () => { void loadSessions(); });
 byId("btnToggleAccountManagement").addEventListener("click", () => {
   accountManagementOpen = !accountManagementOpen;
@@ -5569,6 +5758,8 @@ async function startInitialLoad() {
     const data = await api("/api/health");
     if (attempt !== startupAttempt || !startupActive) return;
     healthReady = data.data?.state === "ready";
+    // Health carries the pin so the settings row is correct before the first session load.
+    if (data.data?.accountPin) renderAccountPin(data.data.accountPin);
     if (data.data?.state === "error") setStripStatus("数据源不可用");
   } catch { }
   if (attempt !== startupAttempt || !startupActive) return;

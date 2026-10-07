@@ -397,6 +397,47 @@ class LiveKeyPreparationTests(unittest.TestCase):
         for key in self.keys.values():
             self.assertNotIn(key.hex(), public)
         self.assertIsNone(factory.preparation_status("other-synthetic-account"))
+    def prepare_with_locator(self, found, locator):
+        factory = LiveWeChatFactory(retry_seconds=30, locator=locator)
+        with patch("live_source._scan_config_cipher_keys", return_value=found), \
+                redirect_stderr(self.log):
+            with self.assertRaisesRegex(RuntimeError, "preparation pending"):
+                factory(db_dir=str(self.db_dir), account=self.account,
+                        selection=self.selection)
+        return factory
+
+    def other_selection(self):
+        return ActiveSelection((self.location.parent / "another-account").resolve(),
+                               ((54321, 100.0),))
+
+    def test_scan_follows_an_injected_locator_that_stops_matching(self):
+        """A pinned scan must be judged by its own locator, never by the shared snapshot.
+
+        The patched `active_account_snapshot` in this fixture still returns `self.selection`,
+        so a scan that ignored the injected locator would succeed here and this test would
+        fail. That inversion is the point: it guards the pinned instance against the
+        permanent `account_changed` deadlock where every request 503s forever.
+        """
+        factory = self.prepare_with_locator(self.keys, lambda: self.other_selection())
+        self.assertIn("result=account_changed", self.log.getvalue())
+        for slot in factory.slots.values():
+            self.assertFalse(slot.keys)
+
+    def test_scan_follows_an_injected_locator_that_keeps_matching(self):
+        factory = self.prepare_with_locator(self.keys, lambda: self.selection)
+        reader = factory(db_dir=str(self.db_dir), account=self.account,
+                         selection=self.selection)
+        self.assertIsInstance(reader, VolatileKeyWeChatDB)
+        self.assertEqual(reader._keys, self.keys)
+
+    def test_scan_treats_a_raising_locator_as_changed(self):
+        def failing():
+            raise RuntimeError("locator unavailable")
+
+        factory = self.prepare_with_locator(self.keys, failing)
+        self.assertIn("result=account_changed", self.log.getvalue())
+        for slot in factory.slots.values():
+            self.assertFalse(slot.keys)
 
 
 if __name__ == "__main__":

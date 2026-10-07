@@ -3,6 +3,7 @@
 import http.client
 import json
 import sys
+import tempfile
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -89,6 +90,38 @@ class ControlTests(unittest.TestCase):
             connection.close()
             server.shutdown()
             thread.join(2)
+
+
+class ProfileModelSourceTests(unittest.TestCase):
+    """One shared model-selection file means whichever instance saves last reverts the other."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="model source fixture ")
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.shared = self.root / ".local" / "real-client-runtime" / "api-model-source.json"
+
+    def test_the_default_profile_keeps_the_shared_store(self):
+        self.assertIsNone(real_http.profile_model_source(None, self.root))
+
+    def test_a_profile_gets_its_own_store_seeded_from_the_shared_one(self):
+        self.shared.parent.mkdir(parents=True)
+        self.shared.write_text('{"version":1,"selectedMode":"api"}', encoding="utf-8")
+        store = real_http.profile_model_source("beta", self.root)
+        self.assertEqual(store.path, self.root / ".local" / "real-client-runtime" / "beta"
+                         / "api-model-source.json")
+        self.assertEqual(store.path.read_text(encoding="utf-8"),
+                         self.shared.read_text(encoding="utf-8"))
+        # An instance that already chose for itself must never be overwritten by seeding.
+        store.path.write_text('{"version":1,"selectedMode":"local"}', encoding="utf-8")
+        again = real_http.profile_model_source("beta", self.root)
+        self.assertEqual(again.path.read_text(encoding="utf-8"),
+                         '{"version":1,"selectedMode":"local"}')
+
+    def test_a_profile_without_a_shared_file_still_gets_a_store(self):
+        store = real_http.profile_model_source("beta", self.root)
+        self.assertEqual(store.path.name, "api-model-source.json")
+        self.assertFalse(store.path.exists())
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 import message_input
+from account_pin_source import AccountPinError, UNRESOLVED, conflicting_instance
 from api_tasks import ApiTaskCoordinator
 from api_portrait_statistics import (append_batch, profile_from_statistics,
                                     valid_statistics, validate_batch_signal)
@@ -104,9 +105,12 @@ def save_worker_settings(workers, elastic):
 
 class Backend:
     def __init__(self, source, analyzer=None, store_factory=None, model_source_store=None,
-                  selection_store=None, data_root_store=None):
+                  selection_store=None, data_root_store=None, account_pin_store=None):
         self.source = source
         self.data_root_store = data_root_store or DataRootSource(ROOT)
+        # Only the real bridge supplies a pin store. Unset keeps a synthetic backend free of
+        # live-account enumeration, which reading a pin status would otherwise trigger.
+        self.account_pin_store = account_pin_store
         # One local model process per analysis worker; worker threads resolve their own
         # through the analyzer property, so several conversations can be inferred at once.
         self._analyzer_ctx = threading.local()
@@ -613,6 +617,19 @@ class Backend:
         preparation = self.preparation_status(account)
         if preparation is not None and state != "ready":
             data["preparation"] = preparation
+        if self.account_pin_store is not None:
+            # Additive: the picker reads it at startup, so it never rides the poll paths.
+            # Health already resolved the account above, and the pin asks the same question,
+            # so it is handed that answer rather than paying for a second Restart Manager
+            # round. Only a probe that actually answered may be handed over: `identity()`
+            # fails both when no account is live and when the pinned one is live but its
+            # reader has not finished preparing keys, and the second case must not surface as
+            # a missing pin — a cold start used to report a valid pin as `pinned-missing` and
+            # prompt the user to pick an account that was already chosen. A failed probe hands
+            # the question back, and the pin then asks its own narrower one.
+            resolved = account if state == "ready" else UNRESOLVED
+            data["accountPin"] = self.account_pin_store.status(include_live=False,
+                                                               resolved=resolved)
         return {"ok": state not in ("error", "account-unavailable") and model["state"] not in ("error", "missing"), "data": data,
                 "model": {"state": model["state"],
                           **({"provider": model["provider"]} if model.get("provider") in ("cpu", "webgpu") else {}),
@@ -660,6 +677,20 @@ class Backend:
         result = self.data_root_store.clear()
         self._invalidate_advisor_source()
         return result
+
+    def account_pin_status(self):
+        return self.account_pin_store.status()
+
+    def configure_account_pin(self, value):
+        # A reader decrypts an account into one machine-wide directory whichever instance
+        # opened it, so two instances on the same account would overwrite each other.
+        from instance_identity import profile_name
+        if conflicting_instance(value, ROOT, profile_name()) is not None:
+            raise AccountPinError("这个账号正被另一个实例使用，请先在那边点「恢复自动」")
+        return self.account_pin_store.select(value)
+
+    def clear_account_pin(self):
+        return self.account_pin_store.clear()
 
     def model_source(self):
         with self.api_lock:

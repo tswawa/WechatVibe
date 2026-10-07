@@ -21,7 +21,20 @@
     <div class="startup-status" id="startupStatus">正在连接当前微信账号…</div>
     <div class="startup-actions">
       <button type="button" class="startup-retry" id="startupRetry" hidden>重试</button>
+      <button type="button" class="startup-continue" id="startupPickAccount" hidden>选择微信账号</button>
       <button type="button" class="startup-continue" id="startupContinue" hidden>进入空界面</button>
+    </div>
+  </div>
+</div>
+
+<div class="account-picker" id="accountPicker" hidden>
+  <div class="account-picker-card" role="dialog" aria-modal="true" aria-labelledby="accountPickerTitle">
+    <div class="account-picker-title" id="accountPickerTitle">选择本窗口使用的微信账号</div>
+    <div class="account-picker-hint" id="accountPickerHint">登录中的微信账号会显示在这里。</div>
+    <div class="account-picker-list" id="accountPickerList"></div>
+    <div class="account-picker-actions">
+      <span id="accountPickerStatus" class="model-source-status" role="status"></span>
+      <button type="button" class="settings-action-btn" id="btnCancelAccountPicker">取消</button>
     </div>
   </div>
 </div>
@@ -549,6 +562,14 @@
             <button type="button" class="settings-action-btn" id="btnBrowseDataRoot">选择目录</button>
             <button type="button" class="settings-action-btn model-source-primary" id="btnSaveDataRoot">保存</button>
             <button type="button" class="settings-action-btn" id="btnClearDataRoot">恢复自动</button>
+          </div>
+          <div class="settings-row">
+            <span>本窗口微信账号</span>
+            <div class="account-status-control">
+              <span id="accountPinStatus" role="status">自动</span>
+              <button type="button" class="settings-action-btn" id="btnChooseAccountPin">选择账号</button>
+              <button type="button" class="settings-action-btn" id="btnClearAccountPin" hidden>恢复自动</button>
+            </div>
           </div>
           <div class="settings-row">
             <span>管理账号</span>

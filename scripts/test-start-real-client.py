@@ -1,5 +1,6 @@
 """Synthetic launcher checks; never starts the project bridge or a browser."""
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -115,6 +116,61 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(launcher.instance_id(self.root), launcher.instance_id(self.root / "."))
         self.assertNotEqual(launcher.instance_id(self.root), launcher.instance_id(self.root.parent))
         self.assertTrue(20000 <= launcher.default_port(self.root) < 60000)
+
+    def test_default_profile_keeps_identity_paths_and_port(self):
+        """An unprofiled install must behave exactly as it did before profiles existed."""
+        default = launcher.Config(self.root, Path(sys.executable), 0, 0.35)
+        self.assertIsNone(default.profile)
+        self.assertEqual(default.runtime_dir, self.root / ".local" / "real-client-runtime")
+        self.assertEqual(default.instance_id, launcher.instance_id(self.root))
+        self.assertEqual(launcher.default_port(self.root),
+                         launcher.default_port(self.root, None))
+
+    def test_each_profile_gets_its_own_identity_port_and_runtime_dir(self):
+        first = launcher.Config(self.root, Path(sys.executable), 0, 0.35, profile="alpha")
+        second = launcher.Config(self.root, Path(sys.executable), 0, 0.35, profile="beta")
+        self.assertNotEqual(first.instance_id, second.instance_id)
+        self.assertNotEqual(first.instance_id, launcher.instance_id(self.root))
+        self.assertNotEqual(launcher.default_port(self.root, "alpha"),
+                            launcher.default_port(self.root, "beta"))
+        self.assertNotEqual(first.runtime_dir, second.runtime_dir)
+        self.assertTrue(first.runtime_dir.is_relative_to(self.root))
+        self.assertEqual(first.runtime_dir, self.root / ".local" / "real-client-runtime" / "alpha")
+
+    def test_profile_reaches_the_bridge_environment(self):
+        config = launcher.Config(self.root, Path(sys.executable), 0, 0.35, profile="alpha")
+        with patch.object(launcher.subprocess, "Popen") as popen:
+            launcher.start_service(config, self.root / "bridge.log", "token")
+        environment = popen.call_args.kwargs["env"]
+        self.assertEqual(environment["WECHATVIBE_PROFILE"], "alpha")
+        self.assertEqual(environment["CHATUI_PORT"], str(config.port))
+
+    def test_default_profile_does_not_export_the_variable(self):
+        config = launcher.Config(self.root, Path(sys.executable), 0, 0.35)
+        with patch.object(launcher.subprocess, "Popen") as popen:
+            launcher.start_service(config, self.root / "bridge.log", "token")
+        self.assertNotIn("WECHATVIBE_PROFILE", popen.call_args.kwargs["env"])
+
+    def test_open_client_passes_the_profile_and_its_identity(self):
+        electron = self.root / "node_modules" / "electron" / "dist"
+        electron.mkdir(parents=True)
+        (electron / "electron.exe").write_bytes(b"fixture")
+        (self.root / "scripts").mkdir(parents=True, exist_ok=True)
+        (self.root / "scripts" / "real-client-shell.cjs").write_text("fixture", encoding="utf-8")
+        with patch.object(launcher.subprocess, "Popen") as popen:
+            launcher.open_client("http://127.0.0.1:1234", self.root, "alpha")
+        environment = popen.call_args.kwargs["env"]
+        self.assertEqual(environment["WECHATVIBE_PROFILE"], "alpha")
+        self.assertEqual(environment["WECHATVIBE_INSTANCE_ID"],
+                         launcher.instance_id(self.root, "alpha"))
+
+    def test_invalid_profile_is_rejected_before_any_work(self):
+        with self.assertRaisesRegex(ValueError, "invalid instance profile"):
+            launcher.profile_name("bad name")
+        with redirect_stderr(io.StringIO()) as errors:
+            # main() reports through its return code; only __main__ turns that into an exit.
+            self.assertEqual(launcher.main(["--profile", "bad name", "--status"]), 1)
+        self.assertIn("invalid instance profile", errors.getvalue())
 
     def test_rejects_tcp_listener_without_health(self):
         with socket.socket() as listener:
@@ -643,6 +699,21 @@ time.sleep(float(os.environ["FIXTURE_EXIT_DELAY"]))
             with redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(launcher.main(["--stop-owned-bridge", "--json"]), 0)
         self.assertEqual(json.loads(output.getvalue()), {"stopped": False, "alreadyStopped": True})
+
+    def test_the_default_mutex_keeps_the_name_it_had_before_profiles(self):
+        """An old launcher and a new one must still exclude each other on the default instance.
+
+        The mutex name is a hash, so an extra separator added for the profile argument is not
+        visible in any other test: only comparing against the pre-profile formula catches it.
+        """
+        config = launcher.Config(self.root, Path(sys.executable), 26220)
+        legacy = "Local\\HaoGanDuRealClient-" + hashlib.sha256(
+            f"{self.root.resolve()}:26220".casefold().encode("utf-8")).hexdigest()[:24]
+        self.assertEqual(launcher.mutex_name(config), legacy)
+        alpha = launcher.Config(self.root, Path(sys.executable), 26220, profile="alpha")
+        beta = launcher.Config(self.root, Path(sys.executable), 26220, profile="beta")
+        self.assertNotEqual(launcher.mutex_name(alpha), legacy)
+        self.assertNotEqual(launcher.mutex_name(alpha), launcher.mutex_name(beta))
 
     def test_mutex_is_shared_with_another_process(self):
         marker = self.root / "child acquired.txt"

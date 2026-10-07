@@ -6,6 +6,7 @@ import hmac
 import mimetypes
 import os
 import re
+import shutil
 import threading
 from contextlib import nullcontext
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,7 +16,7 @@ from urllib.parse import parse_qs, urlsplit
 from backend_contracts import AccountUnavailableError, MessagesUnavailableError, ForecastRequestError, ROOT
 from backend_service import Backend
 from wechat_source import WeChatSource
-from account_store import AccountConflict, AccountNotFound
+from account_store import AccountConflict, AccountNotFound, account_id
 from instance_identity import default_port, instance_id
 from model_source import ModelSourceUnavailable
 from advisor_contracts import AdvisorError
@@ -75,7 +76,40 @@ def request_id_value(value):
     return value
 
 
-def make_handler(backend, accounts=None, control_token=None):
+def labelled_pin_status(pin_status, accounts):
+    """Name each account the way its owner recognises it.
+
+    A live account is known by its directory name, which is a wxid and indistinguishable by
+    eye. The saved registry carries the nickname a person actually sees in WeChat, the short
+    wechat id, and how much has been cached — enough to tell "the one I have been using"
+    from "the one I just logged into". An account this client has never opened has no entry
+    yet and falls back to the wxid until it has been chosen once.
+    """
+    if accounts is None or not isinstance(pin_status, dict):
+        return pin_status
+    try:
+        known = {item["accountId"]: item for item in accounts.store.list()["accounts"]}
+    except Exception:
+        return pin_status
+
+    def describe(entry):
+        if not isinstance(entry, dict):
+            return entry
+        name = entry.get("account")
+        item = known.get(account_id(name)) if isinstance(name, str) and name else None
+        if not item:
+            return {**entry, "label": name if isinstance(name, str) else ""}
+        nickname = item.get("nickname") or ""
+        wechat_id = item.get("wechatId") or ""
+        return {**entry, "nickname": nickname, "wechatId": wechat_id,
+                "bytes": item.get("bytes", 0),
+                "label": nickname or wechat_id or (name or "")}
+
+    return {**pin_status, "pinned": describe(pin_status.get("pinned")),
+            "live": [describe(entry) for entry in pin_status.get("live", [])]}
+
+
+def make_handler(backend, accounts=None, control_token=None, profile=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
             pass
@@ -128,7 +162,15 @@ def make_handler(backend, accounts=None, control_token=None):
                         return self.send(404, {"error": "not found"})
                     return self.send(200, advisor_http.get(backend.advisor_service(), parsed.path, query))
                 if parsed.path == "/api/health":
-                    return self.send(200, {**backend.health(), "instanceId": instance_id(ROOT),
+                    # The identity must follow the profile, or the launcher rejects a second
+                    # instance on its own port as "another service".
+                    health = backend.health()
+                    # The settings row reads the pin from here, so it needs the same labels
+                    # the picker endpoint returns rather than a bare wxid.
+                    if isinstance(health.get("data"), dict) and "accountPin" in health["data"]:
+                        health["data"]["accountPin"] = labelled_pin_status(
+                            health["data"]["accountPin"], accounts)
+                    return self.send(200, {**health, "instanceId": instance_id(ROOT, profile),
                                            "appVersion": APP_VERSION})
                 if parsed.path == "/api/runtime":
                     return self.send(200, backend.runtime())
@@ -136,6 +178,8 @@ def make_handler(backend, accounts=None, control_token=None):
                     return self.send(200, backend.local_model_status())
                 if parsed.path == "/api/data-root":
                     return self.send(200, backend.data_root_status())
+                if parsed.path == "/api/account-pin":
+                    return self.send(200, labelled_pin_status(backend.account_pin_status(), accounts))
                 if parsed.path == "/api/model-source":
                     try:
                         return self.send(200, backend.model_source())
@@ -250,6 +294,7 @@ def make_handler(backend, accounts=None, control_token=None):
                                  "/api/analysis-scope/clear",
                                  "/api/analysis-cache/resume", "/api/conversation-selection",
                                  "/api/data-root", "/api/data-root/clear",
+                                 "/api/account-pin", "/api/account-pin/clear",
                                  "/api/analysis-workers",
                                  *advisor_http.POST_PATHS,
                                  *model_endpoints):
@@ -324,6 +369,15 @@ def make_handler(backend, accounts=None, control_token=None):
                     if request:
                         raise ValueError("invalid data root request")
                     return self.send(200, backend.clear_data_root())
+                if endpoint == "/api/account-pin":
+                    if set(request) != {"accountDir"}:
+                        raise ValueError("invalid account pin request")
+                    return self.send(200, labelled_pin_status(
+                        backend.configure_account_pin(request["accountDir"]), accounts))
+                if endpoint == "/api/account-pin/clear":
+                    if request:
+                        raise ValueError("invalid account pin request")
+                    return self.send(200, labelled_pin_status(backend.clear_account_pin(), accounts))
                 if endpoint == "/api/model-insights":
                     account = user_value(request.get("account"))
                     user = user_value(request.get("user"))
@@ -443,16 +497,51 @@ def make_handler(backend, accounts=None, control_token=None):
     return Handler
 
 
+def profile_model_source(profile, root=ROOT):
+    """A profiled instance keeps its own model selection, seeded once from the default one.
+
+    The store records which source is *active*, so one shared file means whichever instance
+    saves last silently reverts the other. Seeding copies the API profile the user already
+    entered instead of making them type it again for every instance.
+    """
+    if profile is None:
+        return None
+    from instance_identity import runtime_dir
+    from model_source import ModelSourceStore
+    root = Path(root)
+    directory = runtime_dir(root, profile)
+    path = directory / "api-model-source.json"
+    shared = root / ".local" / "real-client-runtime" / "api-model-source.json"
+    if not path.exists() and shared.is_file():
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(shared, path)
+        except OSError:
+            pass
+    return ModelSourceStore(path, root=root, legacy_path=directory / "model-source.json")
+
+
 def main(classifier):
     from account_api import AccountAPI
+    from account_pin_source import AccountPinSource
     from data_root_source import DataRootSource
+    from instance_identity import profile_name, runtime_dir
     control_token = os.environ.pop(CONTROL_TOKEN_ENV, None)
+    profile = profile_name()
     data_root_store = DataRootSource(ROOT)
     data_root_store.apply()
-    backend = Backend(WeChatSource(classifier=classifier), data_root_store=data_root_store)
-    port = integer(os.environ.get("CHATUI_PORT"), default_port(ROOT), 65535)
-    accounts = AccountAPI(backend, ROOT / ".local" / "real-client-data")
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(backend, accounts, control_token))
+    backend = Backend(WeChatSource(classifier=classifier), data_root_store=data_root_store,
+                      account_pin_store=AccountPinSource(ROOT, profile),
+                      model_source_store=profile_model_source(profile))
+    port = integer(os.environ.get("CHATUI_PORT"), default_port(ROOT, profile), 65535)
+    # Discovery, snapshots and results stay installation-wide: a reader writes its decrypted
+    # copy under the account name alone, so a per-profile root would not be where the files
+    # land. Two instances are kept off one account by refusing to share it, not by splitting
+    # the storage.
+    accounts = AccountAPI(backend, ROOT / ".local" / "real-client-data",
+                          runtime_dir=runtime_dir(ROOT, profile))
+    server = ThreadingHTTPServer(("127.0.0.1", port),
+                                 make_handler(backend, accounts, control_token, profile))
     print(f"chatui server on http://127.0.0.1:{port}", flush=True)
     try:
         server.serve_forever()

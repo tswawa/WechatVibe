@@ -5,6 +5,7 @@ const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { checkForUpdates, downloadAndStageUpdate } = require("./real-client-update.cjs");
+const { PROFILE_ENV, profileName, runtimeDir } = require("./runtime-paths.cjs");
 
 const BUSY = new Set(["downloading", "verifying", "extracting", "installing", "restarting"]);
 const WORK_PREFIX = ".wechatvibe-update-";
@@ -138,7 +139,8 @@ function createUpdateController({ app, root, port, instanceId, onState, pauseRec
         throw new Error("本地分析服务未能安全退出");
       }
       stopped = true;
-      if (fs.existsSync(path.join(root, ".local", "real-client-runtime", "no-auto-recovery.json"))) {
+      if (fs.existsSync(path.join(runtimeDir(root, profileName(process.env[PROFILE_ENV])),
+                                  "no-auto-recovery.json"))) {
         const error = new Error("当前账号已清除，更新已取消");
         error.accountCleared = true;
         throw error;
