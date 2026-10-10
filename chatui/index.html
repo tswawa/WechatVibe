@@ -114,6 +114,15 @@
     <header class="chat-header">
       <div class="chat-title-group">
         <h2 class="chat-title" id="chatTitle">聊天</h2>
+        <span class="model-badge-wrap" id="modelBadgeWrap" data-model-menu-wrap hidden>
+          <button type="button" class="model-badge" id="modelBadge" aria-haspopup="menu"
+                  aria-expanded="false" aria-controls="modelBadgeMenu" title="切换当前使用的模型">
+            <span class="model-badge-label" id="modelBadgeLabel"></span>
+            <span class="model-badge-caret" aria-hidden="true"></span>
+          </button>
+          <div class="model-badge-menu" id="modelBadgeMenu" role="menu"
+        aria-label="选择当前使用的模型" hidden></div>
+        </span>
         <span class="chat-status-pill" id="chatStatusPill" style="display:none">
           <span class="header-mood-label" id="headerMoodLabel"></span>
           <span class="kaomoji-pill-icon" id="headerMoodKaomoji"></span>
@@ -167,6 +176,14 @@
         </div>
         <div class="reply-prediction-body" id="replyPredictionBody"></div>
       </section>
+      <!-- Hand-picked message selection: shown only while picking is on -->
+      <div class="pick-bar" id="pickBar" role="group" aria-label="选择消息分析" hidden>
+        <span class="pick-bar-count" id="pickBarCount">已选 0 条</span>
+        <button type="button" class="pick-bar-btn" id="btnPickAll" title="选中当前已加载且可分析的消息">全选</button>
+        <button type="button" class="pick-bar-btn" id="btnPickClear" title="清空已选消息">清空</button>
+        <button type="button" class="pick-bar-btn pick-bar-primary" id="btnPickAnalyze" disabled>分析选中</button>
+        <button type="button" class="pick-bar-btn" id="btnPickCancel">取消</button>
+      </div>
       <!-- Input Toolbar -->
       <div class="input-toolbar">
         <div class="toolbar-left">
@@ -188,6 +205,7 @@
 
           <!-- Text Action Buttons on the right of icons -->
           <button class="toolbar-text-btn active" id="btnToggleIntent" title="识别当前聊天消息">意图识别</button>
+          <button class="toolbar-text-btn" id="btnPickMessages" title="勾选若干条聊天记录，只分析勾选的内容" aria-pressed="false">选择消息</button>
           <button class="toolbar-text-btn" id="btnToolbarPersona" title="切换到当前聊天对象的人格画像">人物画像</button>
           <button class="toolbar-text-btn" id="btnToolbarAdvisor" type="button">聊天助手</button>
           <button class="toolbar-text-btn" id="btnRetryAnalysis" title="重新分析当前会话" hidden>分析失败 · 重试</button>
@@ -218,7 +236,13 @@
               <path d="M12 2a5 5 0 0 1 5 5v1a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5zm0 12c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4zm7.5-9.5l.94 2.06 2.06.94-2.06.94-.94 2.06-.94-2.06-2.06-.94 2.06-.94.94-2.06z"/>
             </svg>
             <span id="personaHeaderTitle">人物画像分析</span>
-            <span class="portrait-source-badge" id="portraitSourceBadge">本地 Laya</span>
+            <span class="portrait-source-wrap" id="portraitSourceWrap" data-model-menu-wrap>
+              <button type="button" class="portrait-source-badge" id="portraitSourceBadge"
+                aria-haspopup="menu" aria-expanded="false" aria-controls="portraitSourceMenu"
+                title="切换当前使用的模型">本地 Laya</button>
+              <div class="model-badge-menu" id="portraitSourceMenu" role="menu"
+                aria-label="选择当前使用的模型" hidden></div>
+            </span>
           </div>
 
           <!-- Group Member Tabs (仅在群聊时展示，供在群聊内切换成员画像) -->
@@ -341,6 +365,9 @@
             <button type="button" class="ui-retry" id="btnRetryApiPortrait" hidden>重试 API 画像</button>
           </div>
         </div>
+
+        <!-- 潜台词与沟通建议 moved into the assistant panel (助手仓库 / 聊天助手):
+             `builtin-skill:guidance` plus the saved result as reference material. -->
 
       </div><!-- /persona-dashboard -->
     </div><!-- /personaView -->
@@ -470,12 +497,18 @@
             <div class="settings-row worker-hint-row">
               <span id="workerLimitHint" class="model-source-status" role="status"></span>
             </div>
-            <div class="settings-row settings-row-wide">
-              <span>后台分析已添加的会话</span>
-              <button type="button" class="settings-action-btn" id="btnToggleBackgroundAnalyze">已关闭</button>
-            </div>
           </section>
           <section class="model-source-panel api-model-settings" id="apiModelSettings" hidden>
+            <div class="settings-row">
+              <label for="selectApiProfile">已保存的配置</label>
+              <select id="selectApiProfile">
+                <option value="">新建配置</option>
+              </select>
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiProfileName">配置名称</label>
+              <input id="inputApiProfileName" type="text" maxlength="64" placeholder="显示在聊天标题栏，例如 DeepSeek" autocomplete="off" spellcheck="false">
+            </div>
             <div class="settings-row">
               <label for="selectApiProtocol">接口协议</label>
               <select id="selectApiProtocol">
@@ -512,13 +545,37 @@
               <label for="inputApiContextTokens">上下文大小（tokens）</label>
               <input id="inputApiContextTokens" type="number" min="4096" max="1000000" step="1" placeholder="接口未提供时填写，例如 128000" inputmode="numeric">
             </div>
+            <div class="settings-row settings-row-wide">
+              <span>API 分析并行数</span>
+              <span class="worker-stepper">
+                <button type="button" class="settings-action-btn" id="btnApiWorkerMinus" aria-label="减少 API 并行数">−</button>
+                <strong id="apiWorkerValue">—</strong>
+                <button type="button" class="settings-action-btn" id="btnApiWorkerPlus" aria-label="增加 API 并行数">+</button>
+              </span>
+            </div>
+            <div class="settings-row worker-hint-row">
+              <span id="apiWorkerLimitHint" class="model-source-status" role="status"></span>
+            </div>
             <div class="model-source-actions">
               <button type="button" class="settings-action-btn" id="btnTestApiModel">测试连接</button>
+              <button type="button" class="settings-action-btn" id="btnSaveApiProfile">仅保存配置</button>
               <button type="button" class="settings-action-btn model-source-primary" id="btnActivateApi">保存并启用</button>
+              <button type="button" class="settings-danger-btn" id="btnDeleteApiProfile" hidden>删除配置</button>
               <button type="button" class="settings-danger-btn" id="btnClearApiKey" hidden>清除密钥</button>
+            </div>
+            <div class="model-source-status-row" id="apiProfileDeleteConfirm" hidden>
+              <span id="apiProfileDeleteQuestion" class="model-source-status" role="status"></span>
+              <span class="model-source-actions">
+                <button type="button" class="settings-danger-btn" id="btnConfirmDeleteApiProfile">确认删除</button>
+                <button type="button" class="settings-action-btn" id="btnCancelDeleteApiProfile">取消</button>
+              </span>
             </div>
             <div id="apiModelTestStatus" class="model-source-status" role="status"></div>
           </section>
+          <div class="settings-row settings-row-wide">
+            <span>后台分析已添加的会话</span>
+            <button type="button" class="settings-action-btn" id="btnToggleBackgroundAnalyze">已关闭</button>
+          </div>
           <div class="model-source-status-row">
             <div id="modelSourceStatus" class="model-source-status" role="status"></div>
             <button type="button" class="settings-action-btn" id="btnReloadModelSource" hidden>重新读取</button>

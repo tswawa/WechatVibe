@@ -27,7 +27,7 @@ from profile_state import empty_state
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = ROOT / "bridge"
 LAYER_MODULES = ("backend_contracts", "backend_service", "message_results", "message_contracts",
-                 "message_input", "portrait_contracts", "api_tasks", "node_analysis",
+                 "message_input", "portrait_contracts", "api_pool", "api_tasks", "node_analysis",
                  "result_store", "wechat_source")
 
 
@@ -126,7 +126,7 @@ with patch.object(sqlite3, 'connect', side_effect=AssertionError('database on im
      patch.object(subprocess, 'Popen', side_effect=AssertionError('process on import')), \
      patch.object(threading.Thread, 'start', side_effect=AssertionError('thread on import')), \
      patch.object(socket.socket, 'connect', side_effect=AssertionError('network on import')):
-    for name in ('result_store', 'node_analysis', 'wechat_source', 'backend_service', 'real_backend', 'message_results', 'message_contracts', 'portrait_contracts', 'api_tasks'):
+    for name in ('result_store', 'node_analysis', 'wechat_source', 'backend_service', 'real_backend', 'message_results', 'message_contracts', 'portrait_contracts', 'api_pool', 'api_tasks'):
         importlib.import_module(name)
 print('IMPORTS_HAVE_NO_RUNTIME_SIDE_EFFECTS')
 """
@@ -151,7 +151,7 @@ import importlib, pathlib, sys
 root = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root))
 import chat_server, real_http, real_backend
-for name in ('backend_contracts', 'backend_service', 'message_results', 'message_contracts', 'message_input', 'portrait_contracts', 'api_tasks', 'result_store', 'node_analysis', 'wechat_source'):
+for name in ('backend_contracts', 'backend_service', 'message_results', 'message_contracts', 'message_input', 'portrait_contracts', 'api_pool', 'api_tasks', 'result_store', 'node_analysis', 'wechat_source'):
     module = importlib.import_module(name)
     assert pathlib.Path(module.__file__).resolve().parent == root, name
 assert real_http.Backend is real_backend.Backend

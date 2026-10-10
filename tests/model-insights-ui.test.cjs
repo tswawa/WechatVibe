@@ -15,6 +15,9 @@ function section(start, end) {
   return source.slice(first, last);
 }
 const code = section("async function api(", "function status(") +
+  // `apiInsightCandidates` only offers messages the link rule accepts, so the helpers that
+  // decide it have to be in the same context (see `bridge/message_input.py`).
+  section("// Links never reach a model", "function hasIntentContent(") +
   section("labelState.messageLabels = null;", "function messageInsightView(") +
   section("function messageInsightView(", "function clearInlineIntentPending(") +
   section("function updateLabel(", "function messageNode(") +
@@ -94,6 +97,9 @@ function harness(fetchImpl = async () => response({ account: "acct", sourceId: "
     fetch: fetchImpl,
     setTimeout: () => 1, clearTimeout() {},
     settings: { intent: true }, currentAccount: "acct", currentUser: "chat",
+    // Inline labelling only runs for a conversation the user asked for with the card button,
+    // so the scenario has to be one that was requested.
+    requestedConversations: new Set(["chat"]),
     view: "chat", apiPortraitSnapshot: null,
     syncPortraitMode() {}, cancelApiPortraitPoll() {}, clearApiPortraitView() {}, loadProfile() {},
     controller: new AbortController(), generation: 1, historyState: null,

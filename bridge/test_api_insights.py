@@ -373,6 +373,32 @@ class ApiInsightTests(unittest.TestCase):
         self.analyzer.release.set()
         self.wait_done()
 
+    def test_a_message_that_is_only_a_link_is_not_a_target_or_sent(self):
+        self.source.rows = [
+            {"id": "o1", "side": "other", "kind": "text", "text": "https://example.com/share",
+             "senderId": "friend", "_sort": [1, "shard", 1]},
+            {"id": "o2", "side": "other", "kind": "text", "text": "看这个 https://example.com/a 挺好",
+             "senderId": "friend", "_sort": [2, "shard", 2]},
+        ]
+        self.activate()
+        self.backend.start_model_insights("account-a", "friend", 2)
+        done = self.wait_done()
+        self.assertEqual(set(done["results"]), {"o2"})
+        self.assertEqual(self.analyzer.calls[0][3], ("o2",))
+        sent = " ".join(item["text"] for item in self.analyzer.insight_payloads[-1])
+        self.assertNotIn("example.com", sent, "a link must never reach the model")
+        self.assertIn("看这个", sent)
+
+    def test_guidance_is_insufficient_when_the_window_only_holds_a_link(self):
+        self.source.rows = [
+            {"id": "o1", "side": "other", "kind": "text", "text": "https://example.com/share",
+             "senderId": "friend", "_sort": [1, "shard", 1]},
+        ]
+        self.activate()
+        started = self.backend.start_guidance("account-a", "friend")
+        self.assertEqual(started["job"]["status"], "insufficient")
+        self.assertEqual(self.analyzer.insight_payloads, [])
+
     def test_recent_other_is_not_skipped_by_newer_self_messages(self):
         self.source.rows.append({"id": "s2", "side": "self", "kind": "text",
                                  "text": "我到了。", "senderId": "me", "_sort": [4, "shard", 4]})

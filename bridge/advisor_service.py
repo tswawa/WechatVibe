@@ -23,7 +23,7 @@ from pathlib import Path
 from contextlib import contextmanager
 
 from advisor_contracts import (
-    HISTORY_BUDGET_PERCENT, TERMINAL_RUN_STATES, AdvisorError, char_budget,
+    GUIDANCE_SKILL_ID, HISTORY_BUDGET_PERCENT, TERMINAL_RUN_STATES, AdvisorError, char_budget,
     model_fingerprint, normalize_event, public_run, safety_margin,
     terminal_event, valid_identifier, valid_request_id, valid_scope_value,
     valid_user_message,
@@ -31,6 +31,7 @@ from advisor_contracts import (
 from advisor_context import ContextProjection
 from advisor_store import AdvisorStoreRoot
 from backend_contracts import AccountChangedError, LOCAL_SOURCE_ID, ModelSourceUnavailable
+from guidance_contracts import GUIDANCE_MISSING_NOTE, guidance_material
 
 MAX_EVENT_BATCH = 500
 MAX_RUNS_IN_MEMORY = 64
@@ -85,11 +86,15 @@ class _Run:
 
 
 class AdvisorService:
-    def __init__(self, source, model_source_store, root, runtime_factory=None):
+    def __init__(self, source, model_source_store, root, runtime_factory=None, guidance_provider=None):
         self.source = source
         self.model_source_store = model_source_store
         self.root = Path(os.path.abspath(root))
         self.runtime_factory = runtime_factory
+        # `Callable[[account, user], dict|None]` returning the stored 「潜台词与沟通建议」for a
+        # conversation. Injected by the parent integration so this module never reaches into
+        # the analysis result store itself.
+        self.guidance_provider = guidance_provider
         self.stores = AdvisorStoreRoot(self.root)
         self.context = ContextProjection(self.stores, source)
         self.lock = threading.RLock()
@@ -103,6 +108,28 @@ class AdvisorService:
         self._cleared = set()
         self._drained = set()
         self._import_previews = None
+
+    def _guidance_material(self, account, user, skills):
+        """Stored 「潜台词与沟通建议」for this conversation, or a note when none is saved.
+
+        The note only reaches runs that picked the guidance skill: those are the runs asking
+        for this kind of reading, so they are told to analyse the conversation themselves
+        instead of waiting for a result nobody generated. Reference material must never fail
+        a run, so an unavailable provider simply reads as "nothing to cite".
+        """
+        provider = self.guidance_provider
+        saved = None
+        if provider is not None:
+            try:
+                saved = provider(account, user)
+            except Exception:  # noqa: BLE001 - reference material must never fail a run
+                saved = None
+        material = guidance_material(saved)
+        if material:
+            return material
+        if any(skill.get("id") == GUIDANCE_SKILL_ID for skill in skills):
+            return GUIDANCE_MISSING_NOTE
+        return ""
 
     # ------------------------------------------------------------------ scope
     def _require_scope(self, account, with_fingerprint=False):
@@ -652,7 +679,11 @@ class AdvisorService:
             remaining = budget - prompt_cost - len(run.message) - margin
             if remaining <= 0:
                 raise AdvisorError("context-too-long", "当前输入超出模型窗口，请缩短消息或更换模型")
-            context_budget = remaining
+            # A saved 「潜台词与沟通建议」is reference material the assistant may cite. It is
+            # paid for out of the same budget, so the chat window shrinks here instead of the
+            # request overflowing at the length check below.
+            guidance_text = self._guidance_material(run.account, run.user, skills)
+            context_budget = max(0, remaining - len(guidance_text))
             runtime = self._runtime_instance(run.cancel)
             self._check_run(run)
             compactor = self._compactor(run, runtime, config, snapshot["revision"],
@@ -662,6 +693,8 @@ class AdvisorService:
                 config["modelFp"], check=lambda: self._check_run(run),
                 compact_budget=max(64, budget - margin - 512), cancel=run.cancel,
                 commit_guard=lambda: self._cache_commit_guard(run))
+            if guidance_text:
+                context_text = (context_text.rstrip() + "\n\n" + guidance_text) if context_text else guidance_text
             request = {
                 "account": run.account, "user": run.user,
                 "agentId": run.agent_id,

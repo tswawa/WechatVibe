@@ -485,6 +485,32 @@ body.theme-light .nav-update-notice:hover {
   justify-content: space-between;
   align-items: center;
 }
+/* Per-card analyse request. Sits left of the name and keeps a fixed width so the names
+   below it stay aligned; `flex: none` stops the row's space-between from squeezing it. */
+.session-analyze-btn {
+  flex: none;
+  width: 58px;
+  padding: 2px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.session-analyze-btn:hover, .session-analyze-btn:focus-visible {
+  border-color: var(--color-green);
+  color: var(--color-green);
+  outline: none;
+}
+.session-analyze-btn.requested {
+  border-color: var(--color-green);
+  color: var(--color-green);
+}
 .session-name {
   font-size: 14px;
   color: var(--text-main);
@@ -2020,6 +2046,58 @@ body.theme-light .kaomoji-mood {
 }
 
 /* ========================================================
+   HAND-PICKED MESSAGE SELECTION (「选择消息」)
+   ======================================================== */
+.msg-pick {
+  display: none;
+  align-self: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.pick-mode .msg-item.pickable .msg-pick { display: flex; }
+.pick-mode .msg-item.pickable { cursor: pointer; }
+.msg-pick input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #07c160;
+  cursor: pointer;
+}
+.msg-item.picked .msg-bubble {
+  outline: 2px solid #07c160;
+  outline-offset: 2px;
+}
+.pick-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 0;
+  flex-wrap: wrap;
+}
+.pick-bar[hidden] { display: none; }
+.pick-bar-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pick-bar-btn {
+  background: transparent;
+  border: 1px solid #3a3a3d;
+  color: #aaa;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pick-bar-btn:hover { color: #dfdfdf; border-color: #555; }
+.pick-bar-btn:disabled { opacity: 0.5; cursor: default; }
+.pick-bar-primary { border-color: #07c160; color: #07c160; font-weight: 500; }
+.pick-bar-primary:hover:not(:disabled) { background: rgba(7, 193, 96, 0.12); color: #07c160; }
+body.theme-light .pick-bar-btn { border-color: var(--border-color); color: var(--text-muted); }
+body.theme-light .pick-bar-btn:hover { color: var(--text-main); }
+body.theme-light .pick-bar-primary:hover:not(:disabled) { color: #07c160; }
+
+/* ========================================================
    PERSONA VIEW COMPONENTS (好感等级系统 & MBTI 融合)
    ======================================================== */
 
@@ -3044,12 +3122,33 @@ body.theme-light .inline-intent-row .intent-item.primary { color: #4a4a4c; }
 .model-source-discovery #apiModelCount, .model-source-status { min-height: 17px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .model-source-primary { border-color: var(--color-green); color: var(--color-green); }
 #apiKeySaved { margin-left: 5px; color: var(--color-green); }
-#apiKeySaved[hidden], #btnClearApiKey[hidden] { display: none; }
+#apiKeySaved[hidden], #btnClearApiKey[hidden], #btnDeleteApiProfile[hidden], #apiProfileDeleteConfirm[hidden] { display: none; }
+#selectApiProfile { max-width: 100%; }
+/* Chat header model badge: the current model, and the menu that switches it. */
+.model-badge-wrap { position: relative; display: inline-flex; align-items: center; flex: none; }
+.model-badge { box-sizing: border-box; display: inline-flex; align-items: center; gap: 5px; max-width: 190px; min-width: 0; height: 26px; padding: 3px 8px; border: 1px solid var(--border-color); border-radius: 13px; background: var(--bg-search); color: var(--text-secondary); font: inherit; font-size: 12px; line-height: 1; cursor: pointer; }
+.model-badge:hover, .model-badge[aria-expanded="true"] { border-color: var(--color-green); color: var(--color-green); }
+.model-badge:focus-visible { outline: 2px solid var(--color-green); outline-offset: 2px; }
+.model-badge-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-badge-caret { flex: none; width: 0; height: 0; border-top: 4px solid currentColor; border-right: 3.5px solid transparent; border-left: 3.5px solid transparent; opacity: .75; }
+.model-badge-menu { position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: min(280px, 76vw); max-width: calc(100vw - 24px); max-height: min(380px, 60vh); overflow-y: auto; padding: 6px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-chat-header); box-shadow: 0 12px 28px rgba(0,0,0,.25); }
+.model-badge-menu[hidden] { display: none; }
+.model-badge-option { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-main); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.model-badge-option:hover, .model-badge-option:focus-visible { border-color: var(--border-color); background: var(--bg-search); outline: none; }
+.model-badge-option[aria-checked="true"] { color: var(--color-green); }
+.model-badge-option .model-badge-tick { flex: none; width: 12px; font-size: 11px; }
+.model-badge-text { min-width: 0; flex: 1; }
+.model-badge-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-badge-model { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 11px; }
+.model-badge-menu-foot { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border-subtle); }
+.model-badge-busy { padding: 8px; color: var(--text-secondary); font-size: 12px; }
 @media (max-width: 580px) {
   .settings-modal-card { width: calc(100vw - 20px); }
   .settings-sidebar { width: 105px; flex: 0 0 105px; }
   .settings-content { padding: 18px 14px; }
   .model-source-choice { flex-direction: column; align-items: flex-end; }
+  .model-badge { max-width: 120px; }
+  .model-badge-menu { width: min(240px, 82vw); }
 }
 .account-list { display: flex; flex-direction: column; gap: 5px; max-height: 150px; overflow-y: auto; }
 .account-row { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
@@ -3073,10 +3172,16 @@ body.theme-light .inline-intent-row .intent-item.primary { color: #4a4a4c; }
 .analysis-cache-card button { flex: none; }
 .analysis-cache-confirm { padding: 10px; border: 1px solid rgba(217, 149, 149, .5); border-radius: 6px; color: var(--text-main); font-size: 12px; }
 .analysis-cache-confirm p { margin: 0 0 10px; }
-.portrait-source-badge { margin-left: 9px; padding: 3px 8px; border: 1px solid var(--border-color); border-radius: 5px; color: var(--text-secondary); font-size: 11px; font-weight: 500; white-space: nowrap; }
+/* The persona header carries the same model switcher as the chat header, so the source can be
+   changed without going back to the conversation. The panel reuses .model-badge-menu; this
+   wrapper is its positioning context. */
+.portrait-source-wrap { position: relative; display: inline-flex; align-items: center; margin-left: 9px; }
+.portrait-source-badge { box-sizing: border-box; margin: 0; padding: 3px 8px; border: 1px solid var(--border-color); border-radius: 5px; background: none; color: var(--text-secondary); font-family: inherit; font-size: 11px; font-weight: 500; line-height: 1.4; white-space: nowrap; cursor: pointer; }
+.portrait-source-badge:hover, .portrait-source-badge:focus-visible, .portrait-source-badge[aria-expanded="true"] { border-color: var(--color-green); color: var(--color-green); outline: none; }
 .api-portrait-status { margin-top: 12px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .api-portrait-status[hidden] { display: none; }
 #btnRetryApiPortrait { margin-top: 8px; }
+
 .model-source-status-row { display: flex; align-items: center; gap: 10px; }
 .model-source-status-row .model-source-status { flex: 1; }
 .conversation-manager { padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-search); }

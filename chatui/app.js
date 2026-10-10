@@ -471,6 +471,9 @@ function resetAccountView(message = "当前微信账号未就绪", preserveOther
   labelState.manualRecentJobId = null;
   labelState.manualRecentDeferred = false;
   setIntentActionState("idle");
+  chatState.messagePicking = false;
+  chatState.selectedMessageIds.clear();
+  renderPickBar();
   portraitState.profilePending = false;
   labelState.requestedRecentSignatures.clear();
   portraitState.activeAnalysisScope = null;
@@ -651,7 +654,16 @@ function renderSessions() {
       const avatarWrap = element("div", "session-avatar-wrap");
       const info = element("div", "session-info");
       const top = element("div", "session-top");
-      top.append(element("span", "session-name"), element("span", "session-time"));
+      // The analyse button sits left of the name. It is a separate control from the card:
+      // clicking it asks for this conversation to be analysed, it never switches chats.
+      const analyseBtn = element("button", "session-analyze-btn");
+      analyseBtn.type = "button";
+      analyseBtn.dataset.action = "analyze";
+      top.append(analyseBtn, element("span", "session-name"), element("span", "session-time"));
+      analyseBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void requestConversationAnalysis(session.username);
+      });
       const bottom = element("div", "session-bottom");
       bottom.appendChild(element("span", "session-preview"));
       info.append(top, bottom);
@@ -694,6 +706,19 @@ function renderSessions() {
     if (timeNode.textContent !== displayTime) timeNode.textContent = displayTime;
     const preview = item.querySelector(".session-preview");
     if (preview.textContent !== (session.preview || "")) preview.textContent = session.preview || "";
+    const analyseBtn = item.querySelector(".session-analyze-btn");
+    if (analyseBtn) {
+      const requested = chatState.requestedConversations.has(session.username);
+      const label = requested ? "已加入分析" : "开始分析";
+      if (analyseBtn.textContent !== label) analyseBtn.textContent = label;
+      analyseBtn.classList.toggle("requested", requested);
+      // Property assignment, not setAttribute: the ARIA reflection sets the attribute in a
+      // real DOM, and the plain-object DOM used by the UI tests accepts it as well.
+      analyseBtn.ariaPressed = String(requested);
+      analyseBtn.title = requested
+        ? "已加入后台分析名单；点击可移出名单"
+        : "点击分析该联系人，并加入后台分析名单";
+    }
     if (container.children[visible] !== item) container.insertBefore(item, container.children[visible] || null);
     visible++;
   }
@@ -769,11 +794,24 @@ async function loadConversationSelection(account, request) {
   if (state.initialized === false) forgetConversationFollow(account);
   chatState.selectedConversations.clear();
   for (const id of state.selectedSessions) chatState.selectedConversations.add(id);
+  // The analysis requests survive a restart, so the buttons come back as the user left them.
+  // A response that does not carry them keeps the current list instead of clearing every badge.
+  if (Array.isArray(state.requestedSessions)) {
+    chatState.requestedConversations.clear();
+    for (const id of state.requestedSessions) chatState.requestedConversations.add(id);
+  }
   chatState.selectionLoadedAccount = account;
 }
 function validConversationSelection(state, account) {
+  // `requestedSessions` is this fork's addition to the response (the per-conversation
+  // "request analysis" button). Upstream's transport and its tests answer with `account` +
+  // `selectedSessions` only, so a missing field stays a valid answer: it means "no request
+  // information", not "wrong selection".
   return Boolean(state) && state.account === account && Array.isArray(state.selectedSessions) &&
-    state.selectedSessions.every(id => typeof id === "string");
+    state.selectedSessions.every(id => typeof id === "string") &&
+    (state.requestedSessions === undefined ||
+      Array.isArray(state.requestedSessions) &&
+      state.requestedSessions.every(id => typeof id === "string"));
 }
 function clearUnselectedConversation() {
   if (chatState.currentUser) {
@@ -898,35 +936,126 @@ settingsState.sweepBusy = false;
 settingsState.overviewBusy = false;
 settingsState.analysisOverviewSnapshot = null;
 settingsState.workerSettings = null;
-async function backgroundAnalyzeAll() {
-  if (settingsState.sweepBusy || !settingsState.settings.backgroundAnalyze) return;
-  if (!canAnalyzeLocal() || !chatState.messageSourceReady || chatState.historyState ||
-      !chatState.selectionLoadedAccount ||
-      settingsState.suppressedLocalAccounts.has(chatState.currentAccount)) return;
-  const account = chatState.currentAccount;
-  settingsState.sweepBusy = true;
+/**
+ * Ask for one conversation to be analysed, and put it on the background list.
+ *
+ * Nothing else analyses a conversation: this button and the sweep below are the only paths,
+ * and the sweep walks `requestedConversations` rather than every added conversation. Clicking
+ * a requested card again takes it off that list, so the button is a real toggle.
+ */
+async function requestConversationAnalysis(username) {
+  if (!username || !chatState.sessions.has(username)) return;
+  const requested = chatState.requestedConversations.has(username);
+  const next = !requested;
   try {
-    // The visible conversation goes first: it is the one the user is reading.
-    const order = [...chatState.sessions.keys()];
-    if (chatState.currentUser && order.includes(chatState.currentUser)) {
-      order.splice(order.indexOf(chatState.currentUser), 1);
-      order.unshift(chatState.currentUser);
+    // Persist first: the request has to survive a restart, and the sweep must not run
+    // against a list the backend does not know about yet.
+    const state = await api("/api/conversation-selection", { method: "POST", body: JSON.stringify({
+      expectedAccount: chatState.currentAccount, session: username, requested: next,
+    }) });
+    if (chatState.currentAccount !== (state && state.account)) throw new Error("账号已切换");
+    chatState.selectedConversations.clear();
+    for (const id of state.selectedSessions) chatState.selectedConversations.add(id);
+    if (Array.isArray(state.requestedSessions)) {
+      chatState.requestedConversations.clear();
+      for (const id of state.requestedSessions) chatState.requestedConversations.add(id);
     }
-    for (const id of order) {
-      if (!settingsState.settings.backgroundAnalyze || !canAnalyzeLocal() ||
-          account !== chatState.currentAccount) return;
-      if (!chatState.selectedConversations.has(id)) continue;
-      try {
+  } catch (error) {
+    status(byId("chatMessages"), `保存分析请求失败：${error.message}`);
+    return;
+  }
+  renderSessions();
+  // A click analyses that one conversation right away. It deliberately does not depend on
+  // the background switch: the button is the explicit request, the switch only governs the
+  // sweep that walks the rest of the list later.
+  if (next) {
+    // The open conversation goes through the normal entry point, so the hint is cleared and
+    // the API/local branch is picked the same way the header button picks it.
+    if (username === chatState.currentUser) retryAnalysis();
+    else await analyzeConversations([username]);
+  }
+}
+/**
+ * Whether the user asked for this conversation to be analysed.
+ *
+ * This is the single gate for every analysis path: the background sweep, the header
+ * buttons, the incremental sync and the API inline labelling all consult it. Opening a
+ * conversation is not a request, so nothing is analysed until the card button is clicked.
+ */
+function conversationAnalysisRequested(user) {
+  return Boolean(user) && chatState.requestedConversations.has(user);
+}
+
+/**
+ * Refuse an analysis that was never requested and explain why.
+ * Returns true when the caller must stop. Kept next to the request list so the wording
+ * matches the button that grants it.
+ */
+function analysisBlockedWithoutRequest(user) {
+  if (conversationAnalysisRequested(user)) return false;
+  const hint = "尚未加入分析 · 请在左侧点击该联系人的「开始分析」";
+  setStripStatus(hint);
+  text("analysisStatus", hint);
+  if (byId("btnRetryAnalysis") && !byId("btnRetryAnalysis").hidden) {
+    byId("btnRetryAnalysis").hidden = true;
+  }
+  return true;
+}
+
+/** Analyse exactly the given conversations, in order, under whichever model source is active. */
+async function analyzeConversations(list) {
+  if (!chatState.messageSourceReady || chatState.historyState) return;
+  const account = chatState.currentAccount;
+  for (const id of list) {
+    if (!chatState.requestedConversations.has(id)) continue;
+    if (account !== chatState.currentAccount) return;
+    try {
+      if (usingApiInsights()) {
+        await api("/api/model-insights", { method: "POST", body: JSON.stringify({
+          account, user: id, limit: API_SWEEP_WINDOW,
+        }) });
+      } else if (canAnalyzeLocal()) {
         // No per-conversation read here: the backend already knows the running job.
         await api("/api/analyze", { method: "POST", body: JSON.stringify({
           account, user: id, mode: "incremental",
         }) });
-      } catch { /* one broken conversation must not stop the sweep */ }
-    }
+      }
+    } catch { /* one broken conversation must not stop the rest */ }
+  }
+}
+async function backgroundAnalyzeAll() {
+  if (settingsState.sweepBusy || !settingsState.settings.backgroundAnalyze) return;
+  if (!chatState.messageSourceReady || chatState.historyState ||
+      !chatState.selectionLoadedAccount) return;
+  if (usingApiInsights()) {
+    if (settingsState.suppressedApiSources.has(apiInsightSweepSourceKey())) return;
+  } else if (!canAnalyzeLocal() ||
+             settingsState.suppressedLocalAccounts.has(chatState.currentAccount)) return;
+  // Only conversations the user asked for with the per-card button; adding a conversation to
+  // the list is not a request to analyse it.
+  const order = [...chatState.requestedConversations];
+  // The conversation being read goes first: it is the one the user is looking at.
+  if (chatState.currentUser && order.includes(chatState.currentUser)) {
+    order.splice(order.indexOf(chatState.currentUser), 1);
+    order.unshift(chatState.currentUser);
+  }
+  settingsState.sweepBusy = true;
+  try {
+    await analyzeConversations(order);
   } finally {
     settingsState.sweepBusy = false;
     void loadAnalysisOverview();
   }
+}
+// Messages per conversation an API sweep asks for. The bridge picks the ones that still
+// lack labels, so this is a ceiling rather than a batch size.
+const API_SWEEP_WINDOW = 80;
+function usingApiInsights() {
+  return settingsState.modelSourceResolved && settingsState.modelSourceSnapshot.mode === "api" &&
+    !!settingsState.settings.intent;
+}
+function apiInsightSweepSourceKey() {
+  return JSON.stringify([chatState.currentAccount, settingsState.modelSourceSnapshot.sourceId]);
 }
 // Whole-account progress behind the sidebar bar: how many conversations the local
 // background sweep has walked to the end of their history.
@@ -1030,6 +1159,50 @@ async function changeWorkerSettings(delta, elastic) {
     return;
   }
   renderWorkerSettings();
+}
+// How many API provider turns may run at once. The bridge owns the analyzer pool and
+// steps it down on provider rate limits; this row only mirrors and edits the ceiling.
+async function loadApiWorkerSettings() {
+  try {
+    settingsState.apiWorkerSettings = await api("/api/api-workers");
+  } catch {
+    settingsState.apiWorkerSettings = null;
+  }
+  renderApiWorkerSettings();
+}
+function renderApiWorkerSettings() {
+  const hint = byId("apiWorkerLimitHint");
+  if (!hint) return;
+  const row = hint.parentElement;
+  const settings = settingsState.apiWorkerSettings;
+  if (!settings) {
+    byId("apiWorkerValue").textContent = "\u2014";
+    row.classList.remove("show");
+    return;
+  }
+  byId("apiWorkerValue").textContent = String(settings.workers);
+  byId("btnApiWorkerMinus").disabled = settings.workers <= 1;
+  byId("btnApiWorkerPlus").disabled = settings.workers >= (settings.max || 4);
+  row.classList.add("show");
+  const live = Number(settings.limit) > 1 && Number(settings.limit) < Number(settings.workers)
+    ? "\u5f53\u524d " + settings.limit + " / " + settings.workers + " \u8def\uff08\u9047\u5230\u63a5\u53e3\u9650\u6d41\u81ea\u52a8\u964d\u6863\uff09"
+    : "\u56fa\u5b9a " + settings.workers + " \u8def\u5e76\u884c";
+  hint.textContent = (Number(settings.workers) > 1
+    ? "\u591a\u4e2a\u4f1a\u8bdd\u540c\u65f6\u8bf7\u6c42\u63a5\u53e3\uff0c\u5e76\u884c\u8d8a\u9ad8\u8d8a\u5bb9\u6613\u89e6\u53d1\u4f9b\u5e94\u5546\u9650\u6d41\uff1b"
+    : "\u5355\u8def\u6700\u7701\u8d44\u6e90\uff1b") + live + "\u3002";
+}
+async function changeApiWorkerSettings(delta) {
+  const current = settingsState.apiWorkerSettings;
+  if (!current) return;
+  const max = current.max || 4;
+  const workers = Math.max(1, Math.min(max, (Number(current.workers) || 1) + delta));
+  try {
+    settingsState.apiWorkerSettings = await api("/api/api-workers", { method: "POST",
+      body: JSON.stringify({ workers }) });
+  } catch {
+    return;
+  }
+  renderApiWorkerSettings();
 }
 function showChatEmptyState() {
   const container = byId("chatMessages");
@@ -1373,6 +1546,40 @@ function displayedEmotion(values, messageText) {
   if (second && top.probability - second.probability < 0.15) return [];
   return [top];
 }
+// Links never reach a model: a shared URL is not what the reading is about, and in API mode
+// it is not something we want to send. Keep this in step with `bridge/message_input.py`
+// (`strip_links` / `analysis_text` / `has_analysis_content`). Display and every stored result
+// keep the original text — this only decides what may be analysed.
+const MESSAGE_LINK_PATTERN = /(?:https?:\/\/|www\.)[^\s<>"'“”‘’（）()\[\]【】{}《》]+/giu;
+const MESSAGE_LINK_TAIL = "。，、；：！？…·.,;:!?)]}>”’\"'";
+const MESSAGE_PLACEHOLDERS = new Set([
+  "图片", "表情", "动画表情", "语音", "视频", "文件", "链接", "位置", "名片", "转账",
+  "红包", "微信红包", "小程序", "音乐", "聊天记录", "合并转发", "视频号", "消息",
+  "应用消息", "系统消息", "群公告", "拍一拍", "接龙", "卡券", "商品", "直播", "频道",
+  "语音通话", "视频通话",
+]);
+function stripMessageLinks(value) {
+  return String(value ?? "").replace(MESSAGE_LINK_PATTERN, match => {
+    let end = match.length;
+    // A trailing "。" or "，" belongs to the sentence, not to the link.
+    while (end > 0 && MESSAGE_LINK_TAIL.includes(match[end - 1])) end -= 1;
+    return match.slice(end);
+  });
+}
+function messageAnalysisText(value) {
+  const stripped = stripMessageLinks(value);
+  const match = /^\[([^\[\]\s]{1,16})\]$/u.exec(stripped.trim());
+  return match && MESSAGE_PLACEHOLDERS.has(match[1]) ? "" : stripped;
+}
+function hasAnalyzableText(value) {
+  const text = String(value ?? "");
+  if (!text.trim()) return false;
+  const remaining = messageAnalysisText(text);
+  if (!remaining.trim()) return false;
+  // Punctuation still counts on its own — it carries tone. The one case excluded is a
+  // message that carried nothing but a link (and the punctuation around it).
+  return remaining === text || /[^\s\p{P}]/u.test(remaining);
+}
 function hasIntentContent(messageText) {
   // Punctuation-only messages can carry tone or intent (for example “？” or
   // “。。”). Treat every non-whitespace message as analyzable; the model and
@@ -1451,9 +1658,13 @@ function clearInlineIntentPending() {
   labelState.inlineIntentPending.clear();
   labelState.inlineIntentJobId = null;
 }
-function startInlineIntentPending(window) {
+function startInlineIntentPending(window, targetIds = null) {
+  // A hand-picked run only marks its own ids as pending; the rest of the window is neither
+  // queued nor shown as "分析中".
+  const wanted = targetIds ? new Set(targetIds.map(String)) : null;
   for (const message of uncoveredMessages(window)) {
     const id = String(message.id);
+    if (wanted && !wanted.has(id)) continue;
     labelState.inlineIntentPending.set(id, message.text);
   }
   labelState.inlineIntentJobId = null;
@@ -1526,6 +1737,7 @@ function messageNode(message) {
     message.kind === "text" ? message.text || "" : message.text || "[不支持的消息]"));
   item.appendChild(wrap);
   updateLabel(message, item);
+  attachPickControl(message, item);
   return item;
 }
 function renderMessages(next, restoreScroll = null, historyAnchor = null) {
@@ -1583,6 +1795,7 @@ function renderMessages(next, restoreScroll = null, historyAnchor = null) {
   renderMood();
   updateHistoryNavigation();
   ensureApiInsights();
+  renderPickBar();
 }
 function scrollToLatest() {
   chatState.followLatest = true;
@@ -1634,6 +1847,8 @@ function cancelHistoryRequest() {
 }
 function enterHistoryView() {
   if (chatState.historyState) return;
+  // Browsing older pages is not the window the selection was made in.
+  if (chatState.messagePicking) setMessagePicking(false);
   clearTimeout(labelState.selectedAnalysisTimer);
   labelState.selectedAnalysisTimer = null;
   chatState.historyState = { beforeCursor: chatState.messages[0]?.historyCursor || null, hasMoreBefore: true, hasMoreAfter: false, error: "" };
@@ -1935,6 +2150,8 @@ function renderRecentAction(job) {
   if (["queued", "running", "done", "error"].includes(status)) setIntentActionState(status);
 }
 function submitManualRecent() {
+  // With a selection on, the manual entry must not quietly analyse the whole window.
+  if (chatState.messagePicking) { submitPickedMessages(); return; }
   if (settingsState.suppressedLocalAccounts.has(chatState.currentAccount) || !canAnalyzeLocal() || !settingsState.settings.intent || !chatState.currentUser || !chatState.controller || chatState.historyState || labelState.recentPending ||
       ["queued", "running"].includes(labelState.currentRecentJob?.status)) return;
   if (!portraitState.activeAnalysisScope) {
@@ -1949,6 +2166,45 @@ function submitManualRecent() {
   portraitState.analysisGeneration++;
   setIntentActionState("submitting");
   void analyzeRecent(chatState.currentUser, chatState.generation, chatState.controller.signal, fineWindowSignature(window), window.limit, window);
+}
+/** 「分析选中」: hand the picked ids to whichever model source is active. */
+function submitPickedMessages() {
+  if (!chatState.messagePicking || !settingsState.settings.intent ||
+      !chatState.currentUser || !chatState.controller) return;
+  const { limit, candidates } = pickedWindow();
+  if (!candidates.length) return;
+  const targetIds = candidates.map(message => String(message.id));
+  if (usingApiInsights()) { submitPickedApiInsights(candidates); return; }
+  if (!canAnalyzeLocal() || chatState.historyState || labelState.recentPending) return;
+  if (!portraitState.activeAnalysisScope) {
+    labelState.manualRecentDeferred = true;
+    return;
+  }
+  labelState.recentFailed = false;
+  labelState.manualRecentAwaitingPost = true;
+  labelState.manualRecentJobId = null;
+  portraitState.analysisGeneration++;
+  setIntentActionState("submitting");
+  const window = { limit, candidates };
+  void analyzeRecent(chatState.currentUser, chatState.generation, chatState.controller.signal,
+    fineWindowSignature(window), limit, window, targetIds);
+}
+function submitPickedApiInsights(candidates) {
+  const work = labelState.apiInsightWork;
+  if (!work || !apiInsightWorkCurrent(work)) {
+    setStripStatus("当前会话分析尚未就绪，请稍后再试");
+    return;
+  }
+  const entry = labelState.apiInsightCache.get(work.key);
+  if (!entry) return;
+  if (["queued", "running"].includes(entry.job?.status)) {
+    // The backend answers a request made during a run with that same running job, so the
+    // selection would be dropped silently; say so instead of pretending it was queued.
+    setStripStatus("已有分析正在进行，选中的消息会在其中一并完成");
+    return;
+  }
+  entry.error = "";
+  void submitApiInsightJob(work, candidates, apiInsightSignature(candidates));
 }
 function fineWindow() {
   if (!chatState.messages.length) return { limit: 0, candidates: [] };
@@ -1965,11 +2221,111 @@ function fineWindow() {
   }
   const limit = Math.min(80, first < 0 ? Math.min(12, chatState.messages.length) : chatState.messages.length - first);
   const candidates = chatState.messages.slice(-Math.max(1, limit)).filter(message => message.side === "other" &&
-    message.kind === "text" && typeof message.text === "string" && message.text.trim());
+    message.kind === "text" && typeof message.text === "string" && hasAnalyzableText(message.text));
   return { limit: Math.max(1, limit), candidates };
 }
 function analyzableMessages(window = fineWindow()) {
   return window.candidates;
+}
+// ── 「选择消息」：只分析手动勾选的几条 ────────────────────────────────────────
+// Picking is a submission scope, not a display filter: while it is on the automatic
+// whole-window runs are suppressed and every submit carries targetIds, so nothing outside
+// the selection is analysed (and, in API mode, paid for).
+function pickableMessage(message) {
+  if (message.side !== "other" || message.kind !== "text" ||
+      typeof message.text !== "string" || !hasAnalyzableText(message.text)) return false;
+  const apiMode = settingsState.modelSourceResolved && settingsState.modelSourceSnapshot.mode === "api";
+  return !apiMode || (hasIntentContent(message.text) && !isIncompleteFragment(message.text));
+}
+function pickedMessages() {
+  if (!chatState.selectedMessageIds.size) return [];
+  return chatState.messages.filter(message =>
+    chatState.selectedMessageIds.has(String(message.id)) && pickableMessage(message));
+}
+// `/api/analyze` resolves the ids inside the same tail window `/api/messages` handed the UI
+// and caps that window at 80, so ids older than the tail are dropped instead of sent.
+function pickedWindow(picked = pickedMessages()) {
+  if (!picked.length) return { limit: 0, candidates: [] };
+  const index = new Map(chatState.messages.map((message, position) => [String(message.id), position]));
+  const first = Math.min(...picked.map(message => index.get(String(message.id)) ?? 0));
+  const limit = Math.max(1, Math.min(80, chatState.messages.length - first));
+  const boundary = chatState.messages.length - limit;
+  return { limit,
+    candidates: picked.filter(message => (index.get(String(message.id)) ?? 0) >= boundary) };
+}
+function renderPickBar() {
+  const picking = chatState.messagePicking;
+  byId("pickBar").hidden = !picking;
+  const toggle = byId("btnPickMessages");
+  toggle.classList.toggle("active", picking);
+  toggle.setAttribute("aria-pressed", String(picking));
+  toggle.textContent = picking ? "退出选择" : "选择消息";
+  byId("chatMessages").classList.toggle("pick-mode", picking);
+  if (!picking) return;
+  const picked = pickedMessages();
+  const candidates = pickedWindow(picked).candidates;
+  text("pickBarCount", candidates.length === picked.length ? `已选 ${candidates.length} 条` :
+    `已选 ${candidates.length} 条（${picked.length - candidates.length} 条超出当前窗口）`);
+  byId("btnPickAnalyze").disabled = !candidates.length;
+  byId("btnPickAnalyze").textContent = candidates.length ? `分析选中 ${candidates.length} 条` : "分析选中";
+}
+function setPickedMessage(id, on) {
+  if (on) chatState.selectedMessageIds.add(id);
+  else chatState.selectedMessageIds.delete(id);
+  const node = [...byId("chatMessages").querySelectorAll(".msg-item")]
+    .find(item => item.dataset.messageId === id);
+  if (node) {
+    const input = node.querySelector(".msg-pick input");
+    if (input) input.checked = on;
+    node.classList.toggle("picked", on);
+  }
+  renderPickBar();
+}
+function syncPickControls() {
+  for (const node of byId("chatMessages").querySelectorAll(".msg-item.pickable")) {
+    const on = chatState.selectedMessageIds.has(node.dataset.messageId);
+    const input = node.querySelector(".msg-pick input");
+    if (input) input.checked = on;
+    node.classList.toggle("picked", on);
+  }
+}
+function setMessagePicking(on) {
+  if (chatState.messagePicking === on) return;
+  if (on) {
+    if (!settingsState.settings.intent) { toast("请先开启「意图识别」"); return; }
+    if (!(usingApiInsights() || canAnalyzeLocal())) { toast("当前模型来源不可用，无法分析"); return; }
+    if (chatState.historyState) { toast("请先返回最新消息再选择"); return; }
+  }
+  chatState.messagePicking = on;
+  // Leaving the mode drops the selection: it belongs to the window the user was looking at.
+  if (!on) chatState.selectedMessageIds.clear();
+  syncPickControls();
+  renderPickBar();
+  if (on) setStripStatus("勾选要分析的消息，然后点击「分析选中」");
+}
+function pickAllMessages() {
+  for (const message of chatState.messages) if (pickableMessage(message))
+    chatState.selectedMessageIds.add(String(message.id));
+  syncPickControls();
+  renderPickBar();
+}
+function attachPickControl(message, item) {
+  if (!pickableMessage(message)) return;
+  const id = String(message.id);
+  item.classList.add("pickable");
+  const label = element("label", "msg-pick");
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = chatState.selectedMessageIds.has(id);
+  input.addEventListener("change", () => setPickedMessage(id, input.checked));
+  label.appendChild(input);
+  item.appendChild(label);
+  item.classList.toggle("picked", input.checked);
+  // Clicking the row toggles as well; the checkbox itself already handled its own click.
+  item.addEventListener("click", event => {
+    if (!chatState.messagePicking || event.target.closest(".msg-pick")) return;
+    setPickedMessage(id, !chatState.selectedMessageIds.has(id));
+  });
 }
 function uncoveredMessages(window = fineWindow()) {
   return analyzableMessages(window).filter(message => {
@@ -1982,6 +2338,9 @@ function fineWindowSignature(window) {
   return JSON.stringify([window.limit, analyzableMessages(window).map(message => [message.id, message.text])]);
 }
 function scheduleRecent(user, token, signal, changedOther) {
+  // While the user is hand-picking what to analyse the automatic window run stays off:
+  // it would analyse (and, in API mode, pay for) everything the selection exists to avoid.
+  if (chatState.messagePicking) return;
   if (settingsState.suppressedLocalAccounts.has(chatState.currentAccount) || !canAnalyzeLocal() || !settingsState.settings.intent || chatState.view !== "chat" || document.hidden || startupActive || !changedOther ||
       labelState.recentPending || labelState.recentFailed || !portraitState.activeAnalysisScope) return;
   const window = fineWindow();
@@ -1999,8 +2358,11 @@ function incrementalState(key) {
 }
 async function startIncremental(user, token, signal, key, state) {
   const account = chatState.currentAccount;
-  if (!canAnalyzeLocal() || state.pending || !account || token !== chatState.generation || user !== chatState.currentUser ||
-      settingsState.suppressedLocalAccounts.has(account)) return;
+  if (user !== chatState.currentUser || token !== chatState.generation || state.pending) return;
+  // Ahead of the availability checks: an unrequested conversation must say so even when
+  // no model is installed, otherwise the gate looks like a broken model.
+  if (analysisBlockedWithoutRequest(user)) return;
+  if (!canAnalyzeLocal() || !account || settingsState.suppressedLocalAccounts.has(account)) return;
   state.pending = true;
   let refresh = false;
   try {
@@ -2091,16 +2453,20 @@ async function loadAnalysis(user, token, signal) {
     }
   }
 }
-async function analyzeRecent(user, token, signal, signature, limit, window) {
+async function analyzeRecent(user, token, signal, signature, limit, window, targetIds = null) {
   const account = chatState.currentAccount;
-  if (!canAnalyzeLocal() || labelState.recentPending || labelState.recentFailed || !account || token !== chatState.generation || user !== chatState.currentUser) return;
+  if (user !== chatState.currentUser || token !== chatState.generation ||
+      labelState.recentPending || labelState.recentFailed) return;
+  if (analysisBlockedWithoutRequest(user)) return;
+  if (!canAnalyzeLocal() || !account) return;
   labelState.requestedRecentSignatures.add(signature);
   while (labelState.requestedRecentSignatures.size > 64) labelState.requestedRecentSignatures.delete(labelState.requestedRecentSignatures.values().next().value);
   labelState.recentPending = true;
-  startInlineIntentPending(window);
+  startInlineIntentPending(window, targetIds);
   try {
     const data = await api("/api/analyze", { method: "POST", body: JSON.stringify({
       account, user, mode: "recent", limit,
+      ...(targetIds?.length ? { targetIds } : {}),
     }) }, signal);
     if (token === chatState.generation && canAnalyzeLocal()) {
       labelState.recentNetworkFailed = false;
@@ -2222,6 +2588,11 @@ function switchSession(user, force = false) {
   labelState.manualRecentJobId = null;
   labelState.manualRecentDeferred = false;
   setIntentActionState("idle");
+  // A selection belongs to one conversation: switching drops it instead of carrying ids the
+  // next conversation's window cannot resolve.
+  chatState.messagePicking = false;
+  chatState.selectedMessageIds.clear();
+  renderPickBar();
   labelState.recentPending = false;
   portraitState.incrementalFailed = false;
   labelState.recentFailed = false;
@@ -2651,13 +3022,22 @@ function renderMbti(profile) {
   if (profile.apiSource && !profile.apiNativeProfile) {
     // API portrait reuses the Laya card: same threshold, lock panel and evidence
     // section. Axis shares arrive as 0-100 favoring the left letter.
-    const eligible = Number(profile.apiTargetTexts) || 0;
+    //
+    // The unlock count must be the observation-ledger count the backend gates on, not the
+    // analysed-text count: a run can hold thousands of texts and still have observed nothing,
+    // in which case the backend withholds all four axes.
+    const eligible = Number(profile.apiMbtiEvidenceCount) || 0;
     const minMessages = 100;
     const axes = {};
     for (const axis of preferenceAxes) {
       const share = apiScore(profile.apiMbtiAxes?.[axis.key]);
-      axes[axis.key] = share === null ? null :
-        { leftShare: share / 100, rightShare: (100 - share) / 100, evidenceCount: 1 };
+      const basis = profile.apiMbtiBasis?.[axis.key];
+      axes[axis.key] = share === null ? null : {
+        leftShare: share / 100, rightShare: (100 - share) / 100,
+        // The per-axis count is how many dedicated observations back this axis. It was
+        // hardcoded to 1, so every API axis reported "1 条证据" regardless of the real amount.
+        evidenceCount: Number(basis?.evidenceCount) || 0,
+      };
     }
     profile = { ...profile, mbtiInference: { eligibleMessages: eligible, minMessages,
       axes, sources: officialSources } };
@@ -2705,7 +3085,13 @@ function renderMbti(profile) {
     iconWrap.appendChild(svgIcon("M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z", "mbti-lock-icon"));
     lockPanel.appendChild(iconWrap);
     lockPanel.appendChild(element("div", "mbti-lock-title", "人格推测未解锁"));
-    lockPanel.appendChild(element("div", "mbti-lock-desc", `需积累 ${minMessages} 条该人物有效文本以进行四维偏好推测`));
+    // The API path unlocks on the observation ledger, so "analyse more messages" would be
+    // wrong advice: the run has to reach the observing phase first.
+    lockPanel.appendChild(element("div", "mbti-lock-desc", profile.apiSource
+      ? (profile.apiComplete
+        ? `需完成聊天观察以积累四维偏好依据（当前 ${Math.max(0, eligible)}/${minMessages} 条）`
+        : "本次 API 画像尚未完成，观察阶段未运行，暂无法给出四维偏好")
+      : `需积累 ${minMessages} 条该人物有效文本以进行四维偏好推测`));
     const progWrap = element("div", "mbti-lock-progress-wrap");
     const progBar = element("div", "mbti-lock-progress-bar");
     const fill = element("div", "mbti-lock-progress-fill");
@@ -3095,6 +3481,10 @@ function renderApiProfile(data) {
     apiMbtiAxes: portrait?.mbtiAxes || null,
     apiMbtiBasis: mbtiBasisSnapshot(data.mbtiBasis),
     apiTargetTexts: analyzedTargets,
+    // The backend withholds the axes until the observation ledger reaches its threshold, and
+    // that count is not the analysed-text count. Without it the card reports itself unlocked
+    // on a run that stalled before observing, and every axis reads as "待判断".
+    apiMbtiEvidenceCount: Number(data.available?.mbtiEvidenceCount) || 0,
     apiProgressProcessed: analyzed,
     apiProgressTotal: analysisTotal,
     apiComplete: progress.complete === true,
@@ -3218,6 +3608,10 @@ function renderApiPortrait(data) {
   else if (running) state = "API 分析中";
   else if (data.needsRebuild) state = "画像算法已更新，可重新分析";
   else if (upToDate) state = "API 画像已更新";
+  // A run that never left the queue would otherwise read as "preparing" for ever. The
+  // backend holds the row with complete=0 and processed=0, so say what actually happened.
+  else if (Number(available?.targetTextCount) > 0 && Number(progress?.processedTargetTexts) === 0)
+    state = "API 画像未开始（观察阶段未运行），请重新分析";
   else state = "正在准备 API 画像";
   const autoKey = portraitState.renderedApiPortraitKey + ":" + total + ":" + (Number(available?.totalChars) || 0);
   const submitError = portraitState.apiPortraitSubmitErrors.get(autoKey);
@@ -3471,6 +3865,7 @@ function applySettings() {
   if (settingsState.analysisOverviewSnapshot) renderAnalysisOverview(settingsState.analysisOverviewSnapshot);
   refreshLabels();
 }
+
 settingsState.runtimeSnapshot = null;
 settingsState.runtimeRequest = 0;
 settingsState.runtimeBusy = false;
@@ -3694,7 +4089,7 @@ byId("inputDataRoot").addEventListener("keydown", event => {
   if (event.key === "Enter") { event.preventDefault(); void changeDataRoot(); }
 });
 const MODEL_SOURCE_PROTOCOLS = new Set(["anthropic", "responses", "chat_completions", "gemini", "ollama"]);
-settingsState.modelSourceSnapshot = { mode: "local", api: null, sourceId: "local", status: "idle" };
+settingsState.modelSourceSnapshot = { mode: "local", api: null, profiles: [], label: "", sourceId: "local", status: "idle" };
 settingsState.modelSourceResolved = false;
 settingsState.modelSourceReadRequest = 0;
 settingsState.modelSourceLoadController = null;
@@ -3708,15 +4103,42 @@ settingsState.modelSourceBusy = false;
 settingsState.modelListBusy = false;
 settingsState.modelTestBusy = false;
 settingsState.modelSourceDraftDirty = false;
+settingsState.apiProfileId = "";
+settingsState.apiProfileBusy = false;
+const LOCAL_MODEL_LABEL = "本地 Laya";
+function validModelProfile(item) {
+  return !!item && typeof item.id === "string" && /^[0-9a-f]{32}$/u.test(item.id) &&
+    typeof item.name === "string" && !!item.name && typeof item.model === "string" &&
+    typeof item.baseUrl === "string" && MODEL_SOURCE_PROTOCOLS.has(item.protocol) &&
+    typeof item.hasKey === "boolean" &&
+    (item.contextTokens == null || (Number.isSafeInteger(item.contextTokens) &&
+      item.contextTokens >= 4096 && item.contextTokens <= 1000000));
+}
 function validModelSource(data) {
   return !!data && ["local", "api"].includes(data.mode) &&
     typeof data.sourceId === "string" && !!data.sourceId &&
+    typeof data.label === "string" &&
+    Array.isArray(data.profiles) && data.profiles.every(validModelProfile) &&
     (data.mode !== "api" || !!data.api) &&
     (data.api === null || (!!data.api && MODEL_SOURCE_PROTOCOLS.has(data.api.protocol) &&
       typeof data.api.baseUrl === "string" && typeof data.api.model === "string" &&
       (data.api.contextTokens == null || Number.isSafeInteger(data.api.contextTokens) &&
         data.api.contextTokens >= 4096 && data.api.contextTokens <= 1000000) &&
       typeof data.api.hasKey === "boolean"));
+}
+function modelProfiles() {
+  const snapshot = settingsState.modelSourceSnapshot;
+  return settingsState.modelSourceResolved && Array.isArray(snapshot.profiles) ? snapshot.profiles : [];
+}
+function activeProfileId() {
+  const snapshot = settingsState.modelSourceSnapshot;
+  return snapshot.mode === "api" && snapshot.api ? (snapshot.api.id || "") : "";
+}
+function currentModelLabel() {
+  const snapshot = settingsState.modelSourceSnapshot;
+  if (!settingsState.modelSourceResolved) return "";
+  if (snapshot.mode === "api") return snapshot.label || snapshot.api?.model || "";
+  return snapshot.label || LOCAL_MODEL_LABEL;
 }
 function usingLocalFine() {
   return settingsState.modelSourceResolved && settingsState.modelSourceSnapshot.mode === "local";
@@ -3744,6 +4166,7 @@ function applyActiveModelSource(data) {
   byId("btnResetConversationAnalysis").disabled = !chatState.currentAccount || !chatState.selectedConversations?.has(chatState.currentUser);
   byId("btnResetPortrait").disabled = byId("btnResetConversationAnalysis").disabled;
   syncPortraitMode();
+  renderModelBadge();
   if (changed) {
     cancelApiPortraitPoll();
     if (portraitSourceChanged) {
@@ -3801,13 +4224,18 @@ function updateModelSourceControls() {
   byId("localModelActions").hidden = !settingsState.modelSourceResolved || settingsState.modelSourceSnapshot.mode !== "api" ||
     byId("selectModelSource").value !== "local";
   byId("btnActivateLocal").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelSourceSnapshot.mode === "local";
-  for (const id of ["selectApiProtocol", "inputApiBaseUrl", "inputApiKey", "selectApiModel", "inputApiModelId", "inputApiContextTokens"])
-    byId(id).disabled = settingsState.modelSourceLoading || settingsState.modelSourceBusy ||
+  for (const id of ["selectApiProfile", "selectApiProtocol", "inputApiProfileName", "inputApiBaseUrl", "inputApiKey", "selectApiModel", "inputApiModelId", "inputApiContextTokens"])
+    byId(id).disabled = settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.apiProfileBusy ||
       (id === "selectApiModel" && byId(id).options.length < 2);
+  byId("btnDeleteApiProfile").hidden = !settingsState.apiProfileId;
+  byId("btnDeleteApiProfile").disabled = settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.apiProfileBusy || !settingsState.apiProfileId;
   byId("btnFetchApiModels").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelListBusy;
   byId("btnTestApiModel").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelTestBusy;
-  byId("btnActivateApi").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelTestBusy;
+  byId("btnSaveApiProfile").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelTestBusy || settingsState.apiProfileBusy;
+  byId("btnActivateApi").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelTestBusy || settingsState.apiProfileBusy;
   byId("btnClearApiKey").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy;
+  byId("modelBadge").disabled = settingsState.modelSourceBusy || settingsState.apiProfileBusy;
+  renderModelBadge();
   syncRuntimeControl();
 }
 function showModelSourceMode() {
@@ -3815,6 +4243,117 @@ function showModelSourceMode() {
   byId("localModelSettings").hidden = isApi;
   byId("apiModelSettings").hidden = !isApi;
   updateModelSourceControls();
+}
+function modelBadgeOption(profile) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "model-badge-option";
+  button.dataset.profileId = profile.id;
+  button.setAttribute("role", "menuitemradio");
+  const active = profile.id === activeProfileId();
+  button.setAttribute("aria-checked", active ? "true" : "false");
+  const tick = document.createElement("span");
+  tick.className = "model-badge-tick";
+  tick.textContent = active ? "✓" : "";
+  const body = document.createElement("span");
+  body.className = "model-badge-text";
+  const name = document.createElement("span");
+  name.className = "model-badge-name";
+  name.textContent = profile.name;
+  const model = document.createElement("span");
+  model.className = "model-badge-model";
+  model.textContent = profile.model;
+  // `appendChild` takes a single node; the extra arguments were silently dropped,
+  // so the name and model never reached the row and only the tick rendered.
+  body.append(name, model);
+  button.append(tick, body);
+  return button;
+}
+function localModelBadgeOption() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "model-badge-option";
+  button.dataset.profileId = "";
+  button.setAttribute("role", "menuitemradio");
+  button.setAttribute("aria-checked", settingsState.modelSourceSnapshot.mode === "local" ? "true" : "false");
+  const tick = document.createElement("span");
+  tick.className = "model-badge-tick";
+  tick.textContent = settingsState.modelSourceSnapshot.mode === "local" ? "✓" : "";
+  const body = document.createElement("span");
+  body.className = "model-badge-text";
+  const name = document.createElement("span");
+  name.className = "model-badge-name";
+  name.textContent = LOCAL_MODEL_LABEL;
+  const model = document.createElement("span");
+  model.className = "model-badge-model";
+  model.textContent = "内置本地模型";
+  // `appendChild` takes a single node; the extra arguments were silently dropped,
+  // so the name and model never reached the row and only the tick rendered.
+  body.append(name, model);
+  button.append(tick, body);
+  return button;
+}
+function renderModelBadgeMenu(menu = byId("modelBadgeMenu")) {
+  if (!menu || menu.hidden) return;
+  const profiles = modelProfiles();
+  if (!profiles.length) {
+    const empty = document.createElement("p");
+    empty.className = "model-badge-busy";
+    empty.textContent = "尚无已保存的 API 配置，请先在设置中添加";
+    menu.replaceChildren(empty);
+    return;
+  }
+  const foot = document.createElement("button");
+  foot.type = "button";
+  foot.className = "model-badge-option model-badge-menu-foot";
+  foot.dataset.manage = "1";
+  foot.setAttribute("role", "menuitem");
+  foot.textContent = "管理 API 配置…";
+  menu.replaceChildren(...profiles.map(modelBadgeOption), localModelBadgeOption(), foot);
+}
+/**
+ * Every model menu as trigger/menu pairs: the chat header and the persona header each own one.
+ * Enumerated by id rather than a DOM query so the list stays explicit about what it closes.
+ */
+const MODEL_MENU_PAIRS = [
+  ["modelBadge", "modelBadgeMenu"],
+  ["portraitSourceBadge", "portraitSourceMenu"],
+];
+function modelMenus() {
+  return MODEL_MENU_PAIRS.map(([trigger, menu]) => ({ trigger, menu: byId(menu) }))
+    .filter(pair => pair.menu);
+}
+function closeModelBadgeMenu() {
+  // Closing every menu keeps the model source consistent no matter which header asked for it:
+  // a switch from the persona header must not leave the chat header's panel open behind it.
+  for (const { trigger, menu } of modelMenus()) {
+    menu.hidden = true;
+    byId(trigger)?.setAttribute("aria-expanded", "false");
+  }
+}
+function toggleModelBadgeMenu(triggerId = "modelBadge", menuId = "modelBadgeMenu") {
+  const menu = byId(menuId);
+  if (!menu) return;
+  if (menu.hidden) {
+    // Only one panel at a time: the other header's menu closes first.
+    closeModelBadgeMenu();
+    menu.hidden = false;
+    renderModelBadgeMenu(menu);
+    byId(triggerId)?.setAttribute("aria-expanded", "true");
+  } else closeModelBadgeMenu();
+}
+function renderModelBadge() {
+  const wrap = byId("modelBadgeWrap");
+  if (!settingsState.modelSourceResolved) {
+    wrap.hidden = true;
+    byId("portraitSourceWrap").hidden = true;
+    closeModelBadgeMenu();
+    return;
+  }
+  wrap.hidden = false;
+  byId("portraitSourceWrap").hidden = false;
+  text("modelBadgeLabel", currentModelLabel());
+  for (const { menu } of modelMenus()) renderModelBadgeMenu(menu);
 }
 function clearModelList() {
   const select = byId("selectApiModel");
@@ -3852,23 +4391,79 @@ function invalidateModelTest() {
   text("modelSourceStatus", "");
   updateModelSourceControls();
 }
+function editedApiProfile() {
+  return modelProfiles().find(item => item.id === settingsState.apiProfileId) || null;
+}
 function syncSavedApiKeyHint() {
-  const saved = settingsState.modelSourceSnapshot.api;
-  const reusable = !!saved?.hasKey && saved.protocol === byId("selectApiProtocol").value &&
-    saved.baseUrl.replace(/\/+$/, "") === byId("inputApiBaseUrl").value.trim().replace(/\/+$/, "");
+  const profile = editedApiProfile();
+  const reusable = !!profile?.hasKey && profile.protocol === byId("selectApiProtocol").value &&
+    profile.baseUrl.replace(/\/+$/, "") === byId("inputApiBaseUrl").value.trim().replace(/\/+$/, "");
   byId("apiKeySaved").hidden = !reusable;
-  byId("btnClearApiKey").hidden = !saved?.hasKey;
+  byId("btnClearApiKey").hidden = !profile?.hasKey;
   byId("inputApiKey").placeholder = reusable ? "留空沿用已保存密钥" : "按服务要求填写 API Key";
+}
+function showApiProfiles() {
+  const select = byId("selectApiProfile");
+  const profiles = modelProfiles();
+  select.replaceChildren();
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = profiles.length ? "新建配置" : "尚无已保存配置";
+  select.appendChild(blank);
+  const active = activeProfileId();
+  for (const profile of profiles) {
+    const option = document.createElement("option");
+    option.value = profile.id;
+    option.textContent = profile.id === active ? `${profile.name}（当前）` : profile.name;
+    select.appendChild(option);
+  }
+  select.value = profiles.some(item => item.id === settingsState.apiProfileId)
+    ? settingsState.apiProfileId : "";
+}
+function loadApiProfileDraft(profileId, markDirty = true) {
+  const profile = modelProfiles().find(item => item.id === profileId) || null;
+  settingsState.apiProfileId = profile?.id || "";
+  byId("inputApiProfileName").value = profile?.name || "";
+  byId("selectApiProtocol").value = profile?.protocol || "responses";
+  byId("inputApiBaseUrl").value = profile?.baseUrl || "";
+  byId("inputApiModelId").value = profile?.model || "";
+  byId("inputApiContextTokens").value = profile?.contextTokens || "";
+  byId("inputApiKey").value = "";
+  if (markDirty) settingsState.modelSourceDraftDirty = true;
+  invalidateModelDiscovery();
+  syncSavedApiKeyHint();
+  updateModelSourceControls();
+}
+function resolveEditedProfileId(fallbackId) {
+  // Keep editing the same profile across refreshes and header switches; only fall back
+  // to the active one when that profile no longer exists.
+  const kept = settingsState.apiProfileId;
+  settingsState.apiProfileId = modelProfiles().some(item => item.id === kept) ? kept : fallbackId;
+  return settingsState.apiProfileId;
+}
+function applyModelSourceSnapshot(data) {
+  if (settingsState.modelSourceDraftDirty) {
+    // A header switch must not throw away edits the user has not saved yet.
+    applyActiveModelSource(data);
+    resolveEditedProfileId(data.mode === "api" ? (data.api?.id || "") : "");
+    showApiProfiles();
+    text("modelSourceActive", data.mode === "api" ? "当前 API" : "当前本地");
+    syncSavedApiKeyHint();
+  } else showModelSource(data);
 }
 function showModelSource(data) {
   applyActiveModelSource(data);
   settingsState.modelSourceDraftDirty = false;
   text("modelSourceActive", data.mode === "api" ? "当前 API" : "当前本地");
+  resolveEditedProfileId(data.mode === "api" ? (data.api?.id || "") : "");
   byId("selectModelSource").value = data.mode;
-  byId("selectApiProtocol").value = data.api?.protocol || "responses";
-  byId("inputApiBaseUrl").value = data.api?.baseUrl || "";
-  byId("inputApiModelId").value = data.api?.model || "";
-  byId("inputApiContextTokens").value = data.api?.contextTokens || "";
+  showApiProfiles();
+  const profile = editedApiProfile();
+  byId("inputApiProfileName").value = profile?.name || "";
+  byId("selectApiProtocol").value = profile?.protocol || data.api?.protocol || "responses";
+  byId("inputApiBaseUrl").value = profile?.baseUrl || data.api?.baseUrl || "";
+  byId("inputApiModelId").value = profile?.model || data.api?.model || "";
+  byId("inputApiContextTokens").value = profile?.contextTokens || data.api?.contextTokens || "";
   byId("inputApiKey").value = "";
   syncSavedApiKeyHint();
   invalidateModelDiscovery();
@@ -3943,6 +4538,11 @@ function apiModelDraft(requireModel, requireContext = false) {
   return draft;
 }
 async function fetchApiModels() {
+  // Model discovery and the connection probe share one lane in the API worker
+  // (`probeTasks.size >= 2` -> "rate-limit"). Overlapping them would refuse the second
+  // request before it ever reaches the provider and report it as a provider throttle.
+  if (settingsState.modelListBusy || settingsState.modelTestBusy ||
+      settingsState.modelSourceBusy) return;
   let draft;
   try { draft = apiModelDraft(false); }
   catch (error) { text("apiModelCount", error.message); return; }
@@ -3999,7 +4599,9 @@ async function fetchApiModels() {
   }
 }
 async function testApiModel() {
-  if (settingsState.modelSourceBusy || settingsState.modelTestBusy) return;
+  // Same shared lane as `fetchApiModels`: one probe at a time, whoever started first.
+  if (settingsState.modelSourceBusy || settingsState.modelTestBusy ||
+      settingsState.modelListBusy) return;
   let draft;
   try { draft = apiModelDraft(true); }
   catch (error) { text("apiModelTestStatus", error.message); return; }
@@ -4031,24 +4633,27 @@ async function testApiModel() {
     }
   }
 }
-async function activateModelSource(mode) {
-  if (settingsState.modelSourceBusy || settingsState.modelTestBusy || !["local", "api"].includes(mode)) return;
-  let payload = { mode };
-  if (mode === "api") {
-    try { payload = { ...payload, ...apiModelDraft(true, true) }; }
-    catch (error) { text("modelSourceStatus", error.message); return; }
-  }
+function apiProfilePayload(draft) {
+  const payload = { ...draft };
+  const name = byId("inputApiProfileName").value.trim();
+  if (name) payload.name = name;
+  if (settingsState.apiProfileId) payload.profileId = settingsState.apiProfileId;
+  return payload;
+}
+async function postApiModelSource(path, payload, messages) {
   settingsState.modelSourceBusy = true;
   const abortController = new AbortController();
-  const timeoutId = setTimeout(() => abortController.abort(), mode === "local" ? 15_000 : 30_000);
-  text("modelSourceStatus", "正在启用…");
+  const timeoutId = setTimeout(() => abortController.abort(), messages.timeoutMs || 30_000);
+  text("modelSourceStatus", messages.busy);
   updateModelSourceControls();
   try {
-    const data = await api("/api/model-source/activate", { method: "POST", body: JSON.stringify(payload) },
+    const data = await api(path, { method: "POST", body: JSON.stringify(payload) },
       abortController.signal);
-    if (!validModelSource(data) || data.mode !== mode) throw new Error("activation failed");
-    showModelSource(data);
-    text("modelSourceStatus", mode === "api" ? "API 模型已启用" : "本地模型已启用");
+    if (!validModelSource(data)) throw new Error("invalid model source");
+    messages.accept?.(data);
+    applyModelSourceSnapshot(data);
+    text("modelSourceStatus", messages.done);
+    return data;
   } catch (error) {
     if (!Number.isInteger(error?.status)) {
       beginUnknownModelSource();
@@ -4056,42 +4661,103 @@ async function activateModelSource(mode) {
       void loadModelSource(true);
     }
     text("modelSourceStatus", settingsState.modelSourceResolved ?
-      `启用失败（${abortController.signal.aborted ? "连接超时" : modelSourceRequestError(error)}），当前仍为${settingsState.modelSourceSnapshot.mode === "api" ? " API" : "本地"}` :
+      `${messages.failed}（${abortController.signal.aborted ? "连接超时" : modelSourceRequestError(error)}），当前仍为${settingsState.modelSourceSnapshot.mode === "api" ? " API" : "本地"}` :
       "启用状态待读取");
+    return null;
   } finally {
     clearTimeout(timeoutId);
     settingsState.modelSourceBusy = false;
     updateModelSourceControls();
   }
 }
-async function clearStoredApiKey() {
-  if (settingsState.modelSourceBusy || !settingsState.modelSourceSnapshot.api?.hasKey) return;
-  settingsState.modelSourceBusy = true;
-  text("modelSourceStatus", "正在清除密钥…");
-  updateModelSourceControls();
-  let cleared = false;
-  try {
-    await api("/api/model-source/clear-key", { method: "POST", body: "{}" });
-    cleared = true;
-    byId("inputApiKey").value = "";
-    const data = await api("/api/model-source");
-    if (!validModelSource(data)) throw new Error("invalid model source");
-    showModelSource(data);
-    text("modelSourceStatus", "密钥已清除");
-  } catch (error) {
-    if (cleared) {
-      settingsState.modelSourceSnapshot = { ...settingsState.modelSourceSnapshot, api: settingsState.modelSourceSnapshot.api ?
-        { ...settingsState.modelSourceSnapshot.api, hasKey: false } : null };
-      beginUnknownModelSource();
-      byId("apiKeySaved").hidden = true;
-      byId("btnClearApiKey").hidden = true;
-      text("modelSourceActive", "状态待读取");
-      text("modelSourceStatus", "密钥已清除，状态读取失败");
-    } else text("modelSourceStatus", `清除失败（${modelSourceRequestError(error)}）`);
-  } finally {
-    settingsState.modelSourceBusy = false;
-    updateModelSourceControls();
+async function saveApiProfileDraft(activate) {
+  let draft;
+  try { draft = apiModelDraft(true, true); }
+  catch (error) { text("modelSourceStatus", error.message); return null; }
+  const acceptProfile = data => {
+    if (typeof data.profile === "string") settingsState.apiProfileId = data.profile;
+  };
+  // Saving always goes through `/api/model-source/profiles`: it appends a new profile, and
+  // updates the edited one in place when the body carries its `profileId`.
+  //
+  // 「保存并启用」must not post the connection fields to `activate` instead: that endpoint
+  // takes either the fields or `{mode, profileId}` (a mixed body is a 400 `invalid model
+  // source request`, which the form used to report as 启用失败 right after a successful
+  // 测试连接), and its field form also matches an existing profile by protocol/baseUrl/model
+  // and updates it in place — so adding a second entry for an already-saved connection
+  // silently produced no new row in the model list. Writing first and then switching by id
+  // keeps both buttons on one path and one provider probe.
+  const saved = await postApiModelSource("/api/model-source/profiles", apiProfilePayload(draft),
+    { busy: "正在保存配置…", done: "配置已保存", failed: "保存失败", accept: acceptProfile });
+  if (!saved || !activate) return saved;
+  const profileId = typeof saved.profile === "string" && /^[0-9a-f]{32}$/u.test(saved.profile) ?
+    saved.profile : settingsState.apiProfileId;
+  if (!/^[0-9a-f]{32}$/u.test(profileId)) {
+    text("modelSourceStatus", "保存失败（配置未返回 ID）");
+    return null;
   }
+  const data = await postApiModelSource("/api/model-source/activate", { mode: "api", profileId },
+    { busy: "正在启用…", done: "API 模型已启用", failed: "启用失败", accept: acceptProfile });
+  if (data && data.mode !== "api") text("modelSourceStatus", "启用失败（来源未切换）");
+  return data;
+}
+async function saveApiProfile() { await saveApiProfileDraft(false); }
+async function activateApiDraft() { await saveApiProfileDraft(true); }
+async function activateModelSource(mode) {
+  if (settingsState.modelSourceBusy || settingsState.modelTestBusy || !["local", "api"].includes(mode)) return;
+  if (mode === "api") return activateApiDraft();
+  return postApiModelSource("/api/model-source/activate", { mode }, {
+    busy: "正在启用…", done: "本地模型已启用", failed: "启用失败", timeoutMs: 15_000 });
+}
+async function activateModelProfile(profileId) {
+  closeModelBadgeMenu();
+  if (settingsState.modelSourceBusy || !settingsState.modelSourceResolved) return;
+  const mode = profileId ? "api" : "local";
+  if (settingsState.modelSourceSnapshot.mode === mode &&
+      (mode === "local" || activeProfileId() === profileId)) return;
+  await postApiModelSource("/api/model-source/activate",
+    profileId ? { mode: "api", profileId } : { mode: "local" },
+    { busy: "正在切换模型…", done: mode === "api" ? "已切换模型" : "已切换到本地模型",
+      failed: "切换失败" });
+}
+function showApiProfileDeleteConfirm(show) {
+  byId("apiProfileDeleteConfirm").hidden = !show;
+  if (!show) return;
+  const profile = editedApiProfile();
+  text("apiProfileDeleteQuestion",
+    `删除配置「${profile?.name || settingsState.apiProfileId}」？该配置保存的密钥会一并删除；若它正在使用，将切回本地模型。`);
+}
+async function deleteApiProfile() {
+  const profileId = settingsState.apiProfileId;
+  if (!profileId || settingsState.apiProfileBusy) return;
+  settingsState.apiProfileBusy = true;
+  showApiProfileDeleteConfirm(false);
+  updateModelSourceControls();
+  const data = await postApiModelSource("/api/model-source/profiles/delete", { profileId },
+    { busy: "正在删除配置…", done: "配置已删除", failed: "删除失败",
+      accept: () => {
+        // The saved profile is gone, so the form must not keep editing its fields.
+        settingsState.apiProfileId = "";
+        settingsState.modelSourceDraftDirty = false;
+      } });
+  settingsState.apiProfileBusy = false;
+  if (data) {
+    byId("inputApiProfileName").value = "";
+    byId("inputApiKey").value = "";
+    invalidateModelDiscovery();
+    syncSavedApiKeyHint();
+  }
+  updateModelSourceControls();
+}
+async function clearStoredApiKey() {
+  const profile = editedApiProfile();
+  if (settingsState.modelSourceBusy || !profile?.hasKey) return;
+  const body = settingsState.apiProfileId ? { profileId: settingsState.apiProfileId } : {};
+  const data = await postApiModelSource("/api/model-source/clear-key", body,
+    { busy: "正在清除密钥…", done: "密钥已清除", failed: "清除失败" });
+  if (!data) return;
+  byId("inputApiKey").value = "";
+  showApiProfileDeleteConfirm(false);
 }
 labelState.apiInsightCache = new Map();
 settingsState.suppressedApiSources = new Set();
@@ -4203,7 +4869,7 @@ function parseApiPartialLabels(raw, ids) {
 function apiInsightCandidates() {
   if (!chatState.messages.length) return [];
   const eligible = message => message.side === "other" && message.kind === "text" &&
-    typeof message.text === "string" && !!message.text.trim() &&
+    typeof message.text === "string" && hasAnalyzableText(message.text) &&
     hasIntentContent(message.text) && !isIncompleteFragment(message.text) &&
     (!chatState.historyState || typeof message.historyCursor === "string");
   // Analyze the entire message window already loaded for this conversation.
@@ -4455,6 +5121,11 @@ async function submitApiInsightJob(work, candidates, signature) {
   }
 }
 function ensureApiInsights(force = false) {
+  if (analysisBlockedWithoutRequest(chatState.currentUser)) {
+    cancelApiInsightWork();
+    renderApiInsightStatus();
+    return;
+  }
   const key = settingsState.settings.intent && activeApiInsightKey();
   const sourceKey = JSON.stringify([chatState.currentAccount, settingsState.modelSourceSnapshot.sourceId]);
   if (settingsState.suppressedApiSources.has(sourceKey)) {
@@ -4494,6 +5165,9 @@ function ensureApiInsights(force = false) {
   }
   if (!work.hydrated || work.getPending || work.postPending ||
       ["queued", "running"].includes(entry.job?.status)) return;
+  // Same rule as the local path: no automatic whole-window submit while the user is
+  // choosing which messages to analyse. `submitPickedMessages` posts the selection.
+  if (chatState.messagePicking) { renderApiInsightStatus(); return; }
   const candidates = apiInsightCandidates();
   if (!candidates.length) return;
    const pending = entry.sessionReady ? candidates.filter(message => !validApiInsight(
@@ -4758,6 +5432,8 @@ function closeSettingsModal() {
   settingsState.modelListController = null;
   settingsState.modelTestController?.abort();
   settingsState.modelTestController = null;
+  showApiProfileDeleteConfirm(false);
+  closeModelBadgeMenu();
   byId("settingsModal").classList.remove("show");
   clearTimeout(settingsState.runtimePollTimer);
   ++analysisCacheRequest;
@@ -5108,6 +5784,15 @@ function retryAnalysis() {
   void startIncremental(chatState.currentUser, chatState.generation, chatState.controller.signal, key, state);
 }
 byId("btnRetryAnalysis").addEventListener("click", retryAnalysis);
+byId("btnPickMessages").addEventListener("click", () => setMessagePicking(!chatState.messagePicking));
+byId("btnPickCancel").addEventListener("click", () => setMessagePicking(false));
+byId("btnPickClear").addEventListener("click", () => {
+  chatState.selectedMessageIds.clear();
+  syncPickControls();
+  renderPickBar();
+});
+byId("btnPickAll").addEventListener("click", pickAllMessages);
+byId("btnPickAnalyze").addEventListener("click", submitPickedMessages);
 byId("btnRetryProfile").addEventListener("click", () => {
   if (chatState.view === "persona" && portraitState.activeMember) void loadProfile(portraitState.activeMember, true);
   else retryAnalysis();
@@ -5132,6 +5817,14 @@ byId("selectModelSource").addEventListener("change", () => {
   settingsState.modelSourceDraftDirty = true;
   invalidateModelDiscovery();
   showModelSourceMode();
+});
+byId("selectApiProfile").addEventListener("change", event => {
+  showApiProfileDeleteConfirm(false);
+  loadApiProfileDraft(event.target.value);
+});
+byId("inputApiProfileName").addEventListener("input", () => {
+  settingsState.modelSourceDraftDirty = true;
+  text("modelSourceStatus", "");
 });
 for (const id of ["selectApiProtocol", "inputApiBaseUrl", "inputApiKey"])
   byId(id).addEventListener(id === "selectApiProtocol" ? "change" : "input", () => {
@@ -5164,7 +5857,39 @@ byId("btnReloadModelSource").addEventListener("click", () => { void loadModelSou
 byId("btnTestApiModel").addEventListener("click", () => { void testApiModel(); });
 byId("btnActivateLocal").addEventListener("click", () => { void activateModelSource("local"); });
 byId("btnActivateApi").addEventListener("click", () => { void activateModelSource("api"); });
+byId("btnSaveApiProfile").addEventListener("click", () => { void saveApiProfile(); });
 byId("btnClearApiKey").addEventListener("click", () => { void clearStoredApiKey(); });
+byId("btnDeleteApiProfile").addEventListener("click", () => {
+  if (!settingsState.apiProfileId) return;
+  showApiProfileDeleteConfirm(true);
+  byId("btnConfirmDeleteApiProfile").focus();
+});
+byId("btnCancelDeleteApiProfile").addEventListener("click", () => { showApiProfileDeleteConfirm(false); });
+byId("btnConfirmDeleteApiProfile").addEventListener("click", () => { void deleteApiProfile(); });
+/** Shared by every model menu: pick a source, or jump to the API profile settings. */
+function handleModelMenuClick(event) {
+  if (event.target.closest("[data-manage]")) {
+    closeModelBadgeMenu();
+    byId("btnSettings").click();
+    byId("selectModelSource").value = "api";
+    settingsState.modelSourceDraftDirty = true;
+    invalidateModelDiscovery();
+    showModelSourceMode();
+    byId("selectApiProfile").focus();
+    return;
+  }
+  const option = event.target.closest(".model-badge-option");
+  if (!option) return;
+  void activateModelProfile(option.dataset.profileId || "");
+}
+byId("modelBadge").addEventListener("click", () => { toggleModelBadgeMenu(); });
+byId("modelBadgeMenu").addEventListener("click", handleModelMenuClick);
+// The persona header carries the same switcher, so the source can be switched without
+// navigating back to the conversation.
+byId("portraitSourceBadge").addEventListener("click", () => {
+  toggleModelBadgeMenu("portraitSourceBadge", "portraitSourceMenu");
+});
+byId("portraitSourceMenu").addEventListener("click", handleModelMenuClick);
 const OFFICIAL_RELEASES_URL = "https://github.com/tswawa/WechatVibe/releases";
 const UPDATE_BUSY_PHASES = new Set(["downloading", "verifying", "extracting", "installing", "restarting"]);
 const UPDATE_BACKGROUND_CHECK_DELAY_MS = 10_000;
@@ -5432,6 +6157,8 @@ byId("btnToggleBackgroundAnalyze").addEventListener("click", () => {
   applySettings();
   if (settingsState.settings.backgroundAnalyze) void backgroundAnalyzeAll();
 });
+byId("btnApiWorkerMinus").addEventListener("click", () => { void changeApiWorkerSettings(-1); });
+byId("btnApiWorkerPlus").addEventListener("click", () => { void changeApiWorkerSettings(1); });
 byId("btnWorkerMinus").addEventListener("click", () => { void changeWorkerSettings(-1); });
 byId("btnWorkerPlus").addEventListener("click", () => { void changeWorkerSettings(1); });
 byId("btnToggleElasticWorkers").addEventListener("click", () => {
@@ -5553,7 +6280,13 @@ function closeMemberPicker() {
   byId("groupMemberTabs").querySelector(".member-picker-trigger")?.setAttribute("aria-expanded", "false");
 }
 document.addEventListener("click", event => { if (!event.target.closest("#groupMemberTabs")) closeMemberPicker(); });
-document.addEventListener("keydown", event => { if (event.key === "Escape") { closeMemberPicker(); closeHistorySearch(); byId("emojiPopover").classList.remove("show"); } });
+// One rule for every model switcher: a click outside all of their wrappers closes whichever
+// panel is open. Checking a single id would close the persona panel the instant its own
+// trigger was clicked, because the document listener runs after the trigger handler.
+document.addEventListener("click", event => {
+  if (!event.target.closest("[data-model-menu-wrap]")) closeModelBadgeMenu();
+});
+document.addEventListener("keydown", event => { if (event.key === "Escape") { closeMemberPicker(); closeHistorySearch(); byId("emojiPopover").classList.remove("show"); closeFeedbackDialog(); closeModelBadgeMenu(); showApiProfileDeleteConfirm(false); } });
 renderKaomojiPanel();
 applySettings();
 loadCatalog();
@@ -5637,6 +6370,7 @@ if (!updateValidationMode) {
   setTimeout(() => { if (updateCommitReady) void loadAnalysisOverview(); }, 8000);
   setInterval(() => { if (updateCommitReady && !document.hidden) void loadAnalysisOverview(); }, 60000);
   setTimeout(() => { if (updateCommitReady) void loadWorkerSettings(); }, 9000);
+  setTimeout(() => { if (updateCommitReady) void loadApiWorkerSettings(); }, 9000);
 }
 document.addEventListener("visibilitychange", () => {
   if (document.hidden || updateValidationMode || !updateCommitReady) return;

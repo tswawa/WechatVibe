@@ -29,7 +29,8 @@ function harness(responses, selectedByAccount = {}) {
     const api = async path => {
       events.push(path);
       if (path === "/api/conversation-selection")
-        return { account: lastAccount, selectedSessions: selectedByAccount[lastAccount] || [] };
+        return { account: lastAccount, selectedSessions: selectedByAccount[lastAccount] || [],
+                 requestedSessions: [] };
       const response = responses.shift();
       lastAccount = response?.account;
       return response;

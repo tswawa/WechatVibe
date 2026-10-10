@@ -43,8 +43,9 @@ class PackageStoreTests(unittest.TestCase):
         self.assertEqual(result["agent"]["skillIds"], [result["skill"]["id"]])
         self.assertEqual(result["agent"]["importedSkillId"], result["skill"]["id"])
         self.assertEqual(result["skill"]["package"], package)
-        self.assertEqual(len(self.config.agents()), 4)
-        self.assertEqual(len(self.config.skills()), 4)
+        # 4 builtin assistants/skills plus the imported pair.
+        self.assertEqual(len(self.config.agents()), 5)
+        self.assertEqual(len(self.config.skills()), 5)
 
     def test_same_package_returns_existing_renamed_assistant_without_overwriting(self):
         package = self.package()
@@ -56,8 +57,8 @@ class PackageStoreTests(unittest.TestCase):
         self.assertFalse(result["created"])
         self.assertEqual(result["agent"], changed)
         self.assertEqual(result["skill"]["id"], first["skill"]["id"])
-        self.assertEqual(len(self.config.agents()), 4)
-        self.assertEqual(len(self.config.skills()), 4)
+        self.assertEqual(len(self.config.agents()), 5)
+        self.assertEqual(len(self.config.skills()), 5)
 
     def test_request_replay_has_no_second_commit_and_conflicting_input_is_rejected(self):
         package = self.package()
@@ -133,8 +134,9 @@ class PackageStoreTests(unittest.TestCase):
         with self.assertRaises(AdvisorError):
             self.config.import_assistant(package)
         self.assertFalse(self.config.path.exists())
-        self.assertEqual(len(self.config.agents()), 3)
-        self.assertEqual(len(self.config.skills()), 3)
+        # Only the builtins exist: 4 assistants and 4 skills since this fork added a pair.
+        self.assertEqual(len(self.config.agents()), 4)
+        self.assertEqual(len(self.config.skills()), 4)
 
     def test_corrupted_saved_resource_and_changed_legacy_content_fail_closed(self):
         result = self.config.import_assistant(self.package())
@@ -181,7 +183,7 @@ class PackageStoreTests(unittest.TestCase):
             with self.assertRaises(AdvisorError):
                 self.config.import_assistant(package, cancel_event=cancelled)
         self.assertEqual(self.config.path.read_bytes(), before)
-        self.assertEqual(len(self.config.skills()), 3)
+        self.assertEqual(len(self.config.skills()), 4)
         self.assertEqual(list(self.config.directory.glob("*.tmp")), [])
 
     def test_duplicate_long_name_is_not_silently_truncated(self):

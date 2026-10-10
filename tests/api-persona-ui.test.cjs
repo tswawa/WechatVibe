@@ -53,11 +53,23 @@ function portrait(summary) {
     traits: { socialEnergy: 60, humor: 45, composure: 70, initiative: 75, care: 65, affection: 55 },
   };
 }
+// The card only shows a verdict for an axis the classifier actually backed: `validAxis`
+// requires a positive per-axis `evidenceCount`, and that count now comes from this basis
+// instead of the old hardcoded 1.
+function mbtiBasis(evidenceCount = 2) {
+  return Object.fromEntries(["EI", "SN", "TF", "JP"].map(axis =>
+    [axis, { status: "supported", kind: "pattern", reason: `${axis} 合成依据`, evidenceCount }]));
+}
 function payload(sourceId, summary, identity = { username: "friend", name: "合成联系人",
   avatar: "", avatarCandidates: [], isGroup: false, members: [] }) {
   return { account: "acct", sourceId, subject: identity.username, identity,
-    portrait: portrait(summary), available: { messageCount: 9, textCount: 8,
-      targetTextCount: 5, totalChars: 120 }, inventoryReady: true, inventoryStatus: "ready",
+    portrait: portrait(summary), mbtiBasis: mbtiBasis(),
+    available: { messageCount: 9, textCount: 8,
+      // `mbtiEvidenceCount` is the observation ledger the MBTI gate counts
+      // (`api-portrait.ts`: `evidence.targetCount < 100` withholds every axis);
+      // `targetTextCount` is the analysed-text count, which only drives progress.
+      targetTextCount: 5, mbtiEvidenceCount: 5, totalChars: 120 },
+    inventoryReady: true, inventoryStatus: "ready",
     progress: { processed: 8, total: 8, complete: true },
     job: { id: null, status: "done" } };
 }
@@ -153,7 +165,8 @@ function navigationHarness(apiImpl, storage) {
     markSessionAsRead() {}, cacheCurrentSession() {}, cancelApiInsightWork() {},
     clearInlineIntentPending() {}, cancelHistoryRequest() {}, resetHistorySearch() {},
     clearReplyPrediction() {}, setIntentActionState() {}, renderSessions() {},
-    renderMessages() {}, updateHistoryNavigation() {}, scrollToLatest() {},
+    renderMessages() {}, renderPickBar() {}, syncPickControls() {},
+    updateHistoryNavigation() {}, scrollToLatest() {},
     loadMessages() {}, sessionWindowReady: () => false, canAnalyzeLocal: () => false,
     usingLocalFine: () => false, visibleResults: value => value,
     status: (target, value) => { target.textContent = value; },
@@ -178,6 +191,7 @@ it("uses the existing Laya dashboard/cards for a source-scoped API portrait with
     calls.push(url);
     const data = payload("api-a", "常讨论周末见面");
     data.available.targetTextCount = 120;
+    data.available.mbtiEvidenceCount = 120;
     return data;
   });
   await ui.loadProfile();
@@ -530,6 +544,7 @@ it("keeps uncertain API MBTI axes undecided while preserving their actual percen
     const { ui, byId } = personaHarness(async () => {});
     const data = payload("api-a", "合成人格边界样本");
     data.available.targetTextCount = 120;
+    data.available.mbtiEvidenceCount = 120;
     data.portrait.mbtiAxes = Object.fromEntries(["EI", "SN", "TF", "JP"].map(key => [key, score]));
     ui.renderApiPortrait(data);
     assert.equal(byId("heroMbti").textContent, expected, `score=${score}`);
@@ -554,10 +569,14 @@ it("uses the local MBTI margin, including float boundaries and explicit undecide
   assert.equal(byId("heroMbti").textContent, "?S?P");
 });
 
-it("gates the API MBTI unlock on processed target evidence", () => {
+it("gates the API MBTI unlock on the observation ledger, not the analysed-text count", () => {
+  // api-portrait.ts withholds all four axes until the observation ledger reaches 100
+  // (`evidence.targetCount < 100`). Counting the 100 analysed texts instead reported the card
+  // unlocked with every axis blank and no explanation.
   const { ui, byId } = personaHarness(async () => payload("api-a", "进行中"));
   const data = payload("api-a", "进行中");
   data.available.targetTextCount = 100;
+  data.available.mbtiEvidenceCount = 30;
   data.progress = { processed: 30, total: 100, complete: false };
   ui.renderApiPortrait(data);
   assert.equal(byId("heroMbti").textContent, "30/100 条");
@@ -568,7 +587,8 @@ it("gates the API MBTI unlock on processed target evidence", () => {
 it("uses exact processed target counts for the single-chat progress denominator", () => {
   const { ui, byId } = personaHarness(async () => payload("api-a", "进行中"));
   const data = payload("api-a", "进行中");
-  data.available = { messageCount: 3949, textCount: 3160, targetTextCount: 1385, totalChars: 10000 };
+  data.available = { messageCount: 3949, textCount: 3160, targetTextCount: 1385,
+    mbtiEvidenceCount: 1385, totalChars: 10000 };
   data.progress = { processed: 1043, total: 3160,
     processedTargetTexts: 407, totalTargetTexts: 1385, complete: false };
   data.job = { id: "job", status: "running", processed: 1043, total: 3160 };
@@ -582,6 +602,7 @@ it("uses the shared MBTI evidence state without an API-only unlock action", () =
   const { ui, byId } = personaHarness(async () => payload("api-a", "有画像但无轴"));
   const data = payload("api-a", "有画像但无轴");
   data.available.targetTextCount = 120;
+  data.available.mbtiEvidenceCount = 120;
   data.portrait.mbtiAxes = { EI: null, SN: null, TF: null, JP: null };
   ui.renderApiPortrait(data);
   assert.equal(byId("heroMbti").textContent, "待判断");
@@ -630,7 +651,8 @@ it("keeps a completed empty portrait settled across repeated loads without posti
     mbtiAxes: { EI: null, SN: null, TF: null, JP: null },
     traits: { socialEnergy: null, humor: null, composure: null, initiative: null, care: null, affection: null },
   };
-  data.available = { messageCount: 150, textCount: 150, targetTextCount: 120, totalChars: 700 };
+  data.available = { messageCount: 150, textCount: 150, targetTextCount: 120,
+    mbtiEvidenceCount: 120, totalChars: 700 };
   data.progress = { processed: 150, total: 150, processedTargetTexts: 120,
     totalTargetTexts: 120, complete: true, batchIndex: 1, batchTotal: 1 };
   data.needsRebuild = false;

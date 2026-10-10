@@ -59,7 +59,9 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         self.assertTrue(all(agent["builtin"] for agent in agents))
         self.assertTrue(any(agent["enabled"] for agent in agents))
-        self.assertEqual({agent["name"] for agent in agents}, {"狗头军师", "共情沟通", "理性复盘"})
+        # `沟通参谋` ships with this fork's 潜台词与沟通建议 skill.
+        self.assertEqual({agent["name"] for agent in agents},
+                         {"狗头军师", "共情沟通", "理性复盘", "沟通参谋"})
         skill_ids = {skill["id"] for skill in builtin_skills()}
         for agent in agents:
             self.assertTrue(set(agent["skillIds"]) <= skill_ids)

@@ -13,6 +13,7 @@ import json
 import math
 import os
 import queue
+import re
 import subprocess
 import threading
 import time
@@ -22,6 +23,7 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 import message_input
+from api_pool import ApiAnalyzerPool, MAX_API_WORKERS
 from api_tasks import ApiTaskCoordinator
 from api_portrait_statistics import (append_batch, profile_from_statistics,
                                     valid_statistics, validate_batch_signal)
@@ -41,9 +43,15 @@ from backend_contracts import (
 )
 from conversation_selection import ConversationSelectionStore, _session_id
 from data_root_source import DataRootSource
+from guidance_contracts import (GUIDANCE_CONTEXT_CHARACTERS, GUIDANCE_FEEDBACK_MAX,
+                                GUIDANCE_PORTRAIT_CONTEXT_MAX, GUIDANCE_REVISION,
+                                GUIDANCE_SCENARIOS, GUIDANCE_SUMMARY_CONTEXT_MAX,
+                                GUIDANCE_WINDOW_MESSAGES, MAX_SUBTEXTS, guidance_scope,
+                                normalize_guidance)
 from history_browser import browse as browse_history, saved_results as saved_history_results, search as search_history
 from message_results import validate_fine_result, validate_portrait_result
-from model_source import LOCAL_SOURCE_ID, ModelSourceStore, ModelSourceUnavailable, connection_values
+from model_source import (LOCAL_SOURCE_ID, ModelSourceStore, ModelSourceUnavailable,
+                            connection_values, profile_name)
 from node_analysis import NodeAnalysis
 from profile_signals import keywords_from_counts, summary_from_aggregate
 from profile_state import empty_state as empty_profile_state, traits_from_state
@@ -136,6 +144,10 @@ class Backend:
         self.model_source_store = model_source_store or ModelSourceStore(
             ROOT / ".local" / "real-client-runtime" / "api-model-source.json", root=ROOT,
             legacy_path=ROOT / ".local" / "real-client-runtime" / "model-source.json")
+        # Message-label turns run one per analyzer, so N conversations can be in flight
+        # at once. Slot 0 is always the current api_analyzer, which keeps the injected
+        # test doubles working; extras are separate API-only processes.
+        self.api_pool = ApiAnalyzerPool(lambda: self.api_analyzer)
         # API chat insights have their own source-scoped cache. The local Laya
         # portrait/affinity worker keeps its existing analysis version.
         # One ApiTaskCoordinator owns the lock/condition, the three registries and
@@ -147,6 +159,7 @@ class Backend:
         self.api_condition = self.api_tasks.condition
         self.api_jobs = self.api_tasks.insight_jobs
         self.api_portrait_jobs = self.api_tasks.portrait_jobs
+        self.api_guidance_jobs = self.api_tasks.guidance_jobs
         self.api_portrait_inventory_jobs = self.api_tasks.inventory_jobs
         self.model_source_revision = 0
         self.active_model_source_mode = "local"
@@ -208,8 +221,27 @@ class Backend:
                 from advisor_service import AdvisorService
                 from advisor_runtime import runtime_factory
                 service = self._advisor = AdvisorService(
-                    self.source, self.model_source_store, ROOT, runtime_factory(ROOT))
+                    self.source, self.model_source_store, ROOT, runtime_factory(ROOT),
+                    guidance_provider=self._guidance_reference)
             return service
+
+    def _guidance_reference(self, account, user):
+        """The conversation's saved 「潜台词与沟通建议」, for the assistant's reference material.
+
+        The assistant only reads it: nothing here may change analysis state, so an account
+        that is not the verified one, or a store that cannot answer, reads as "nothing to
+        cite" rather than raising into an assistant run.
+        """
+        try:
+            current, _workdir, store = self._scoped_identity()
+        except Exception:  # noqa: BLE001 - reference material must never fail a run
+            return None
+        if current != account:
+            return None
+        try:
+            return store.api_guidance_latest(account, user)
+        except Exception:  # noqa: BLE001 - same reason
+            return None
 
     def _observe_advisor_window(self, account, workdir, user, messages, has_more_before):
         advisor = getattr(self, "_advisor", None)
@@ -411,6 +443,8 @@ class Backend:
             close_api = getattr(self.api_analyzer, "close", None)
             if callable(close_api):
                 close_api()
+        # Pool extras are separate processes and are never the primary.
+        self.api_pool.close_extras()
         if self.api_probe_analyzer not in (self.analyzer, self.api_analyzer):
             close_probe = getattr(self.api_probe_analyzer, "close", None)
             if callable(close_probe):
@@ -496,6 +530,32 @@ class Backend:
         if self._selection_account() != account:
             raise AccountChangedError()
         state = self.selection_store.set_selected(account, session, selected)
+        if self._selection_account() != account:
+            raise AccountChangedError()
+        return state
+
+    def set_conversation_requested(self, expected_account, session, requested):
+        """Ask for one conversation to be analysed by the background sweep.
+
+        This is the only way a conversation enters the analysis list, and it is what the
+        per-card button calls. Selecting a conversation does not request it.
+        """
+        if not isinstance(expected_account, str) or not expected_account:
+            raise ValueError("invalid expected account")
+        _session_id(session)
+        if type(requested) is not bool:
+            raise ValueError("invalid requested")
+        account = self._selection_account()
+        if account != expected_account:
+            raise AccountChangedError()
+        metadata = self.source.sessions()
+        if metadata.get("account") != account:
+            raise AccountChangedError()
+        if session not in {item.get("username") for item in metadata.get("sessions", [])}:
+            raise ValueError("unknown session")
+        if self._selection_account() != account:
+            raise AccountChangedError()
+        state = self.selection_store.set_requested(account, session, requested)
         if self._selection_account() != account:
             raise AccountChangedError()
         return state
@@ -736,6 +796,9 @@ class Backend:
         """Stop old-source model calls; saved portraits, cursors and the source-independent
         inventory stay intact. Only insight/portrait jobs are cancelled."""
         self.api_tasks.invalidate_models()
+        # Every pooled analyzer holds provider turns of its own; cancelling only the
+        # primary would leave the extras running against the old source.
+        self.api_pool.invalidate()
         seen = set()
         for analyzer in (self.api_analyzer, self.api_portrait_analyzer,
                          self.api_probe_analyzer):
@@ -745,6 +808,48 @@ class Backend:
             cancel = getattr(analyzer, "cancel", None)
             if callable(cancel):
                 cancel()
+
+    def _profile_id(self, value):
+        if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{32}", value) is None:
+            raise ValueError("invalid model source request")
+        return value
+
+    def _commit_api_source_locked(self, source_id, config, previous_context):
+        """Publish a probed configuration as the active source."""
+        changed_source = (self.active_model_source_mode != "api" or
+                          self.active_model_source_id != source_id or
+                          self.active_api_config != config)
+        self.active_model_source_mode = "api"
+        self.active_model_source_id = source_id
+        self.active_api_config = config
+        if changed_source:
+            self._cancel_api_source_work_locked()
+        if previous_context != config["contextTokens"]:
+            self.api_tasks.drop_portrait_error(source_id)
+        self.model_source_revision += 1
+        # The assistant keeps provider runs of its own, so a source or budget change has to
+        # invalidate them exactly like it invalidates insights and portraits. Upstream had
+        # this in `model_source_activate`; every publishing path here goes through this
+        # method (`model_source_activate`, `_activate_saved_profile`,
+        # `model_source_profile_save`), so one call covers them all.
+        advisor = getattr(self, "_advisor", None)
+        if advisor is not None:
+            advisor.cancel_stale_runs()
+
+    def _activate_saved_profile(self, profile_id):
+        """Switch to a stored profile. It was probed before it was saved, so no
+        network round trip is needed and the switch stays instant."""
+        self._profile_id(profile_id)
+        with self.api_lock:
+            profile = self.model_source_store.profile(profile_id)
+            if profile is None:
+                raise ValueError("invalid model source request")
+            config = {field: profile[field] for field in
+                      ("protocol", "baseUrl", "model", "contextTokens")}
+            previous_context = (self.active_api_config or {}).get("contextTokens")
+            self.model_source_store.select_profile(profile_id)
+            self._commit_api_source_locked(profile_id, config, previous_context)
+            return self.model_source()
 
     def model_source_activate(self, request):
         if request == {"mode": "local"}:
@@ -760,19 +865,35 @@ class Backend:
                 return self.model_source()
         if not isinstance(request, dict) or request.get("mode") != "api":
             raise ValueError("invalid model source request")
-        values = connection_values({key: value for key, value in request.items() if key != "mode"},
+        if "profileId" in request:
+            if set(request) != {"mode", "profileId"}:
+                raise ValueError("invalid model source request")
+            return self._activate_saved_profile(request["profileId"])
+        allowed = {"mode", "profileId", "name", "protocol", "baseUrl", "apiKey", "model",
+                   "contextTokens"}
+        if not request.keys() <= allowed:
+            raise ValueError("invalid model source request")
+        values = connection_values({key: value for key, value in request.items()
+                                    if key not in ("mode", "profileId", "name")},
                                    require_model=True)
         if values["contextTokens"] is None:
             raise ValueError("contextTokens required")
+        name = profile_name(request.get("name"), values["model"])
+        profile_id = self._profile_id(request["profileId"]) if "profileId" in request else None
         with self.api_lock:
             key = self.model_source_store.resolve_key(values["protocol"], values["baseUrl"],
                                                       values["apiKey"])
             revision = self.model_source_revision
-            saved_profile = self.model_source_store.saved_selection()["api"]
+            # Activating a connection that a stored profile already covers updates that
+            # profile in place instead of piling up duplicates.
+            target = (self.model_source_store.profile(profile_id) if profile_id else
+                      self.model_source_store.profile_for_endpoint(
+                          values["protocol"], values["baseUrl"], values["model"]))
+            if profile_id is None and target is not None:
+                profile_id = target["id"]
             reuse_validated = (values["apiKey"] is None and key is not None and
-                               saved_profile is not None and
-                               (saved_profile["protocol"], saved_profile["baseUrl"],
-                                saved_profile["model"]) ==
+                               target is not None and target["encryptedKey"] and
+                               (target["protocol"], target["baseUrl"], target["model"]) ==
                                (values["protocol"], values["baseUrl"], values["model"]))
         if not reuse_validated:
             try:
@@ -785,43 +906,100 @@ class Backend:
         with self.api_lock:
             if self.closing or revision != self.model_source_revision:
                 raise ModelSourceUnavailable("model source changed during connection test")
-            saved = self.model_source_store.saved_selection()
-            previous_context = saved["api"].get("contextTokens") if saved["api"] else None
-            source_id = self.model_source_store.save_api(
-                values["protocol"], values["baseUrl"], values["model"], key,
-                context_tokens=values["contextTokens"])
-            changed_source = (self.active_model_source_mode != "api" or
-                              self.active_model_source_id != source_id or
-                              previous_context != values["contextTokens"])
-            self.active_model_source_mode = "api"
-            self.active_model_source_id = source_id
-            self.active_api_config = {field: values[field] for field in
-                                      ("protocol", "baseUrl", "model", "contextTokens")}
-            if changed_source:
+            previous_context = (self.active_api_config or {}).get("contextTokens")
+            source_id = self.model_source_store.save_profile(
+                profile_id, name, values["protocol"], values["baseUrl"], values["model"], key,
+                values["contextTokens"])
+            self.model_source_store.select_profile(source_id)
+            self._commit_api_source_locked(
+                source_id, {field: values[field] for field in
+                            ("protocol", "baseUrl", "model", "contextTokens")},
+                previous_context)
+            return self.model_source()
+
+    def model_source_profile_save(self, request):
+        """Create or update one profile without switching the conversation to it."""
+        allowed = {"profileId", "name", "protocol", "baseUrl", "apiKey", "model", "contextTokens"}
+        if not isinstance(request, dict) or not request.keys() <= allowed:
+            raise ValueError("invalid model source request")
+        values = connection_values({key: value for key, value in request.items()
+                                    if key not in ("profileId", "name")}, require_model=True)
+        if values["contextTokens"] is None:
+            raise ValueError("contextTokens required")
+        name = profile_name(request.get("name"), values["model"])
+        profile_id = self._profile_id(request["profileId"]) if "profileId" in request else None
+        with self.api_lock:
+            key = self.model_source_store.resolve_key(values["protocol"], values["baseUrl"],
+                                                      values["apiKey"])
+            revision = self.model_source_revision
+            existing = self.model_source_store.profile(profile_id) if profile_id else None
+            if profile_id is not None and existing is None:
+                raise ValueError("invalid model source request")
+            # Editing the profile the conversation already runs on must not leave the
+            # worker pointing at the previous values.
+            active = (self.active_model_source_mode == "api" and
+                      self.active_model_source_id == profile_id)
+            reuse_validated = (values["apiKey"] is None and key is not None and
+                               existing is not None and existing["encryptedKey"] and
+                               (existing["protocol"], existing["baseUrl"], existing["model"]) ==
+                               (values["protocol"], values["baseUrl"], values["model"]))
+        if not reuse_validated:
+            try:
+                tested = self.api_probe_analyzer.model_test(values["protocol"], values["baseUrl"], key,
+                                                  values["model"])
+            except Exception as exc:
+                raise model_source_failure(exc, "model connection failed") from exc
+            if not isinstance(tested, dict) or tested.get("ok") is not True:
+                raise ModelSourceUnavailable("model connection failed")
+        with self.api_lock:
+            if self.closing or revision != self.model_source_revision:
+                raise ModelSourceUnavailable("model source changed during connection test")
+            previous_context = (self.active_api_config or {}).get("contextTokens") if active else None
+            source_id = self.model_source_store.save_profile(
+                profile_id, name, values["protocol"], values["baseUrl"], values["model"], key,
+                values["contextTokens"])
+            if active:
+                self._commit_api_source_locked(
+                    source_id, {field: values[field] for field in
+                                ("protocol", "baseUrl", "model", "contextTokens")},
+                    previous_context)
+            return {**self.model_source(), "profile": source_id}
+
+    def model_source_profile_delete(self, request):
+        if not isinstance(request, dict) or set(request) != {"profileId"}:
+            raise ValueError("invalid model source request")
+        profile_id = self._profile_id(request["profileId"])
+        with self.api_lock:
+            if self.model_source_store.delete_profile(profile_id):
+                # Removing the profile the worker is bound to would leave it pointing at
+                # configuration that no longer exists, so fall back to the local model.
+                self.active_model_source_mode = "local"
+                self.active_model_source_id = LOCAL_SOURCE_ID
+                self.active_api_config = None
+                self.model_source_revision += 1
                 self._cancel_api_source_work_locked()
-            if previous_context != values["contextTokens"]:
-                self.api_tasks.drop_portrait_error(source_id)
-            self.model_source_revision += 1
-            advisor = getattr(self, "_advisor", None)
-            if advisor is not None:
-                advisor.cancel_stale_runs()
             return self.model_source()
 
     def model_source_clear_key(self, request):
-        if request != {}:
+        if not isinstance(request, dict) or not request.keys() <= {"profileId"}:
             raise ValueError("invalid model source request")
+        profile_id = self._profile_id(request["profileId"]) if "profileId" in request else None
         with self.api_lock:
             was_api = self.active_model_source_mode == "api"
-            self.model_source_store.clear_key()
-            advisor = getattr(self, "_advisor", None)
-            if advisor is not None:
-                advisor.cancel_stale_runs()
-            self.active_model_source_mode = "local"
-            self.active_model_source_id = LOCAL_SOURCE_ID
-            self.active_api_config = None
-            self.model_source_revision += 1
-            if was_api:
-                self._cancel_api_source_work_locked()
+            reverted = self.model_source_store.clear_key(profile_id)
+            if reverted or profile_id is None:
+                if was_api:
+                    self.active_model_source_mode = "local"
+                    self.active_model_source_id = LOCAL_SOURCE_ID
+                    self.active_api_config = None
+                self.model_source_revision += 1
+                # The assistant's provider runs hold the key that just went away. Clearing a
+                # *non-active* profile leaves the live source alone, so the runs stay valid.
+                advisor = getattr(self, "_advisor", None)
+                if advisor is not None:
+                    advisor.cancel_stale_runs()
+                if was_api:
+                    self._cancel_api_source_work_locked()
             return self.model_source()
 
     def model_insights(self, user, ids=None):
@@ -844,6 +1022,25 @@ class Backend:
         return {"account": account, "sourceId": source_id, "results": results, "job": job,
                 "suspended": suspended}
 
+    def _api_source_snapshot(self):
+        """The single gate every provider turn passes: no user-chosen API source, no call.
+
+        Returning the source id, a copy of the config and the resolved key from one critical
+        section keeps the "which endpoint is live" decision atomic, and leaves one place to
+        audit when a new API entry point is added.
+
+        `model_source_list` and `model_source_test` deliberately do NOT come through here: an
+        endpoint has to be probed before it can be activated, so those two run while the
+        active source is still local, and only ever on an explicit click.
+        """
+        with self.api_lock:
+            if self.active_model_source_mode != "api" or not self.active_api_config:
+                raise ModelSourceUnavailable("API model is not active")
+            config = dict(self.active_api_config)
+            return (self.active_model_source_id, config,
+                    self.model_source_store.resolve_key(config["protocol"],
+                                                        config["baseUrl"], None))
+
     def start_model_insights(self, requested_account, user, limit, target_ids=None, around=None):
         started = time.perf_counter()
         if type(limit) is not int or not 1 <= limit <= 500:
@@ -861,11 +1058,7 @@ class Backend:
         if account != requested_account:
             raise AccountChangedError()
         with self.api_lock:
-            if self.active_model_source_mode != "api" or not self.active_api_config:
-                raise ModelSourceUnavailable("API model is not active")
-            source_id = self.active_model_source_id
-            config = dict(self.active_api_config)
-            api_key = self.model_source_store.resolve_key(config["protocol"], config["baseUrl"], None)
+            source_id, config, api_key = self._api_source_snapshot()
         window = (browse_history(self.source, account, user, around=around, limit=500,
                                  max_issued_images=MAX_ISSUED_IMAGES)["messages"]
                   if around is not None else self.source.messages(user, 500))
@@ -881,7 +1074,8 @@ class Backend:
             store.register_api_source(account, source_id, config["protocol"], config["model"])
             text_window = [item for item in window if item["side"] in ("self", "other") and
                            item["kind"] == "text" and isinstance(item["text"], str)]
-            eligible = [item for item in text_window if item["side"] == "other" and item["text"].strip()]
+            eligible = [item for item in text_window if item["side"] == "other" and
+                        message_input.has_analysis_content(item["text"])]
             if target_ids is None:
                 selected = eligible[-limit:]
             else:
@@ -915,7 +1109,9 @@ class Backend:
                 for item in batch_window:
                     entry = {"id": item["id"],
                              "sender": "SELF" if item["side"] == "self" else "OTHER",
-                             "text": item["text"]}
+                             # Links never reach the model; the stored and displayed text is
+                             # untouched (`message_input.analysis_text`).
+                             "text": message_input.analysis_text(item["text"])}
                     if item["id"] in prepared:
                         entry["inputMeta"] = prepared[item["id"]]["inputMeta"]
                     wire.append(entry)
@@ -1018,21 +1214,24 @@ class Backend:
 
                     # Test doubles and legacy analyzers may keep their six-argument
                     # contract. Pass the optional callback whenever the adapter
-                    # explicitly exposes it, including streaming test doubles.
-                    model_insights = self.api_analyzer.model_insights
-                    try:
-                        supports_delta = ("on_delta" in
-                                          inspect.signature(model_insights).parameters)
-                    except (TypeError, ValueError):
-                        supports_delta = isinstance(self.api_analyzer, NodeAnalysis)
-                    if supports_delta:
-                        response = model_insights(
-                            config["protocol"], config["baseUrl"], api_key, config["model"],
-                            wire, target_ids, on_delta=on_delta)
-                    else:
-                        response = model_insights(
-                            config["protocol"], config["baseUrl"], api_key, config["model"],
-                            wire, target_ids)
+                    # explicitly exposes it, including streaming test doubles. The lease
+                    # is taken per attempt so a retry backoff does not hold a slot.
+                    with self.api_pool.lease() as analyzer:
+                        model_insights = analyzer.model_insights
+                        try:
+                            supports_delta = ("on_delta" in
+                                              inspect.signature(model_insights).parameters)
+                        except (TypeError, ValueError):
+                            supports_delta = isinstance(analyzer, NodeAnalysis)
+                        if supports_delta:
+                            response = model_insights(
+                                config["protocol"], config["baseUrl"], api_key, config["model"],
+                                wire, target_ids, on_delta=on_delta)
+                        else:
+                            response = model_insights(
+                                config["protocol"], config["baseUrl"], api_key, config["model"],
+                                wire, target_ids)
+                    self.api_pool.note_success()
                     job.setdefault("timings", {})["providerMs"] = round(
                         (time.perf_counter() - provider_started) * 1000, 3)
                     response_timings = response.get("timings") if isinstance(response, dict) else None
@@ -1059,6 +1258,10 @@ class Backend:
                         (time.perf_counter() - validate_started) * 1000, 3)
                 except Exception as exc:
                     code = str(exc)
+                    if code == "rate-limit":
+                        # The provider (or the Node lane queue) is throttling us. Step the
+                        # pool down before the per-job retry storm adds more turns.
+                        self.api_pool.note_rate_limited()
                     if attempt >= API_INSIGHT_RETRY_MAX or code not in API_INSIGHT_RETRYABLE:
                         raise
                     self._assert_scope(scope)
@@ -1098,6 +1301,198 @@ class Backend:
                 job["status"] = "error"
         finally:
             self.api_tasks.finish()
+
+    def _api_subject_summary(self, store, account, user, source_id, subject):
+        """A short saved description of one subject, or "" when nothing is stored yet.
+
+        Guidance reads the same portrait summary the message labels use, so the advice
+        and the portrait card can never describe the same person differently.
+        """
+        saved = store.api_portrait_get(account, user, api_portrait_scope(source_id), subject)
+        if not saved:
+            return ""
+        statistics = (saved.get("resume") or {}).get("portraitStatistics")
+        if valid_statistics(statistics):
+            derived = profile_from_statistics(statistics, statistics["classifierVersion"],
+                                              is_group=user.endswith("@chatroom"), subject=subject)
+            return (derived["summary"] or "")[:GUIDANCE_SUMMARY_CONTEXT_MAX]
+        return (saved["portrait"]["summary"] or "")[:GUIDANCE_SUMMARY_CONTEXT_MAX]
+
+    def guidance(self, user, member=None):
+        account, workdir, store = self._scoped_identity()
+        with self.api_lock:
+            mode, source_id = self.active_model_source_mode, self.active_model_source_id
+            job = dict(self.api_guidance_jobs.get(
+                (account, user, source_id, member or user)) or {"id": None, "status": "idle"})
+        saved = None
+        if mode == "api":
+            saved = store.api_guidance_get(account, user, guidance_scope(source_id), member or user)
+        self._assert_scope((account, workdir))
+        return {"account": account, "sourceId": source_id, "subject": member or user,
+                "version": GUIDANCE_REVISION, "guidance": saved, "job": job,
+                "suspended": store.cache_suspended(account, source_id) if mode == "api" else False}
+
+    def start_guidance(self, requested_account, user, member=None, scenario="general",
+                       analyze_self=False, feedback=None):
+        if member is not None and (not user.endswith("@chatroom") or
+                                   not isinstance(member, str) or not 1 <= len(member) <= 256):
+            raise ValueError("invalid guidance subject")
+        if scenario not in GUIDANCE_SCENARIOS:
+            raise ValueError("invalid guidance scenario")
+        if type(analyze_self) is not bool:
+            raise ValueError("invalid guidance self-style flag")
+        if feedback is not None:
+            if (not isinstance(feedback, str) or len(feedback) > GUIDANCE_FEEDBACK_MAX or
+                    any(ord(char) < 32 or ord(char) == 127 for char in feedback)):
+                raise ValueError("invalid guidance feedback")
+            feedback = feedback.strip() or None
+        account, workdir, store = self._scoped_identity()
+        if account != requested_account:
+            raise AccountChangedError()
+        with self.api_lock:
+            source_id, config, api_key = self._api_source_snapshot()
+            subject = member or user
+            job_key = (account, user, source_id, subject)
+            current = self.api_guidance_jobs.get(job_key)
+            if current and current["status"] in ("queued", "running"):
+                return {"account": account, "sourceId": source_id, "subject": subject,
+                        "job": dict(current)}
+            if store.cache_suspended(account, source_id):
+                return {"account": account, "sourceId": source_id, "subject": subject,
+                        "job": {"id": None, "status": "suspended"}}
+        window = self.source.messages(user, GUIDANCE_WINDOW_MESSAGES)
+        self._assert_scope((account, workdir))
+        group = user.endswith("@chatroom")
+        wire = []
+        eligible = []
+        characters = 0
+        for item in reversed(window):
+            if item["side"] not in ("self", "other") or item["kind"] != "text":
+                continue
+            text = item["text"]
+            if not isinstance(text, str):
+                continue
+            # Links never reach the model, and a message that is only a link carries no
+            # reading either, so it is dropped from the window as well.
+            text = message_input.analysis_text(text)
+            if not text.strip():
+                continue
+            characters += len(text)
+            if characters > GUIDANCE_CONTEXT_CHARACTERS:
+                break
+            wire.append({"id": item["id"],
+                         "sender": "SELF" if item["side"] == "self" else "OTHER",
+                         "text": text})
+            if (item["side"] == "other" and message_input.has_analysis_content(item["text"]) and
+                    len(eligible) < MAX_SUBTEXTS and
+                    (not group or not member or item.get("senderId") == member)):
+                eligible.append(item["id"])
+        if not eligible:
+            return {"account": account, "sourceId": source_id, "subject": subject,
+                    "job": {"id": None, "status": "insufficient"}}
+        other_portrait = self._api_subject_summary(
+            store, account, user, source_id, subject)[:GUIDANCE_PORTRAIT_CONTEXT_MAX]
+        job = {"id": uuid.uuid4().hex, "status": "queued", "scenario": scenario,
+               "analyzeSelf": analyze_self, "targetCount": len(eligible),
+               "startedAtMs": int(time.time() * 1000)}
+        self.api_guidance_jobs[job_key] = job
+        if len(self.api_guidance_jobs) > API_JOB_CACHE_LIMIT:
+            for old_key, old_job in list(self.api_guidance_jobs.items()):
+                if len(self.api_guidance_jobs) <= API_JOB_CACHE_LIMIT:
+                    break
+                if old_key != job_key and old_job["status"] not in ("queued", "running"):
+                    del self.api_guidance_jobs[old_key]
+        self.api_tasks.begin()
+        thread = threading.Thread(target=self._run_guidance,
+                                  args=(job_key, job, (account, workdir), store, config,
+                                        api_key, wire, eligible, other_portrait, feedback),
+                                  daemon=True)
+        try:
+            thread.start()
+        except Exception:
+            self.api_tasks.finish()
+            job["status"] = "error"
+            job["error"] = "model-analysis-failed"
+            raise
+        return {"account": account, "sourceId": source_id, "subject": subject, "job": dict(job)}
+
+    def _run_guidance(self, job_key, job, scope, store, config, api_key, wire, targets,
+                      other_portrait, feedback):
+        try:
+            with self.api_lock:
+                if (self.closing or self.active_model_source_mode != "api" or
+                        self.active_model_source_id != job_key[2]):
+                    job["status"] = "error"
+                    job["error"] = "model-source-changed"
+                    return
+                job["status"] = "running"
+            for attempt in range(API_MODEL_RETRY_MAX + 1):
+                try:
+                    with self.api_lock:
+                        if self.api_guidance_jobs.get(job_key) is not job:
+                            raise RuntimeError("model-source-changed")
+                    self._assert_scope(scope)
+                    with self.api_pool.lease() as analyzer:
+                        response = analyzer.model_guidance(
+                            config["protocol"], config["baseUrl"], api_key, config["model"],
+                            wire, targets, job["scenario"], job["analyzeSelf"],
+                            config["contextTokens"],
+                            other_portrait or None,
+                            self._guidance_self_summary(store, job_key) if job["analyzeSelf"] else None,
+                            feedback)
+                    self.api_pool.note_success()
+                    guidance = normalize_guidance(response.get("guidance"))
+                    if guidance is None:
+                        raise RuntimeError("invalid-guidance")
+                except Exception as exc:
+                    code = str(exc)
+                    if code == "rate-limit":
+                        self.api_pool.note_rate_limited()
+                    if attempt >= API_MODEL_RETRY_MAX or code not in API_MODEL_RETRYABLE:
+                        raise
+                    self._assert_scope(scope)
+                    self._wait_api_model_retry(self.api_guidance_jobs, job_key, job, store,
+                                               code, attempt + 1)
+                    continue
+                break
+            with self.api_lock:
+                if (self.closing or self.active_model_source_mode != "api" or
+                        self.active_model_source_id != job_key[2] or
+                        self.api_guidance_jobs.get(job_key) is not job or
+                        store.cache_suspended(job_key[0], job_key[2])):
+                    raise RuntimeError("model-source-changed")
+                source_lock = getattr(self.source, "lock", None)
+                with source_lock if source_lock is not None else nullcontext():
+                    self._assert_scope(scope)
+                    store.api_guidance_save(job_key[0], job_key[1],
+                                            guidance_scope(job_key[2]), job_key[3], guidance)
+                job["status"] = "done"
+        except Exception as exc:
+            code = str(exc)
+            with self.api_lock:
+                job.pop("retry", None)
+                job["error"] = code if code in MODEL_CONNECTOR_ERRORS or code in {
+                    "model-source-changed", "invalid-guidance", "guidance-version-invalid",
+                    "invalid-request"} else "model-analysis-failed"
+                job["status"] = "error"
+        finally:
+            self.api_tasks.finish()
+
+    def _guidance_self_summary(self, store, job_key):
+        """The user's own conversation summary, read only when the switch asks for it."""
+        saved = store.api_portrait_get(job_key[0], job_key[1],
+                                       api_portrait_scope(job_key[2]), job_key[1])
+        if not saved:
+            return None
+        statistics = (saved.get("resume") or {}).get("portraitStatistics")
+        if valid_statistics(statistics):
+            derived = profile_from_statistics(statistics, statistics["classifierVersion"],
+                                              is_group=job_key[1].endswith("@chatroom"),
+                                              subject=job_key[1])
+            summary = derived["summary"] or ""
+        else:
+            summary = saved["portrait"]["summary"] or ""
+        return summary[:GUIDANCE_SUMMARY_CONTEXT_MAX] or None
 
     def _api_portrait_history(self, user, subject, highwater, scope, after=None,
                               piece_limit_bytes=None, cancel_check=None, start_after=None,
@@ -1155,6 +1550,15 @@ class Backend:
                 if first_item and skip_first_pieces and item_sort != partial_sort:
                     raise ValueError("unfinished portrait source changed")
                 if item.get("kind") != "text" or sender not in ("self", "other") or not isinstance(text, str) or not text:
+                    if first_item and skip_first_pieces:
+                        raise ValueError("unfinished portrait source changed")
+                    previous_sort, first_item = item_sort, False
+                    continue
+                # The digests above keep the raw text, so editing a link still counts as a
+                # source change; the model only ever receives the text without links, and a
+                # message that was nothing but a link is not a portrait target at all.
+                text = message_input.analysis_text(text)
+                if not text.strip():
                     if first_item and skip_first_pieces:
                         raise ValueError("unfinished portrait source changed")
                     previous_sort, first_item = item_sort, False
@@ -1436,6 +1840,14 @@ class Backend:
         save_worker_settings(count, self.elastic_workers)
         self._ensure_load_monitor()
         return self.worker_status()
+
+    def api_worker_status(self):
+        """Current API parallelism, for the settings row and the API panel tooltip."""
+        return self.api_pool.status()
+
+    def set_api_worker_settings(self, workers=None):
+        """Resize the API analyzer pool and remember the choice for the next launch."""
+        return self.api_pool.configure(workers)
 
     def analysis_overview(self):
         """Whole-account tally behind the sidebar progress bar: how many conversations
@@ -1726,11 +2138,7 @@ class Backend:
         subject = member or user
         with self.api_lock:
             self._check_analysis_reset(account, user, self.active_model_source_id)
-            if self.active_model_source_mode != "api" or not self.active_api_config:
-                raise ModelSourceUnavailable("API model is not active")
-            source_id = self.active_model_source_id
-            config = dict(self.active_api_config)
-            api_key = self.model_source_store.resolve_key(config["protocol"], config["baseUrl"], None)
+            source_id, config, api_key = self._api_source_snapshot()
             if store.cache_suspended(account, source_id):
                 return {"account": account, "sourceId": source_id,
                         "job": {"id": None, "status": "suspended", "processed": 0}}
@@ -2346,7 +2754,10 @@ class Backend:
             context_items.pop(0)
         if context_items and len(context_items[-1]["text"]) > 4000:
             raise ForecastRequestError(422, "content-too-long", "这段内容过长，请缩短草稿或稍后重试")
-        context = [{"id": item["id"], "side": item["side"], "text": item["text"],
+        # Reply prediction keeps every message in its window (the draft answers the last one),
+        # but it never sends a link to the model (`message_input.analysis_text`).
+        context = [{"id": item["id"], "side": item["side"],
+                    "text": message_input.analysis_text(item["text"]),
                     "time": item.get("time", 0)} for item in context_items]
         if not context:
             raise ForecastRequestError(422, "no-text-context", "最近对话没有可用于预测的文字消息")
@@ -2400,25 +2811,38 @@ class Backend:
                 "basisFingerprint": fingerprint, "lastMessageId": last_message_id,
                 "candidates": candidates}
 
-    def _schedule_recent(self, key, store, job, scope, limit, standalone=False):
+    def _schedule_recent(self, key, store, job, scope, limit, standalone=False, selected=None):
         state = self.recent_windows.get(key)
         if state is not None:
             state["limit"] = max(state["limit"], limit)
+            if selected:
+                state.setdefault("selected", set()).update(selected)
             if state["iterator"] is not None:
                 state["rerun"] = True
             return
         counts = {"total": 0, "processed": 0}
         self.recent_windows[key] = {"iterator": None, "counts": counts, "limit": limit,
-                                    "rerun": False, "job": job, "background_pending": standalone}
+                                    "rerun": False, "job": job, "background_pending": standalone,
+                                    # Ids the user picked by hand. Non-empty means the next
+                                    # pass analyses exactly those, never the visible window.
+                                    "selected": set(selected or ())}
         job["recent"] = {"id": uuid.uuid4().hex, "status": "queued", "total": 0, "processed": 0}
         self._enqueue((key, "recent-window", limit, store, job, scope), interactive=True)
 
-    def start(self, user, mode, limit, expected_account=None):
+    def start(self, user, mode, limit, expected_account=None, target_ids=None):
         account, workdir, store = self._scoped_identity()
         if expected_account is not None and account != expected_account:
             raise AccountChangedError()
         if store.cache_suspended(account, LOCAL_SOURCE_ID):
             return {"id": None, "status": "suspended", "total": 0, "processed": 0}
+        # A hand-picked selection is resolved (and rejected) before the 202 response, so a
+        # stale id is a 400 the UI can report instead of a job that fails silently later.
+        selected = None
+        if target_ids is not None:
+            if mode != "recent":
+                raise ValueError("invalid selected analysis mode")
+            selected = self._resolve_selected_targets(user, limit, target_ids)
+            self._assert_scope((account, workdir))
         version = self.analyzer.analysis_version()
         if expected_account is not None:
             self._assert_scope((account, workdir))
@@ -2428,7 +2852,8 @@ class Backend:
             current = self.jobs.get(key)
             if current and (current["status"] in ("queued", "running") or key in self.recent_windows):
                 if mode == "recent":
-                    self._schedule_recent(key, store, current, (account, workdir), limit)
+                    self._schedule_recent(key, store, current, (account, workdir), limit,
+                                          selected=selected)
                     return dict(current)
                 if (mode == "incremental" and key in self.recent_windows and
                         current["status"] == "done"):
@@ -2455,7 +2880,8 @@ class Backend:
                    "requested": {"mode": mode, "limit": limit}}
             self.jobs[key] = job
             if mode == "recent":
-                self._schedule_recent(key, store, job, (account, workdir), limit, standalone=True)
+                self._schedule_recent(key, store, job, (account, workdir), limit, standalone=True,
+                                      selected=selected)
                 return dict(job)
             if (not self.batch_engine and
                     ((mode == "incremental" and not self._stored_progress(account, user, version, store)["complete"]) or
@@ -2569,13 +2995,79 @@ class Backend:
         return self._analyze_item(account, user, version, store, context, item, scope,
                                   fine=True, portrait_context=portrait_context)
 
+    def _resolve_selected_targets(self, user, limit, target_ids):
+        """Validate a hand-picked id list against the analysable tail window.
+
+        The window is the same one ``/api/messages`` handed the UI, so ids older than the
+        loaded window are rejected here rather than failing inside the worker.
+        """
+        if (not isinstance(target_ids, list) or not 1 <= len(target_ids) <= limit or
+                any(not isinstance(item, str) or not 1 <= len(item) <= 200 or
+                    any(ord(char) < 32 or ord(char) == 127 for char in item)
+                    for item in target_ids) or
+                len(set(target_ids)) != len(target_ids)):
+            raise ValueError("invalid analysis targets")
+        window = self.source.messages(user, limit + 3)
+        tail = window[max(0, len(window) - limit):]
+        eligible = {item["id"] for item in tail
+                    if item["side"] == "other" and item["kind"] == "text" and
+                    message_input.has_analysis_content(item["text"])}
+        if any(item not in eligible for item in target_ids):
+            raise ValueError("analysis target is no longer in the current window")
+        wanted = set(target_ids)
+        return [item["id"] for item in tail if item["id"] in wanted and item["id"] in eligible]
+
+    def _run_selected_targets(self, account, user, version, store, job, scope, limit, target_ids):
+        """Analyse exactly the messages the user picked, never the whole visible window."""
+        if not target_ids:
+            return
+        wanted = set(target_ids)
+        self._assert_scope(scope)
+        window = self.source.messages(user, limit + 3)
+        self._assert_scope(scope)
+        start = max(0, len(window) - limit)
+        selected = [(index, item) for index, item in enumerate(window)
+                    if index >= start and item["id"] in wanted and item["side"] == "other" and
+                    item["kind"] == "text" and message_input.has_analysis_content(item["text"])]
+        if not selected:
+            return
+        if self.batch_engine:
+            known = store.fine_known(account, user, version,
+                                     [item["id"] for _index, item in selected])
+        else:
+            known = {item["id"] for _index, item in selected
+                     if store.has(account, user, version, item["id"])}
+        job["total"] = len(selected)
+        job["processed"] = sum(item["id"] in known for _index, item in selected)
+        contexts = {}
+        since_yield = 0
+        for index, item in reversed(selected):
+            if item["id"] in known:
+                continue
+            if self.batch_engine:
+                subject = item.get("senderId") if user.endswith("@chatroom") else user
+                if subject not in contexts:
+                    contexts[subject] = self._fine_portrait_context(account, user, version, store, item)
+                self._analyze_fine_item(account, user, version, store,
+                                        window[max(0, index - 3):index + 1], item, scope,
+                                        portrait_context=contexts[subject])
+            else:
+                self._analyze_item(account, user, version, store,
+                                   window[max(0, index - 3):index + 1], item, scope)
+            known.add(item["id"])
+            job["processed"] += 1
+            since_yield += 1
+            if since_yield >= 8 or self._interactive_waiting():
+                since_yield = 0
+                yield
+
     def _run_fine_recent(self, account, user, version, store, job, scope, limit):
         self._assert_scope(scope)
         window = self.source.messages(user, limit + 3)
         self._assert_scope(scope)
         selected = [(index, item) for index, item in enumerate(window)
                     if index >= len(window) - limit and item["side"] == "other" and
-                    item["kind"] == "text" and item["text"].strip()]
+                    item["kind"] == "text" and message_input.has_analysis_content(item["text"])]
         known = store.fine_known(account, user, version, [item["id"] for _index, item in selected])
         job["total"] = len(selected)
         job["processed"] = sum(item["id"] in known for _index, item in selected)
@@ -2615,7 +3107,7 @@ class Backend:
             item = window[index]
             analyzed = False
             if ((highwater is None or tuple(item["_sort"]) <= highwater) and
-                    item["kind"] == "text" and item["text"].strip()):
+                    item["kind"] == "text" and message_input.has_analysis_content(item["text"])):
                 stable_id = item["id"]
                 if stable_id not in counted_ids:
                     counted_ids.add(stable_id)
@@ -2684,12 +3176,14 @@ class Backend:
                 return
             if after is not None and next_after <= after:
                 raise RuntimeError("quoted backfill cursor did not advance")
-            eligible = [item for item in page if item["kind"] == "text" and item["text"].strip()]
+            eligible = [item for item in page if item["kind"] == "text" and
+                        message_input.has_analysis_content(item["text"])]
             known = self.batch_engine.known(account, user, version, store, subject, eligible)
             pending, characters = [], 0
             for item in page:
                 position = tuple(item["_sort"])
-                if item["id"] in known or item["kind"] != "text" or not item["text"].strip():
+                if (item["id"] in known or item["kind"] != "text" or
+                        not message_input.has_analysis_content(item["text"])):
                     continue
                 if member is not None and item["senderId"] != member:
                     continue
@@ -2763,7 +3257,7 @@ class Backend:
                 first = first or stable_id
                 last = stable_id
                 analyzed = False
-                if item["kind"] == "text" and item["text"].strip():
+                if item["kind"] == "text" and message_input.has_analysis_content(item["text"]):
                     if stable_id not in counted_ids:
                         counted_ids.add(stable_id)
                         job["total"] += 1
@@ -2834,7 +3328,7 @@ class Backend:
                 # Results and skips always reach durable storage before their scan cursor.
                 store.advance(account, user, version, position, saved_context, item)
                 cursor = position
-                if item["kind"] == "text" and item["text"].strip():
+                if item["kind"] == "text" and message_input.has_analysis_content(item["text"]):
                     job["total"] += 1
                     job["processed"] += 1
                 job["scope"]["last"] = item["id"]
@@ -2882,7 +3376,7 @@ class Backend:
                     continue
                 analyzed = False
                 prepared = None
-                if item["kind"] == "text" and item["text"].strip():
+                if item["kind"] == "text" and message_input.has_analysis_content(item["text"]):
                     if not store.has(account, user, version, item["id"]):
                         prepared = self._analyze_item(account, user, version, store,
                                                       [*context, item], item, defer=True)
@@ -2919,7 +3413,8 @@ class Backend:
         self._assert_scope(scope)
         selected = window[-limit:]
         cached = store.ids(account, user, version)
-        eligible = [item for item in selected if item["kind"] == "text" and item["text"].strip()]
+        eligible = [item for item in selected
+                    if item["kind"] == "text" and message_input.has_analysis_content(item["text"])]
         pending = [item for item in eligible if item["id"] not in cached]
         positions = {message["id"]: index for index, message in enumerate(window)}
         job["total"] = len(eligible)
@@ -2952,9 +3447,14 @@ class Backend:
                     return
                 if state["iterator"] is None:
                     state["counts"] = {"total": 0, "processed": 0}
-                    state["iterator"] = self._run_visible_priority(
+                    # A hand-picked set is consumed by exactly one pass and then dropped, so
+                    # the next automatic window run is not silently narrowed to old ids.
+                    picked = state.pop("selected", set())
+                    state["iterator"] = (self._run_selected_targets(
                         account, user, version, store, state["counts"], scope,
-                        None, set(), set(), set(), state["limit"])
+                        state["limit"], picked) if picked else self._run_visible_priority(
+                        account, user, version, store, state["counts"], scope,
+                        None, set(), set(), set(), state["limit"]))
                 job["recent"] = {**job["recent"], "status": "running"}
                 if job["requested"]["mode"] == "recent":
                     job["status"] = "running"

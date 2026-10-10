@@ -7,7 +7,7 @@ import { classifyApiPortraitBatch, apiPortraitClassifierWireBudget,
   API_PORTRAIT_CLASSIFIER_TIMEOUT_MS,
   type ApiPortraitClassifierRequest } from "../electron/api-portrait-classifier";
 import { ANALYSIS_QUESTIONS } from "../electron/laya/options";
-import { PERSONALITY_QUESTIONS, personalityEvidenceFromAnswers } from "../electron/laya/personality";
+import { API_PERSONALITY_QUESTIONS, personalityEvidenceFromAnswers } from "../electron/laya/personality";
 import { STYLE_QUESTIONS, styleEvidenceFromAnswers } from "../electron/laya/style";
 import { EMOTION_BUCKETS, INTENT_FAMILIES, INTENT_GROUPS, INTENTS,
   emotionDetailQuestion, groupQuestion, leafQuestion, routeEmotion, routeIntent } from "../electron/laya/catalog";
@@ -28,7 +28,7 @@ const distribution = (name: string, values: Record<string, number> | number = 0)
   .map((label, index) => typeof values === "number" ? Number(index === values) : values[label] ?? 0);
 function ordinaryAnswers(): Record<string, number[]> {
   const answers: Record<string, number[]> = {};
-  for (const name of Object.keys({ ...ANALYSIS_QUESTIONS, ...PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS }))
+  for (const name of Object.keys({ ...ANALYSIS_QUESTIONS, ...API_PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS }))
     answers[name] = distribution(name);
   answers.relationship = distribution("relationship", 2);
   answers.emotion_detail_happy = distribution("emotion_detail_happy");
@@ -45,7 +45,7 @@ const fails = (code: string) => (error: unknown) => error instanceof ModelConnec
 
 /** Provider's simpler answer-supply protocol: no routing threshold or products. */
 function topTwoAnswers(full: Record<string, number[]>): Record<string, number[]> {
-  const result = Object.fromEntries(Object.keys({ ...ANALYSIS_QUESTIONS, ...PERSONALITY_QUESTIONS,
+  const result = Object.fromEntries(Object.keys({ ...ANALYSIS_QUESTIONS, ...API_PERSONALITY_QUESTIONS,
     ...STYLE_QUESTIONS }).map(name => [name, full[name]!]));
   const top = (values: number[]) => values.map((probability, index) => ({ probability, index }))
     .filter(value => value.probability > 0)
@@ -70,7 +70,9 @@ const allChoiceAnswers = () => Object.fromEntries(Object.keys(API_PORTRAIT_CLASS
   .map(name => [name, distribution(name)]));
 
 it("ships all 59 exact local questions in one API call and never generates a summary first", async () => {
-  const expected = { ...ANALYSIS_QUESTIONS, ...PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS };
+  // The API wording for MBTI differs from the local Laya questions on purpose: the
+  // option labels are identical, so the shared converter and evidence contract hold.
+  const expected = { ...ANALYSIS_QUESTIONS, ...API_PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS };
   for (const bucket of Object.keys(EMOTION_BUCKETS) as Array<keyof typeof EMOTION_BUCKETS>)
     expected[`emotion_detail_${bucket}`] = emotionDetailQuestion(bucket);
   for (const family of INTENT_FAMILIES) expected[`intent_group_${family.id}`] = groupQuestion(family.id);

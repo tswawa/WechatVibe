@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from backend_contracts import AccountUnavailableError, MessagesUnavailableError, ForecastRequestError, ROOT
+from api_pool import MAX_API_WORKERS
 from backend_service import Backend
 from wechat_source import WeChatSource
 from account_store import AccountConflict, AccountNotFound
@@ -153,6 +154,10 @@ def make_handler(backend, accounts=None, control_token=None):
                     member = query.get("member")
                     return self.send(200, backend.model_portrait(user_value(query.get("user")),
                                                                  user_value(member) if member else None))
+                if parsed.path == "/api/model-guidance":
+                    member = query.get("member")
+                    return self.send(200, backend.guidance(user_value(query.get("user")),
+                                                          user_value(member) if member else None))
                 if parsed.path == "/api/analysis-cache":
                     return self.send(200, backend.analysis_cache_status())
                 if parsed.path == "/api/sessions":
@@ -168,6 +173,8 @@ def make_handler(backend, accounts=None, control_token=None):
                     return self.send(200, backend.conversation_selection())
                 if parsed.path == "/api/analysis-workers":
                     return self.send(200, backend.worker_status())
+                if parsed.path == "/api/api-workers":
+                    return self.send(200, backend.api_worker_status())
                 if parsed.path == "/api/analysis-overview":
                     return self.send(200, backend.analysis_overview())
                 if parsed.path == "/api/analysis-performance":
@@ -243,14 +250,17 @@ def make_handler(backend, accounts=None, control_token=None):
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return
             model_endpoints = ("/api/model-source/list", "/api/model-source/test",
-                               "/api/model-source/activate", "/api/model-source/clear-key")
+                               "/api/model-source/activate", "/api/model-source/clear-key",
+                               "/api/model-source/profiles",
+                               "/api/model-source/profiles/delete")
             if endpoint not in ("/api/analyze", "/api/predict-reply", "/api/messages/batch",
                                  "/api/runtime", "/api/local-model", "/api/model-insights",
-                                 "/api/model-portrait", "/api/analysis-cache/clear",
+                                 "/api/model-portrait", "/api/model-guidance",
+                                 "/api/analysis-cache/clear",
                                  "/api/analysis-scope/clear",
                                  "/api/analysis-cache/resume", "/api/conversation-selection",
                                  "/api/data-root", "/api/data-root/clear",
-                                 "/api/analysis-workers",
+                                 "/api/analysis-workers", "/api/api-workers",
                                  *advisor_http.POST_PATHS,
                                  *model_endpoints):
                 return self.send(404, {"error": "not found"})
@@ -278,6 +288,10 @@ def make_handler(backend, accounts=None, control_token=None):
                             return self.send(200, backend.model_source_test(request))
                         if endpoint == "/api/model-source/activate":
                             return self.send(200, backend.model_source_activate(request))
+                        if endpoint == "/api/model-source/profiles":
+                            return self.send(200, backend.model_source_profile_save(request))
+                        if endpoint == "/api/model-source/profiles/delete":
+                            return self.send(200, backend.model_source_profile_delete(request))
                         return self.send(200, backend.model_source_clear_key(request))
                     except ValueError:
                         return self.send(400, {"error": "invalid model source request"})
@@ -293,10 +307,20 @@ def make_handler(backend, accounts=None, control_token=None):
                     if elastic is not None and type(elastic) is not bool:
                         raise ValueError("invalid elastic flag")
                     return self.send(200, backend.set_worker_settings(workers, elastic))
+                if endpoint == "/api/api-workers":
+                    workers = request.get("workers")
+                    if workers is not None and (type(workers) is not int or
+                                                not 1 <= workers <= MAX_API_WORKERS):
+                        raise ValueError("invalid API worker count")
+                    return self.send(200, backend.set_api_worker_settings(workers))
                 if endpoint == "/api/conversation-selection":
                     if set(request) == {"expectedAccount", "all"} and request["all"] is True:
                         return self.send(200, backend.set_conversation_all_selected(
                             user_value(request["expectedAccount"])))
+                    if set(request) == {"expectedAccount", "session", "requested"} and type(request["requested"]) is bool:
+                        return self.send(200, backend.set_conversation_requested(
+                            user_value(request["expectedAccount"]), user_value(request["session"]),
+                            request["requested"]))
                     if set(request) == {"expectedAccount", "sessions", "selected"}:
                         if request["selected"] is not False:
                             raise ValueError("invalid conversation selection")
@@ -349,6 +373,20 @@ def make_handler(backend, accounts=None, control_token=None):
                         user_value(request.get("account")), user_value(request.get("user")),
                         user_value(member) if member is not None else None,
                         refresh_axes=refresh_axes))
+                if endpoint == "/api/model-guidance":
+                    if not set(request) <= {"account", "user", "member", "scenario",
+                                            "analyzeSelf", "feedback"} or "account" not in request:
+                        raise ValueError("invalid guidance request")
+                    member = request.get("member")
+                    feedback = request.get("feedback")
+                    analyze_self = request.get("analyzeSelf", False)
+                    if type(analyze_self) is not bool:
+                        raise ValueError("invalid guidance self-style flag")
+                    return self.send(202, backend.start_guidance(
+                        user_value(request.get("account")), user_value(request.get("user")),
+                        user_value(member) if member is not None else None,
+                        scenario=request.get("scenario", "general"),
+                        analyze_self=analyze_self, feedback=feedback))
                 if endpoint == "/api/analysis-scope/clear":
                     if (set(request) not in ({"account", "user", "sourceId", "kind"},
                                             {"account", "user", "sourceId", "kind", "member"}) or
@@ -402,12 +440,19 @@ def make_handler(backend, accounts=None, control_token=None):
                 mode = request.get("mode")
                 if mode not in ("recent", "history", "incremental"):
                     raise ValueError("invalid mode")
+                # Hand-picked message ids. The backend resolves them against the same tail
+                # window this endpoint's `limit` describes, so the request is rejected with
+                # 400 when an id has fallen out of the window.
+                target_ids = request.get("targetIds")
+                if target_ids is not None and mode != "recent":
+                    raise ValueError("invalid analysis targets")
                 limit = (None if mode == "incremental" else
                          "all" if mode == "history" and request.get("limit") == "all" else
                          integer(request.get("limit"), 80 if mode == "recent" else 500,
                                  80 if mode == "recent" else 5000))
                 return self.send(202, {"job": backend.start(user, mode, limit,
-                                                             expected_account=expected_account)})
+                                                             expected_account=expected_account,
+                                                             target_ids=target_ids)})
             except ForecastRequestError as exc:
                 return self.send(exc.status, {**echo, "error": exc.code, "message": exc.message})
             except (ValueError, UnicodeError, json.JSONDecodeError) as exc:

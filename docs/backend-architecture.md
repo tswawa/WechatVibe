@@ -15,9 +15,11 @@
 | `bridge/api_tasks.py` | API 任务注册、锁、运行计数与失效处理 | 业务模型调用、SQL、历史扫描 |
 | `bridge/message_contracts.py` / `portrait_contracts.py` | 消息标签与画像各自的版本、作用域和契约 | 服务、存储、运行时依赖 |
 | `bridge/message_results.py` | 本地 fine 与画像结果的纯校验 | IO、锁、调度 |
-| `bridge/message_input.py` / `shared/message-input.ts` | 消息身份、来源、时间和引用元数据的校验与兼容投影 | 微信读取、媒体解码、OCR |
+| `bridge/message_input.py` / `shared/message-input.ts` | 消息身份、来源、时间和引用元数据的校验与兼容投影；模型可见文本（剥离链接与占位）的单一来源 | 微信读取、媒体解码、OCR |
 | `electron/api-message-insights.ts` | API 消息提示词、标签提取与结果整理 | 画像推理、持久化 |
 | `electron/api-portrait-classifier.ts` | 一次 API 批量判断，复用本地问题及分类转换 | 最终画像评分、持久化 |
+| `electron/api-guidance.ts` | API 潜台词阅读与场景模拟建议的提示词、结果整理 | 画像推理、持久化 |
+| `bridge/guidance_contracts.py` | 指引结果的版本、作用域与「针对他人／针对自己」拆分校验 | 服务、存储、运行时依赖 |
 | `bridge/api_portrait_statistics.py` | 适配 API 分片，复用本地累计及画像派生函数 | 模型请求、账号数据库 IO |
 | `electron/api-portrait.ts` / `api-portrait-evidence.ts` | 旧 API 协议兼容实现 | 当前桌面画像生成路径 |
 | `electron/local-message-insights.ts` | 本地逐句标签的问题构造与答案处理 | 模型实例、运行环境、数据库 |
@@ -36,7 +38,7 @@
 5. 最终响应由程序提取标签，可读取 JSON、Markdown 代码块和带“情感 / 意图”字段的文本。明确编号按真实 ID 对应；旧无编号文本只有完整覆盖整批时才按顺序整理。未知 ID 不转移给其他目标，漏答报未完成，不再补空成功；明确回答“无”可以正常完成。
 6. 完成结果按原有存储作用域保存。流式临时显示与最终响应分别处理，增量事件不会提前结束整批任务。
 
-当前逐句版本为 `free-label-v5-simple`，本地标签 schema 为 `generic-v9`。API 存储继续兼容旧的标量或 `affect / intents` 字段，但当前显示至多一个情绪和一个意图。`routine`、`uncertain`、`insufficient` 仍可作为旧结果的终态读取。
+当前逐句版本为 `free-label-v6-compact`，本地标签 schema 为 `generic-v9`。API 存储继续兼容旧的标量或 `affect / intents` 字段，但当前显示至多一个情绪和一个意图。`routine`、`uncertain`、`insufficient` 仍可作为旧结果的终态读取。
 
 当前逐句输入保留每批最多 500 个目标、512 条消息及字符量边界。这里的“已加载消息”不是自动扫描全部历史。提示词及标签解析不强制模型只输出严格 JSON；连接器遇到不兼容流式响应的服务时，可以回退一次普通响应。
 
@@ -44,7 +46,7 @@
 
 ## API 人物画像：共用本地规则
 
-当前源码的 API 画像通过 `electron/api-portrait-classifier.ts` 一次判断一个上下文批次。模型直接使用 `laya/options.ts`、`personality.ts`、`style.ts`、`catalog.ts` 的原有问题与选项，只为每个选项打分；程序把分数归一化成概率，再调用同一份 `routeEmotion`、`routeIntent`、`messageScore`、风格和人格转换函数。API 不再生成好感度总分、雷达总分、人格字母或自由画像。逐句 API 消息标签仍走自己的已验收入口。
+当前源码的 API 画像通过 `electron/api-portrait-classifier.ts` 一次判断一个上下文批次。模型直接使用 `laya/options.ts`、`personality.ts`、`style.ts`、`catalog.ts` 的原有问题与选项，只为每个选项打分；程序把分数归一化成概率，再调用同一份 `routeEmotion`、`routeIntent`、`messageScore`、风格和人格转换函数。API 不再生成好感度总分、雷达总分、人格字母或自由画像。逐句 API 消息标签仍走自己的已验收入口。四轴 MBTI 的题面是 API 专用版本，选项标签与本地一致，判断依据见「API MBTI 题面」。
 
 API 的输入仍是整批聊天，容量够就一次读取全部目标范围，超过容量才分批。59 题的完整条件树随固定提示发送。模型对每一题只返回分数图 `{"answers":{"<questionId>":{"<option label>":<0 到 100 的整数>}}}`：按贴合程度给选项打分，只列出大于 0 的选项，分数是相对权重、不必合计为 100，标签用题目里的原文。程序把权重归一化成概率，再用同一份本地路由计算阈值和概率乘积。每一题都要回答，包括全部条件题（`emotion_detail_*`、`intent_group_*`、`intent_detail_*`），各按该分支成立来作答；程序决定采用哪些答案。不为每个问题或消息串行调用模型，每批只调用一次模型，不再追问。固定题目和输出合计估算预留 10240 tokens（题目约 8192、输出至少 2048），最低配置上下文为 12288；这一步不发送输出上限（Responses、Chat Completions、Gemini、Ollama 均不带 max_tokens / max_output_tokens），由服务商默认值决定，因为模型要回答全部 59 题，且推理模型的思考计入同一上限（实测 DeepSeek V4.1 Flash 思考约 13K–24K tokens，8192 或 16384 都会在思考中被截断）；Anthropic 协议必须带 max_tokens，按本批未占用的上下文放宽，最多 32768 tokens。不关闭思考。服务商标明输出被截断时报告 `output-truncated`，不再改写成格式错误。与选项数等长的数组仍按位置当作权重。长度不符、没有正权重，或模型没回答的条件题，按本地路由跳过该分支，不改用模型另选的分支，也不把缺项补成 0；同批其余分数保留。`invalid-output` 只用于无法解析的 JSON，或基础题缺失、不可用、权重合计为 0；本地路由选中的分支全部没有可用分数时，整批仍失败。格式失败（`invalid-output`、`invalid-portrait`、`output-truncated`）最多再试 2 次，其它可重试错误仍最多再试 10 次。用量只计这一次调用。字符预算是保守估算；服务商仍可返回真实上下文超限。连接器已有的协议兼容回退或任务重试可能产生额外 HTTP 请求。
 
@@ -58,11 +60,27 @@ API 的输入仍是整批聊天，容量够就一次读取全部目标范围，�
 
 `api-portrait.ts`、`api-portrait-evidence.ts` 及旧 Node 命令仅保留兼容实现，当前桌面画像任务不调用观察提取、综合或四轴重评。历史研究报告不作为当前架构说明。机制回归只能说明公式、保存与边界一致，实际模型理解及不同模型间的准确率仍需用户实端验收。
 
+## API 潜台词与场景模拟
+
+`electron/api-guidance.ts` 一次调用同时产出逐条潜台词阅读和场景建议，两者来自同一段上下文，因此解读和旁边的建议不会互相矛盾。阅读按目标 OTHER 消息给出表层含义、真实意图、话术和情感倾向；建议给出处境判断、沟通策略和可直接发出的回复示例，并按 `analyzeSelf` 分成「针对他人」和「针对自己」两套，两套永不合并。关闭时 `advice.forSelf` 必须是 `null`，开启时必须给出完整内容，缺一即判为格式错误，绝不把缺失的一侧显示成「没有发现问题」。
+
+`analyzeSelf` 与场景（普通联系人，或与领导／上级；后者要求保留对方面子、先接住责任再谈条件、不做无边界退让）原先由画像页那张卡上的勾选项与下拉框选择，**现在都没有界面入口**：这张卡已移除，同一份能力改由助手提供 —— 内置技能「潜台词与沟通建议」与内置助手「沟通参谋」让助手用当前会话资料自己产出解读与建议；若该会话留有旧的 API 结果，助手会把它当作参考资料读到并直接引用（见 `bridge/guidance_contracts.py` 的 `guidance_material()` 与 `bridge/advisor_service.py`）。协议侧不变：前端仍把消息 ID 换成提示词内的短别名，真实 ID 只存在于程序内部；模型给出的编号必须与目标一一对应，未知编号不会转交给别的目标，漏答整批失败。
+
+`feedback`（用户本人写的修正要求而非聊天内容，与聊天证据冲突时以证据为准）仍由协议支持，但收集它的「重算」对话框已随卡片一起移除。
+
+结果按 `source_id:GUIDANCE_REVISION` 作用域整份替换保存，损坏的行在读取时删除而不是展示。前端只渲染经过校验的字段；`guidance_v1` 与消息标签、画像一起随来源清除。任务自身有独立的注册表，切换模型来源时与其它模型任务一同失效。
+
+## API MBTI 题面
+
+`electron/laya/personality.ts` 保留本地 Laya 用的自述式题面，另有一套 API 专用题面：选项标签完全相同，因此共享转换函数和已保存的证据契约不变，只有判断依据从「本人明确说出偏好」扩展为「本人明确说出，或在整批消息里反复表现出同一倾向」。每轴的题面都指明要看什么（谁发起话题、自愿带来什么信息、争执时给出的理由、计划如何收口），并明确排除角色责任、话题类型和单次情绪。分类器规则另外要求区分信号与情境、考虑反例，且明确写出三道消费端机制：scope 题是四轴总闸、「无偏好」选项权重最高时整轴作废（所以混合证据摊在两个极之间，不摊给无偏好）、差值不足 0.2 即判未定（所以确实指向某极时给出约 60/40 或更强的倾斜），只在整批都成立时才给 80 分以上。这些规则避免同一段聊天两次得到相反结论，也避免模型用「无偏好」表达犹豫而把整轴作废。API 题面版本只进入 `API_PORTRAIT_CLASSIFIER_VERSION`，因此只有 API 画像标记为需要重建，本地 Laya 画像的缓存不受影响。
+
 ## 本地分析与标签显示
 
 `electron/analysis.ts` 管理共享 Laya 实例、运行设备与缓存。本地 fine 分支委派 `generateFineMessageInsight`，画像继续使用原有分析入口。已准备问题按 `BATCH_SIZE = 8` 交给推理器；测试验证分组、顺序和答案合并，具体速度取决于设备。
 
 本地和 API 标签经过独立适配后进入同一个渲染组件，消息行各显示一个情绪与意图，不展示概率和颜文字。底层概率仍可用于本地候选排序。纯标点不会仅因不含汉字而被过滤；模型没有标签时保持空白。
+
+逐条标签的分析范围由请求显式给出：默认是 `/api/messages` 交给界面的那个尾部窗口（`mode:"recent"` 的 `limit`），也可以是用户勾选后随 `targetIds` 提交的一小组消息。手选时窗口内其余消息不进入模型，范围在**入队前**就按同一个窗口校验（`Backend.start` → `_resolve_selected_targets`），落在窗口外的 id 直接 400，不产生「排队成功但永不分析」的任务；选中集合只消费一趟，之后自动扫描仍覆盖整个窗口。
 
 ## 任务、身份与存储
 

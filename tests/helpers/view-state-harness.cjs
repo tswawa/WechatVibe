@@ -8,14 +8,28 @@ const vm = require("node:vm");
 
 const VIEW_STATE_SOURCE = readFileSync(path.join(__dirname, "..", "..", "chatui/view-state.js"), "utf8");
 
+// The per-card analyse request gates every analysis path in app.js. Tests slice app.js by
+// section markers, so ship the gate itself here: that keeps the rule in one place in
+// production code and keeps `requestedConversations` authoritative in tests. Function
+// declarations are redeclarable, so a slice that also carries them is harmless.
+const APP_SOURCE = readFileSync(path.join(__dirname, "..", "..", "chatui/app.js"), "utf8");
+const GATE_SOURCE = (() => {
+  const start = APP_SOURCE.indexOf("function conversationAnalysisRequested(");
+  const end = APP_SOURCE.indexOf("/** Analyse exactly the given conversations", start);
+  if (start < 0 || end <= start) throw new Error("app.js is missing the analysis request gate");
+  return APP_SOURCE.slice(start, end);
+})();
+
 const DOMAIN_FIELDS = {
-  chat: ["sessions", "selectedConversations", "selectionLoadedAccount", "conversationSelectionBusy",
+  chat: ["sessions", "selectedConversations", "requestedConversations", "selectionLoadedAccount",
+    "conversationSelectionBusy",
     "sessionCache", "historyState", "historyRequest", "historyController", "historySearchRequest",
     "historySearchController", "historySearchPending", "historySearchPage", "historySearchPageStarts",
     "historySearchQuery", "self", "sessionSignature", "sessionRequest", "sessionLoading",
     "sessionRefreshQueued", "windowRequestSerial", "preloadDone", "preloadTotal", "currentAccount",
     "currentUser", "currentHasMoreBefore", "messageSourceReady", "view", "generation", "controller",
-    "messages", "messagePending", "messageRequest", "messageRefreshQueued", "emptyMessagePolls",
+    "messages", "messagePicking", "selectedMessageIds", "messagePending", "messageRequest",
+    "messageRefreshQueued", "emptyMessagePolls",
     "conversationMood", "followLatest", "lastChatScrollTop"],
   labels: ["results", "currentRecentJob", "inlineIntentPending", "inlineIntentJobId", "recentFailed",
     "requestedRecentSignatures", "recentPending", "intentActionState", "intentFeedbackTimer",
@@ -44,11 +58,40 @@ for (const [domain, fields] of Object.entries(DOMAIN_FIELDS)) {
   for (const field of fields) DOMAIN_FOR[field] = domain;
 }
 
+/**
+ * Give every test context the status sinks the analysis gate writes to.
+ *
+ * The gate explains why it refused an analysis, which means it touches the strip and the
+ * analysis status line. A context that already stubs those keeps its own version, so this
+ * only fills gaps and never changes what an existing assertion observes.
+ */
+function installStatusSinks(context) {
+  if (typeof context.byId !== "function") {
+    const nodes = new Map();
+    context.byId = (id) => {
+      if (!nodes.has(id)) {
+        nodes.set(id, {
+          id, textContent: "", hidden: true, dataset: {}, style: {}, value: "", disabled: false,
+          children: [], classList: { toggle() {}, add() {}, remove() {}, contains() { return false; } },
+          append() {}, appendChild() { return this; }, replaceChildren() {}, addEventListener() {},
+          setAttribute() {}, removeAttribute() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+        });
+      }
+      return nodes.get(id);
+    };
+  }
+  if (typeof context.text !== "function") {
+    context.text = (id, value) => { context.byId(id).textContent = String(value ?? ""); };
+  }
+  if (typeof context.setStripStatus !== "function") context.setStripStatus = () => {};
+}
+
 // Install the real ViewState into an existing vm context and alias old names.
-function installViewState(context) {
-  if (context.__viewStateInstances) return context.__viewStateInstances;
+function installViewState(context) {  if (context.__viewStateInstances) return context.__viewStateInstances;
   if (!context.window) context.window = context;
   vm.runInContext(VIEW_STATE_SOURCE, context);
+  installStatusSinks(context);
+  vm.runInContext(GATE_SOURCE, context);
   context.ViewState = context.window.ViewState;
   const states = {
     chat: vm.runInContext('ViewState.create("chat")', context),

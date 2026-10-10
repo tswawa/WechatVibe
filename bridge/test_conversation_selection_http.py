@@ -70,7 +70,7 @@ class ConversationSelectionHTTPTests(unittest.TestCase):
         status, initial = self.request("GET")
         self.assertEqual(status, 200)
         self.assertEqual(initial, {"account": "wxid_real_a_abcd", "initialized": False,
-                                   "selectedSessions": []})
+                                   "selectedSessions": [], "requestedSessions": []})
         self.assertEqual(self.source.session_calls, 0)
 
         status, selected = self.request("POST", {"expectedAccount": self.source.account,
@@ -113,5 +113,43 @@ class ConversationSelectionHTTPTests(unittest.TestCase):
         self.assertEqual(self.backend.selection_store.get(self.source.account)["selectedSessions"], [])
 
 
+    def test_analysis_request_round_trip_and_validation(self):
+        status, requested = self.request("POST", {"expectedAccount": self.source.account,
+                                                  "session": "contact-a", "requested": True})
+        self.assertEqual(status, 200)
+        # Requesting implies the conversation is in the sidebar: the button only exists there.
+        self.assertEqual(requested["selectedSessions"], ["contact-a"])
+        self.assertEqual(requested["requestedSessions"], ["contact-a"])
+
+        status, read_back = self.request("GET")
+        self.assertEqual(status, 200)
+        self.assertEqual(read_back["requestedSessions"], ["contact-a"])
+
+        # Selecting does not request, and a request is not a selection flag the caller can set
+        # by accident: the two fields are separate keys on the wire.
+        self.request("POST", {"expectedAccount": self.source.account,
+                              "session": "group-a@chatroom", "selected": True})
+        status, after = self.request("GET")
+        self.assertEqual(sorted(after["selectedSessions"]),
+                         ["contact-a", "group-a@chatroom"])
+        self.assertEqual(after["requestedSessions"], ["contact-a"])
+
+        self.assertEqual(self.request("POST", {"expectedAccount": self.source.account,
+                                              "session": "contact-a", "requested": False})[0], 200)
+        self.assertEqual(self.request("GET")[1]["requestedSessions"], [])
+
+    def test_request_rejects_wrong_account_unknown_session_and_non_boolean(self):
+        self.assertEqual(self.request("POST", {"expectedAccount": "another-account",
+                                              "session": "contact-a", "requested": True})[0], 503)
+        self.assertEqual(self.request("POST", {"expectedAccount": self.source.account,
+                                              "session": "missing", "requested": True})[0], 400)
+        self.assertEqual(self.request("POST", {"expectedAccount": self.source.account,
+                                              "session": "contact-a", "requested": "yes"})[0], 400)
+        # A request must not be smuggled in alongside a selection change.
+        self.assertEqual(self.request("POST", {"expectedAccount": self.source.account,
+                                              "session": "contact-a", "selected": True,
+                                              "requested": True})[0], 400)
+
 if __name__ == "__main__":
     unittest.main()
+
