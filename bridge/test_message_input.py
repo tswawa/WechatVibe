@@ -23,6 +23,45 @@ def source_item(**overrides):
     return item
 
 
+class LinkAndPlaceholderTests(unittest.TestCase):
+    """A link never reaches a model, and a message that is only a link is not a target."""
+
+    def test_strips_scheme_and_www_links_only(self):
+        self.assertEqual(message_input.strip_links("见 https://example.com/a 吧"), "见  吧")
+        self.assertEqual(message_input.strip_links("www.example.com/a"), "")
+        # Trailing punctuation belongs to the sentence, not to the link.
+        self.assertEqual(message_input.strip_links("见 https://example.com/a。"), "见 。")
+        # A bare domain without a scheme is left alone: too easy to eat ordinary text.
+        self.assertEqual(message_input.strip_links("见 mp.weixin.qq.com/s/a"), "见 mp.weixin.qq.com/s/a")
+
+    def test_drops_a_message_that_only_carried_a_link(self):
+        for text in ("https://example.com/a", "www.example.com/a", "https://example.com/a。",
+                     "[链接]", "[文件]", "   "):
+            with self.subTest(text=text):
+                self.assertFalse(message_input.has_analysis_content(text))
+
+    def test_keeps_everything_else(self):
+        self.assertTrue(message_input.has_analysis_content("看这个 https://example.com/a 挺好"))
+        # Punctuation alone still counts: it carries tone, exactly as before this rule.
+        self.assertTrue(message_input.has_analysis_content("？？？"))
+        # Only WeChat's own placeholder names are dropped, not any bracketed word.
+        self.assertTrue(message_input.has_analysis_content("[重要]"))
+        self.assertEqual(message_input.analysis_text("[音乐]"), "")
+
+    def test_prepared_item_carries_the_model_text_and_leaves_the_item_alone(self):
+        item = source_item(text="见 https://example.com/a 吧")
+        prepared = message_input.prepare_item(item, account_id="acct", conversation_id="friend",
+                                              source_kind="wechat")
+        self.assertEqual(prepared["text"], "见  吧")
+        self.assertEqual(item["text"], "见 https://example.com/a 吧")
+        self.assertEqual(prepared["inputMeta"]["senderId"], item["senderId"])
+
+    def test_wire_projection_carries_the_model_text_too(self):
+        item = source_item(text="见 https://example.com/a 吧")
+        record = message_input.build_input_record(item)
+        self.assertEqual(message_input.to_wire(item, record)["text"], "见  吧")
+
+
 class IdentityTests(unittest.TestCase):
     def test_self_message_keeps_the_source_sender_identity(self):
         record = message_input.build_input_record(

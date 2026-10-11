@@ -40,18 +40,18 @@ class ConstantIdentityTests(unittest.TestCase):
 
     def test_constant_values_and_cache_keys_are_unchanged(self):
         self.assertEqual(message_contracts.FINE_LABEL_SCHEMA, "generic-v9")
-        self.assertEqual(message_contracts.API_INSIGHT_REVISION, "free-label-v5-simple")
+        self.assertEqual(message_contracts.API_INSIGHT_REVISION, "free-label-v6-compact")
         self.assertEqual(portrait_contracts.API_PORTRAIT_REVISION, "portrait-v2")
-        self.assertEqual(message_contracts.api_insight_scope("api:one"), "api:one:free-label-v5-simple")
+        self.assertEqual(message_contracts.api_insight_scope("api:one"), "api:one:free-label-v6-compact")
         self.assertEqual(portrait_contracts.api_portrait_scope("api:one"), "api:one:portrait-v2")
-        self.assertEqual(backend_contracts.api_insight_scope("api:one"), "api:one:free-label-v5-simple")
+        self.assertEqual(backend_contracts.api_insight_scope("api:one"), "api:one:free-label-v6-compact")
         self.assertEqual(backend_contracts.api_portrait_scope("api:one"), "api:one:portrait-v2")
 
     def test_fine_revision_change_does_not_move_the_portrait_scope(self):
         original = message_contracts.API_INSIGHT_REVISION
         try:
-            message_contracts.API_INSIGHT_REVISION = "free-label-v5-simple"
-            self.assertEqual(message_contracts.api_insight_scope("api:one"), "api:one:free-label-v5-simple")
+            message_contracts.API_INSIGHT_REVISION = "free-label-v6-compact"
+            self.assertEqual(message_contracts.api_insight_scope("api:one"), "api:one:free-label-v6-compact")
             # The portrait scope reads its own module constant and is unaffected.
             self.assertEqual(portrait_contracts.api_portrait_scope("api:one"), "api:one:portrait-v2")
             self.assertEqual(backend_contracts.api_portrait_scope("api:one"), "api:one:portrait-v2")

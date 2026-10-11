@@ -12,7 +12,7 @@ from __future__ import annotations
 
 FINE_LABEL_SCHEMA = "generic-v9"
 
-API_INSIGHT_REVISION = "free-label-v5-simple"
+API_INSIGHT_REVISION = "free-label-v6-compact"
 
 API_INSIGHT_STATUSES = frozenset({"ok", "routine", "uncertain", "insufficient"})
 API_AFFECT_FIELDS = ("tone", "feeling", "interaction")

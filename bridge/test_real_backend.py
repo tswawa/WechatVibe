@@ -146,6 +146,66 @@ class BackendTests(unittest.TestCase):
             self.backend.start("friend", "recent", 1, expected_account="other-account")
         self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
 
+    def test_a_message_that_is_only_a_link_is_not_analysed(self):
+        self.source.add("friend", 3, text="synthetic")
+        rows = self.source.rows["friend"]
+        rows[0]["text"] = "https://example.com/share"
+        rows[1]["text"] = "看这个 https://example.com/a 挺好"
+        seen = []
+        original = self.analyzer.analyze
+
+        def spy(session, messages, target, **kwargs):
+            seen.append([item["text"] for item in messages])
+            return original(session, messages, target, **kwargs)
+
+        self.analyzer.analyze = spy
+        job = self.run_job("friend", "recent", 3)
+        self.assertEqual(sorted(target for _session, target, _context in self.analyzer.calls),
+                         sorted([rows[1]["id"], rows[2]["id"]]))
+        self.assertEqual(job["total"], 2)
+        sent = " ".join(text for call in seen for text in call)
+        self.assertNotIn("example.com", sent, "a link must never reach the model")
+        self.assertIn("看这个", sent)
+
+    def test_selected_targets_analyse_only_the_picked_ids(self):
+        self.source.add("friend", 30)
+        rows = self.source.rows["friend"]
+        picked = [rows[5]["id"], rows[9]["id"]]
+        self.backend.start("friend", "recent", 30, target_ids=picked)
+        self.backend.tasks.join()
+        self.assertEqual(sorted(target for _session, target, _context in self.analyzer.calls),
+                         sorted(picked))
+        job = self.backend.analysis("friend")["job"]
+        self.assertEqual([job["total"], job["processed"]], [2, 2])
+        self.assertEqual(job["recent"]["status"], "done")
+
+    def test_selected_targets_outside_the_window_are_rejected_before_queueing(self):
+        self.source.add("friend", 30)
+        rows = self.source.rows["friend"]
+        with self.assertRaises(ValueError):
+            self.backend.start("friend", "recent", 5, target_ids=[rows[0]["id"]])
+        with self.assertRaises(ValueError):
+            self.backend.start("friend", "recent", 5, target_ids=["unknown-message"])
+        with self.assertRaises(ValueError):
+            self.backend.start("friend", "recent", 5, target_ids=[rows[-1]["id"], rows[-1]["id"]])
+        with self.assertRaises(ValueError):
+            self.backend.start("friend", "history", 5, target_ids=[rows[-1]["id"]])
+        with self.assertRaises(ValueError):
+            self.backend.start("friend", "recent", 5, target_ids=rows[-1]["id"])
+        self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
+
+    def test_selection_does_not_narrow_the_next_window_run(self):
+        # The picked set is consumed by one pass; the automatic window run after it must
+        # still cover the whole window instead of inheriting the old ids.
+        self.source.add("friend", 12)
+        rows = self.source.rows["friend"]
+        self.backend.start("friend", "recent", 12, target_ids=[rows[-1]["id"]])
+        self.backend.tasks.join()
+        self.assertEqual(len(self.analyzer.calls), 1)
+        self.analyzer.calls.clear()
+        self.run_job("friend", "recent", 12)
+        self.assertEqual(len(self.analyzer.calls), 11)
+
     def test_quoted_reply_is_text_but_other_app_messages_are_not(self):
         quoted_type = (57 << 32) | 49
         class FakeDB:
@@ -1152,6 +1212,44 @@ class BackendTests(unittest.TestCase):
             self.assertEqual(request("GET", "/api/health", headers={"Origin": "https://evil.example"})[0], 403)
             self.assertEqual(request("POST", "/api/analyze", "{}", {**valid, "Origin": "null"})[0], 403)
             self.assertEqual(request("POST", "/api/analyze", "{}", {"Content-Type": "text/plain"})[0], 415)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+    def test_http_analyze_accepts_hand_picked_targets(self):
+        self.source.add("friend", 8)
+        rows = self.source.rows["friend"]
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.backend))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            def post(payload):
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                conn.request("POST", "/api/analyze", json.dumps(payload),
+                             {"Content-Type": "application/json",
+                              "Origin": f"http://localhost:{server.server_port}"})
+                response = conn.getresponse()
+                status, body = response.status, json.loads(response.read())
+                conn.close()
+                return status, body
+
+            picked = [rows[6]["id"], rows[7]["id"]]
+            status, _body = post({"account": "account-a", "user": "friend", "mode": "recent",
+                                  "limit": 8, "targetIds": picked})
+            self.assertEqual(status, 202)
+            self.backend.tasks.join()
+            self.assertEqual(sorted(target for _session, target, _context in self.analyzer.calls),
+                             sorted(picked))
+            # An id that fell out of the window is a 400, not a job that never analyses.
+            status, body = post({"account": "account-a", "user": "friend", "mode": "recent",
+                                 "limit": 2, "targetIds": [rows[0]["id"]]})
+            self.assertEqual((status, body["error"]),
+                             (400, "analysis target is no longer in the current window"))
+            status, body = post({"account": "account-a", "user": "friend", "mode": "history",
+                                 "limit": "all", "targetIds": picked})
+            self.assertEqual((status, body["error"]), (400, "invalid analysis targets"))
+            self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
         finally:
             server.shutdown()
             server.server_close()

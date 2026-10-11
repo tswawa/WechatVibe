@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import message_input
 import time
 import uuid
 from collections import deque
@@ -138,7 +139,13 @@ class BatchEngine:
 
     @staticmethod
     def text_items(items):
-        return [item for item in items if item["kind"] == "text" and item["text"].strip()]
+        """Messages that carry something to analyse.
+
+        A message that is only a link is not one of them: there is nothing to read, and in
+        API mode there is nothing worth paying for (``message_input.has_analysis_content``).
+        """
+        return [item for item in items if item["kind"] == "text" and
+                message_input.has_analysis_content(item["text"])]
 
     @staticmethod
     def context(items):

@@ -29,6 +29,9 @@ MAX_SKILL_NAME = 60
 MAX_SKILL_DESCRIPTION = 240
 MAX_SKILL_CONTENT = 24000
 MAX_SKILL_IDS = 16
+#: Referenced by `advisor_service`: a run that selected this skill is told whether a saved
+#: 「潜台词与沟通建议」exists, so it can analyse the conversation itself when none does.
+GUIDANCE_SKILL_ID = "builtin-skill:guidance"
 MAX_USER_MESSAGE = 16000
 MAX_REQUEST_ID = 128
 MAX_SCOPE_VALUE = 256
@@ -107,6 +110,14 @@ _REFLECTION_PROMPT = (
     "- 只依据提供的聊天记录，不确定时明确说明。"
 )
 
+_GUIDANCE_PROMPT = (
+    "你是沟通参谋，擅长把聊天里的潜台词讲清楚，并把建议落到马上能发出去的话上。\n"
+    "- 先给潜台词解读：逐条指出关键消息的表面说法、可能的真实意图和依据。\n"
+    "- 再给局势判断：对方的态度、情绪与顾虑，区分事实和推测。\n"
+    "- 最后给沟通建议：2 到 4 条策略加 1 到 3 条可直接用的回复草稿。\n"
+    "- 只依据提供的聊天记录，不确定时直接说明，不编造。"
+)
+
 _BUILTIN_AGENTS = (
     {
         "id": "builtin:advisor",
@@ -138,6 +149,16 @@ _BUILTIN_AGENTS = (
         "builtin": True,
         "revision": 1,
     },
+    {
+        "id": "builtin:guidance",
+        "name": "沟通参谋",
+        "description": "逐条解读潜台词，并给出场景化的沟通建议与可复制回复。",
+        "prompt": _GUIDANCE_PROMPT,
+        "skillIds": [GUIDANCE_SKILL_ID],
+        "enabled": True,
+        "builtin": True,
+        "revision": 1,
+    },
 )
 
 _ADVISOR_SKILL = (
@@ -164,6 +185,17 @@ _REFLECTION_SKILL = (
     "4. 下次怎么做：给出一个可验证的小行动。"
 )
 
+# Moved here from the persona page's `#guidanceCard`: subtext reading plus scenario advice,
+# now produced by the assistant with its own model instead of the separate API pipeline.
+_GUIDANCE_SKILL = (
+    "潜台词与沟通建议\n"
+    "1. 潜台词：挑 3 到 6 条最值得解读的消息，逐条写「表面说法 → 可能的真实意图 → 用的手法或语气」。\n"
+    "2. 局势：用一句话说明对方当下的态度、情绪与顾虑；证据不足就直说不确定。\n"
+    "3. 建议：给 2 到 4 条可执行策略并注明收益与风险，再给 1 到 3 条可以直接发出的回复草稿，标注语气。\n"
+    "4. 场景：默认按普通联系人给建议；用户说明是与领导或上级时，改用更稳妥、留余地的说法。\n"
+    "5. 边界：只依据本会话资料，不臆测没有证据的内容；用户要求时再额外给针对自己的一面。"
+)
+
 _BUILTIN_SKILLS = (
     {
         "id": "builtin-skill:advisor",
@@ -184,6 +216,13 @@ _BUILTIN_SKILLS = (
         "name": "复盘四问",
         "description": "区分事实与推测，找到下一步可验证的行动。",
         "content": _REFLECTION_SKILL,
+        "builtin": True,
+    },
+    {
+        "id": GUIDANCE_SKILL_ID,
+        "name": "潜台词与沟通建议",
+        "description": "逐条解读潜台词，并给出场景化的沟通建议与可复制回复。",
+        "content": _GUIDANCE_SKILL,
         "builtin": True,
     },
 )

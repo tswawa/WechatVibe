@@ -13,7 +13,7 @@ import vm from "node:vm";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-it("moves Python to the independent free-label-v5-simple scope and validates the simple shape", () => {
+it("moves Python to the independent free-label-v6-compact scope and validates the simple shape", () => {
   const fixture = `import json, sys
 sys.path.insert(0, 'bridge')
 from message_contracts import API_INSIGHT_REVISION, api_insight_scope, normalize_api_insight
@@ -46,8 +46,8 @@ print(json.dumps({
 }))`;
   const output = JSON.parse(execFileSync(process.env.WECHATVIBE_PYTHON || "python",
     ["-B", "-c", fixture], { cwd: ROOT, encoding: "utf8" })) as Record<string, unknown>;
-  assert.equal(output.revision, "free-label-v5-simple");
-  assert.equal(output.scope, "api:x:free-label-v5-simple");
+  assert.equal(output.revision, "free-label-v6-compact");
+  assert.equal(output.scope, "api:x:free-label-v6-compact");
   assert.notEqual(output.scope, "api:x:free-label-v3", "old v3 rows stay in their own scope");
   assert.deepEqual(output.ok, { id: "b", status: "ok",
     affect: { feeling: "犹豫" }, intents: ["婉拒"] });

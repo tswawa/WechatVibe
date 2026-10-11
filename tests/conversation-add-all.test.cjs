@@ -24,14 +24,15 @@ function harness(selected = [], { initialized = true } = {}) {
   const session = id => ({ username: id, name: id });
   const chatState = {
     sessions: new Map(["a", "b", "c"].map(id => [id, session(id)])),
-    selectedConversations: new Set(), currentAccount: "acct", selectionLoadedAccount: null,
+    selectedConversations: new Set(), requestedConversations: new Set(),
+    currentAccount: "acct", selectionLoadedAccount: null,
     sessionRequest: 1, conversationSelectionBusy: false, currentUser: "a",
   };
   const server = { selected: new Set(selected), initialized };
   const posts = [];
   const storage = new Map();
   const reply = () => ({ account: "acct", initialized: server.initialized,
-    selectedSessions: [...server.selected] });
+    selectedSessions: [...server.selected], requestedSessions: [] });
   const context = vm.createContext({
     chatState, accountClearedExiting: false,
     localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },

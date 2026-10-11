@@ -29,7 +29,8 @@ class AdvisorHttpTests(unittest.TestCase):
         self.assertEqual(status, 200)
         status, second = self.request("/api/advisor/import/commit", payload)
         self.assertEqual(first["importedAgentId"], second["importedAgentId"])
-        self.assertEqual(len(first["agents"]), 4)
+        # 4 builtin assistants plus the imported one.
+        self.assertEqual(len(first["agents"]), 5)
         self.assertFalse(self.runtime.respond_calls)
 
     def setUp(self):

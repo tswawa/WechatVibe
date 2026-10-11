@@ -6,6 +6,11 @@ row into a typed input record and projects it back to the legacy node wire
 (``id``/``side``/``text``/``time``) plus an optional ``inputMeta`` envelope that is
 carried only over the local IPC. Meta never reaches the model prompt.
 
+It also owns the single rule for what a model may see: the ``text`` projected by
+``prepare_item`` / ``to_wire`` has links (and bare WeChat placeholders) removed, and
+``has_analysis_content`` decides whether a message is worth analysing at all. The caller's
+item, the stored results and everything shown to the user keep the original text.
+
 Facts it relies on:
 - The WeChat source layer already emits ``time`` as integer milliseconds and already
   multiplies sub-1e10 values by 1000. ``0`` means unknown. This module never multiplies
@@ -24,8 +29,83 @@ Legacy wire compatibility:
 from __future__ import annotations
 
 import math
+import re
+import unicodedata
 
 SOURCE_KINDS = frozenset({"wechat", "ocr", "unknown"})
+
+# ── Links never reach a model ───────────────────────────────────────────────
+# A shared link is not what the analysis is about: the reading is of the message, and the
+# URL is noise. In API mode it is also something we would rather not send. The rule is
+# deliberately narrow — only a scheme or `www.` starts a link, so ordinary text is never
+# eaten — and it applies wherever text is handed to a model. The chat display, the stored
+# results and the message identity keep the original text untouched.
+LINK_PATTERN = re.compile(r"(?:https?://|www\.)[^\s<>\"'“”‘’（）()\[\]【】{}《》]+", re.IGNORECASE)
+# Punctuation that a trailing URL swallows from the sentence around it.
+LINK_TAIL = "。，、；：！？…·.,;:!?)]}>”’\"'"
+
+#: Message-type names WeChat renders as a bare placeholder. Such a message arrives as
+#: ``kind == "other"`` in practice (``chat_server.classify`` labels it), so this list is a
+#: narrow fallback for the odd case where a placeholder is seen as text.
+PLACEHOLDER_NAMES = frozenset({
+    "图片", "表情", "动画表情", "语音", "视频", "文件", "链接", "位置", "名片", "转账",
+    "红包", "微信红包", "小程序", "音乐", "聊天记录", "合并转发", "视频号", "消息",
+    "应用消息", "系统消息", "群公告", "拍一拍", "接龙", "卡券", "商品", "直播", "频道",
+    "语音通话", "视频通话",
+})
+PLACEHOLDER_PATTERN = re.compile(r"^\[([^\[\]\s]{1,16})\]$")
+
+
+def strip_links(text):
+    """Return ``text`` without URLs; anything else, including punctuation, is kept."""
+    if not isinstance(text, str) or not text:
+        return text
+
+    def drop(match):
+        url = match.group(0)
+        # A trailing "。" or "，" belongs to the sentence, not to the link.
+        return url[len(url.rstrip(LINK_TAIL)):]
+
+    return LINK_PATTERN.sub(drop, text)
+
+
+def _punctuation_only(text):
+    return all(unicodedata.category(char).startswith("P") or char.isspace() for char in text)
+
+
+def analysis_text(text):
+    """The text a model may see: links and bare placeholders removed, everything else kept.
+
+    Returns ``""`` for a placeholder-only message, which is how both the caller and
+    :func:`has_analysis_content` recognise "nothing to analyse here".
+    """
+    if not isinstance(text, str):
+        return text
+    if not text:
+        return ""
+    stripped = strip_links(text)
+    match = PLACEHOLDER_PATTERN.match(stripped.strip())
+    if match and match.group(1) in PLACEHOLDER_NAMES:
+        return ""
+    return stripped
+
+
+def has_analysis_content(text):
+    """True when a message carries something to analyse.
+
+    Punctuation still counts on its own — it carries tone — so this is not a "letters
+    required" test. The one case it excludes is a message that carried nothing but a link
+    (or a link plus the punctuation around it): once the link is gone, there is no reading
+    to make, and in API mode there is nothing worth paying for.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return False
+    remaining = analysis_text(text)
+    if not remaining.strip():
+        return False
+    if remaining != text and _punctuation_only(remaining):
+        return False
+    return True
 
 MAX_ACCOUNT = 200
 MAX_CONVERSATION = 256
@@ -248,13 +328,17 @@ def record_to_meta(record):
 def prepare_item(item, *, account_id=None, conversation_id=None, source_kind=None):
     """Return a shallow copy of ``item`` with a validated ``inputMeta`` attached.
 
-    Legacy keys (``id``/``side``/``text``/``time``/...) are preserved byte-for-byte so
-    the model wire stays identical whether or not metadata is carried.
+    Legacy keys (``id``/``side``/``text``/``time``/...) keep their values, except ``text``:
+    the copy carries the model-facing text — links and bare placeholders removed, see
+    :func:`analysis_text`. The caller's item, the stored results and everything shown to the
+    user keep the original text.
     """
     record = build_input_record(item, account_id=account_id, conversation_id=conversation_id,
-                                source_kind=source_kind)
+                               source_kind=source_kind)
     prepared = dict(item)
     prepared["inputMeta"] = record_to_meta(record)
+    if isinstance(prepared.get("text"), str):
+        prepared["text"] = analysis_text(prepared["text"])
     return prepared
 
 
@@ -266,10 +350,11 @@ def prepare_messages(messages, *, account_id=None, conversation_id=None, source_
 def to_wire(item, record, *, target_cap=None, context_cap=None, is_target=False):
     """Project one record back to the legacy node wire plus optional ``inputMeta``.
 
-    The legacy four fields keep their exact original values and truncation, so the
-    model input is byte-identical whether or not metadata is carried.
+    The legacy fields keep their values and truncation, except ``text``: it is the
+    model-facing text (``analysis_text``), so a link never reaches a prompt. Truncation is
+    applied after that, to what the model would actually receive.
     """
-    text = record["text"]
+    text = analysis_text(record["text"])
     cap = target_cap if is_target else context_cap
     if cap is not None:
         text = text[:cap]

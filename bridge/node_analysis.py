@@ -14,6 +14,7 @@ import uuid
 from pathlib import Path
 
 from backend_contracts import ROOT, valid_api_portrait, validate_personality_evidence
+from guidance_contracts import GUIDANCE_REVISION, valid_guidance
 from local_model_source import ModelSource
 from profile_signals import validate_style_evidence
 from portrait_contracts import valid_mbti_basis, valid_portrait_evidence
@@ -267,7 +268,10 @@ class NodeAnalysis:
             response_timeout = (16 if payload.get("cmd") == "model:list" else
                                 18 if payload.get("cmd") == "model:test" else
                                 270 if payload.get("cmd") == "model:portrait" and
-                                payload.get("phase") == "classify" else 180)
+                                payload.get("phase") == "classify" else
+                                # The guidance turn reasons over one conversation window
+                                # and writes a structured reading; it needs more than a label batch.
+                                240 if payload.get("cmd") == "model:guidance" else 180)
             deadline = time.monotonic() + response_timeout
             while request_id not in self.pending and time.monotonic() < deadline and process.poll() is None:
                 self.condition.wait(timeout=1)
@@ -325,6 +329,35 @@ class NodeAnalysis:
             raise RuntimeError("invalid-insights")
         return {"insights": insights, "usage": response.get("usage"),
                 "responseId": response.get("responseId"), "timings": response.get("timings")}
+
+    def model_guidance(self, protocol, base_url, api_key, model, messages, target_ids,
+                       scenario, analyze_self, context_tokens, other_portrait=None,
+                       self_summary=None, feedback=None):
+        """One provider turn for the subtext reading plus the scenario advice.
+
+        The payload is re-validated here: Node already normalised it, so a shape that
+        reaches Python has been checked twice before it can be stored or displayed.
+        """
+        response, _ = self._request({"cmd": "model:guidance", "protocol": protocol,
+                                     "baseUrl": base_url, "apiKey": api_key, "model": model,
+                                     "messages": messages, "targetIds": target_ids,
+                                     "scenario": scenario, "analyzeSelf": analyze_self,
+                                     "contextTokens": context_tokens,
+                                     "otherPortrait": other_portrait,
+                                     "selfSummary": self_summary, "feedback": feedback},
+                                    require_model=False)
+        if response.get("guidanceVersion") != GUIDANCE_REVISION:
+            raise RuntimeError("guidance-version-invalid")
+        guidance = {key: response[key] for key in
+                    ("version", "scenario", "analyzeSelf", "subtexts", "advice")
+                    if key in response}
+        if not valid_guidance(guidance):
+            raise RuntimeError("invalid-guidance")
+        identifiers = [item["id"] for item in guidance["subtexts"]]
+        if len(set(identifiers)) != len(identifiers) or not set(identifiers) <= set(target_ids):
+            raise RuntimeError("invalid-guidance")
+        return {"guidance": guidance, "usage": response.get("usage"),
+                "responseId": response.get("responseId")}
 
     def extract_portrait_observations(self, protocol, base_url, api_key, model, messages,
                                      evidence=None, subject_kind="person"):
