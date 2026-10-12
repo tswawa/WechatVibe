@@ -80,7 +80,15 @@
     },
     flushThreadCache() {
       clearTimeout(this.cacheSaveTimer); this.cacheSaveTimer = null;
-      save("advisor_threads_v1", this.threadCache);
+      // Never persist the live run attached to a thread. It is memory-only state (`currentRunId`,
+      // the stop flag and the poll abort all live in this object), and restoring it after a reload
+      // showed a phantom "answering" panel whose stop button could not reach the bridge.
+      const persisted = {};
+      for (const [key, thread] of Object.entries(this.threadCache)) {
+        persisted[key] = { ...thread };
+        delete persisted[key]._advisorRun;
+      }
+      save("advisor_threads_v1", persisted);
     },
     getEnabledTemplates() { return this.catalogReady ? this.catalog.agents.filter(agent => agent.enabled) : []; },
     getReplyContext() {
@@ -133,7 +141,10 @@
           delivery: pending.delivery || "pending", createdAtMs: pending.createdAtMs || Date.now() });
       }
       const saved = this.threadProjection;
-      return { thread, run: saved && this.isCurrent(saved.scope) && saved.thread.id === thread.id ? saved.run : cached._advisorRun || null };
+      // Only the in-memory projection may report a run: a run restored from the cached thread was
+      // never the current one (`currentRunId` is memory-only), so it produced a stop button that
+      // did nothing and a hidden send button until the thread read succeeded.
+      return { thread, run: saved && this.isCurrent(saved.scope) && saved.thread.id === thread.id ? saved.run : null };
     },
     syncThreadToFrame(thread, run = null, scope = this.captureScope()) {
       if (!this.isCurrent(scope)) return;
