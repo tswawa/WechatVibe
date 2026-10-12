@@ -58,6 +58,24 @@ class FakeProcess:
         return None
 
 
+class SpawningProcess:
+    """One link of a synthetic parent chain for `_spawned_by_shell`."""
+
+    def __init__(self, pid, name, parent=None, name_error=None):
+        self.pid = pid
+        self._name = name
+        self._parent = parent
+        self._name_error = name_error
+
+    def name(self):
+        if self._name_error is not None:
+            raise self._name_error
+        return self._name
+
+    def parent(self):
+        return self._parent
+
+
 def unused_port():
     with socket.socket() as connection:
         connection.bind(("127.0.0.1", 0))
@@ -113,6 +131,89 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("wrong service", launcher.health(self.config))
         with self.assertRaisesRegex(launcher.LauncherError, "occupied"):
             launcher.ensure_service(self.config, starter=lambda *_: self.fail("started"))
+
+    def _shell_identity(self, shell_pid, head):
+        """Run the launcher's shell check against a synthetic process chain."""
+        fake = type("FakePsutil", (), {"Process": staticmethod(lambda: head), "Error": RuntimeError})
+        with patch.dict(sys.modules, {"psutil": fake}):
+            return launcher._spawned_by_shell(shell_pid)
+
+    def test_shell_identity_accepts_itself_or_a_windows_venv_redirector_only(self):
+        """A venv's python.exe runs the real interpreter as a child, so it sits in between.
+
+        The README documents `py -3.14 -m venv .venv`, and on Windows that `Scripts/python.exe`
+        is a redirector: the desktop shell is the launcher's grandparent, not its parent. Source
+        runs failed with "本地服务未就绪" until this shape was accepted, while a terminal, a
+        service or a longer chain must still be rejected.
+        """
+        shell = 4200
+        direct = SpawningProcess(1, "python.exe", SpawningProcess(shell, "electron.exe"))
+        redirector = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, "python.exe",
+                                             SpawningProcess(shell, "electron.exe")))
+        lowercase = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, "PYTHONW.EXE",
+                                             SpawningProcess(shell, "electron.exe")))
+        terminal = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, "powershell.exe",
+                                             SpawningProcess(shell, "electron.exe")))
+        nested = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, "python.exe",
+                                             SpawningProcess(3, "python.exe",
+                                                             SpawningProcess(shell, "electron.exe"))))
+        unnamed = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, None, SpawningProcess(shell, "electron.exe")))
+        self.assertTrue(self._shell_identity(shell, direct))
+        self.assertTrue(self._shell_identity(shell, redirector))
+        self.assertTrue(self._shell_identity(shell, lowercase))
+        self.assertFalse(self._shell_identity(shell, terminal))
+        self.assertFalse(self._shell_identity(shell, nested))
+        self.assertFalse(self._shell_identity(shell, unnamed))
+        self.assertFalse(self._shell_identity(shell, SpawningProcess(1, "python.exe")))
+        self.assertFalse(self._shell_identity(shell + 1, direct))
+
+    def test_shell_identity_never_raises_when_the_chain_disappears(self):
+        class Vanished(SpawningProcess):
+            def parent(self):
+                raise RuntimeError("process gone")
+
+        self.assertFalse(self._shell_identity(4200, Vanished(1, "python.exe")))
+
+    def test_shell_identity_denies_a_parent_that_cannot_be_inspected(self):
+        """`name()` can raise AccessDenied for a more privileged parent; deny, do not raise."""
+        denied = SpawningProcess(2, "python.exe", SpawningProcess(4200, "electron.exe"),
+                                 name_error=RuntimeError("access denied"))
+        self.assertFalse(self._shell_identity(4200, SpawningProcess(1, "python.exe", denied)))
+
+    def _run_command_with_shell(self, head, shell_pid):
+        """Drive the real call site, so a revert to the old direct-parent check fails here."""
+        args = type("Args", (), {"stop_owned_bridge": False, "status": False, "json": True})()
+        fake = type("FakePsutil", (), {"Process": staticmethod(lambda: head), "Error": RuntimeError})
+        gate = type("FakeGate", (), {"register": lambda self, **kwargs: None,
+                                     "close": lambda self: None})
+
+        with patch.dict(sys.modules, {"psutil": fake}), \
+                patch.object(launcher, "InstallationGate", lambda *a, **k: gate()), \
+                patch.object(launcher, "_run_admitted", return_value="admitted"), \
+                patch.dict(launcher.os.environ, {"WECHATVIBE_SHELL_PID": str(shell_pid)}):
+            return launcher.run_command(args, self.config)
+
+    def test_run_command_accepts_a_venv_redirector_and_rejects_a_foreign_shell(self):
+        """The 1.3.5 comparison used `psutil.Process().ppid()` right in run_command.
+
+        The fake psutil above has no `ppid`, so restoring that comparison - the actual regression
+        this change fixes - fails here instead of passing with only the helper covered.
+        """
+        shell = 4200
+        redirector = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, "python.exe",
+                                             SpawningProcess(shell, "electron.exe")))
+        terminal = SpawningProcess(
+            1, "python.exe", SpawningProcess(2, "powershell.exe",
+                                             SpawningProcess(shell, "electron.exe")))
+        self.assertEqual(self._run_command_with_shell(redirector, shell), "admitted")
+        with self.assertRaisesRegex(launcher.LauncherError, "identity"):
+            self._run_command_with_shell(terminal, shell)
 
     def test_port_and_identity_are_stable_for_resolved_root(self):
         self.assertEqual(launcher.default_port(self.root), launcher.default_port(self.root / "."))
