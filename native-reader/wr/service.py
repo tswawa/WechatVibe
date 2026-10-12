@@ -496,14 +496,18 @@ class NativeService:
             for shard in account.shards:
                 data = _read_stable(shard.path)
                 stored.append((shard.id + "#db", data))
-                has_wal = False
-                if shard.wal_path:
-                    wal_data = _read_stable(shard.wal_path)
-                    if wal_data:
-                        stored.append((shard.id + "#wal", wal_data))
-                        has_wal = True
+                wal_data = _read_stable(shard.wal_path) if shard.wal_path else b""
+                has_wal = bool(wal_data)
+                if has_wal:
+                    stored.append((shard.id + "#wal", wal_data))
                 shard_meta.append({"shardId": shard.id, "hasWal": has_wal})
-                parts.append((shard.id, len(data), hashlib.sha256(data).hexdigest()))
+                # The WAL belongs to the identity: a committed WAL changes the rows this dataset
+                # serves while the main shard stays byte-identical, so leaving it out reused a
+                # stale dataset - read_history then missed rows that the totals already counted.
+                # `_source_fingerprint` always covered the WAL, so the dataset id was the only
+                # place that disagreed with the store it was frozen from.
+                parts.append((shard.id, len(data), hashlib.sha256(data).hexdigest(),
+                              len(wal_data), hashlib.sha256(wal_data).hexdigest()))
             fingerprint = tuple(parts)
             dataset_id = self._dataset_id(cutoff, fingerprint)
         meta = {
