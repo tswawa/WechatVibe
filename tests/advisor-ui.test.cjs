@@ -74,8 +74,9 @@ function environment(ids) {
     emit: event => (listeners.message || []).forEach(handler => handler(event)),
     async flushTimers() { const batch = [...timers.values()]; timers.clear(); for (const handler of batch) await handler(); } };
 }
-function host() {
+function host(seed = {}) {
   const env = environment(["advisorRepoContainer", "btnToolbarAdvisor"]);
+  for (const [key, value] of Object.entries(seed)) env.storage.set(key, value);
   env.frameWindow = { postMessage: data => env.messages.push(json(data)) };
   let nativeListener;
   env.window.desktopHost = {
@@ -261,6 +262,33 @@ test("confirmed stop preserves partial projection and terminal status", async ()
   assert.equal(advisor.getCachedThread("account-a", "friend-a", "advisor").messages[0].text, "片段");
   assert.ok(env.messages.some(message => message.payload.run?.state === "stopped"));
 });
+test("the cached thread never persists the live run attached to it", () => {
+  const env = host(), advisor = ready(env);
+  const cached = thread("account-a", "friend-a", "advisor",
+    [{ id: "m1", role: "assistant", text: "partial" }]);
+  cached._advisorRun = { id: "run-live", state: "running" };
+  advisor.setCachedThread("account-a", "friend-a", "advisor", cached);
+  advisor.flushThreadCache();
+  const stored = Object.values(JSON.parse(env.storage.get("advisor_threads_v1")));
+  assert.equal(stored[0]._advisorRun, undefined);
+  assert.equal(stored[0].messages[0].text, "partial");
+});
+
+test("a persisted run cannot be projected as the current run after a reload", () => {
+  const key = JSON.stringify(["account-a", "friend-a", "advisor"]);
+  const persisted = {};
+  persisted[key] = { ...thread("account-a", "friend-a", "advisor",
+    [{ id: "m1", role: "assistant", text: "partial" }]),
+    _advisorRun: { id: "run-stale", state: "running" } };
+  const env = host({ advisor_threads_v1: JSON.stringify(persisted) }), advisor = env.advisor;
+  advisor.catalog = catalog(); advisor.catalogReady = true; advisor.activeAgentId = "advisor";
+  advisor.currentAccount = "account-a"; advisor.currentUser = "friend-a";
+  const projection = advisor.projectionForScope();
+  assert.equal(projection.run, null);
+  assert.equal(advisor.currentRunId, null);
+  assert.equal(projection.thread.messages.length, 1);
+});
+
 test("account clearing erases only that account caches and blocks late writers", async () => {
   const env = host(), advisor = ready(env), stopped = [];
   advisor.setDraft("account-a", "friend-a", "advisor", "A"); advisor.setDraft("account-b", "friend-b", "advisor", "B");
