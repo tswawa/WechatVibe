@@ -34,6 +34,10 @@ IMPORT_PAGE_SIZE = 256
 MAX_CONTEXT_MESSAGE_CHARS = 16000
 MAX_CONTEXT_ERROR_CHARS = 300
 MAX_RAW_FIELD_CHARS = 2048
+# Retained windows are a highwater hint for a later `prepare`, so only the recent ones matter: the
+# UI preloads every added conversation in batches of 64, and without a bound the bridge kept one
+# decoded window (up to 80 messages) per conversation it had ever seen, for the whole process.
+MAX_PENDING_WINDOWS = 64
 VALID_SIDES = ("self", "other")
 
 
@@ -164,6 +168,7 @@ class ContextProjection:
             if entry is not None and entry.thread.is_alive():
                 self._pending_windows[key] = observation
                 self._observed.pop(key, None)
+                self._trim_pending_locked()
                 if entry.binding != binding:
                     entry.cancel.set()
                 return True
@@ -222,6 +227,7 @@ class ContextProjection:
             return True
         self._observed.pop(key, None)
         self._pending_windows[key] = observation
+        self._trim_pending_locked()
         if row is not None:
             # Only an already-managed conversation is repaired proactively; first windows are seeds.
             reset = scope_changed or changed_facts or rollback or prefix_unknown
@@ -229,6 +235,23 @@ class ContextProjection:
             database.context_begin(user, _encode_position(ceiling), fingerprint, reset=reset)
             self._start_worker(account, user, binding)
         return True
+
+    def _trim_pending_locked(self):
+        """Keep the retained windows bounded, oldest first, without dropping a running import.
+
+        A window is kept so a later `prepare` can take its newest position as the highwater hint
+        (it falls back to `highwater()` when the entry is gone), and an import that is still running
+        keeps its own entry because its worker continues from the window it was started with.
+        """
+        while len(self._pending_windows) > MAX_PENDING_WINDOWS:
+            for key in self._pending_windows:
+                entry = self._imports.get(key)
+                if entry is not None and entry.thread.is_alive():
+                    continue
+                del self._pending_windows[key]
+                break
+            else:
+                break
 
     def invalidate_window(self, account, user):
         with self.lock:
