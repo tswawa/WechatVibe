@@ -496,5 +496,58 @@ class LiveKeyPreparationTests(unittest.TestCase):
             self.assertFalse(slot.keys)
 
 
+class PageLayoutTests(unittest.TestCase):
+    """A shard WeChat is still writing must not hide an account that is otherwise readable.
+
+    `_pages` used to raise for any session/contact/message file that was not a full encrypted page,
+    and callers turn that into AccountUnavailableError - so one empty shard (WeChat creates shards
+    while it runs) or one leftover plaintext copy locked the whole account, including the reads
+    that never needed that file.
+    """
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="page layout ")
+        self.addCleanup(temporary.cleanup)
+        self.account = Path(temporary.name) / "synthetic-account"
+        self.storage = self.account / "db_storage"
+        for folder, name in (("session", "session.db"), ("contact", "contact.db"),
+                             ("message", "message_0.db")):
+            path = self.storage / folder / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"S" * 16 + b"P" * (live_source.PAGE_SIZE - 16))
+
+    @staticmethod
+    def key(*parts):
+        return os.path.join(*parts)
+
+    def readable(self):
+        return {self.key("contact", "contact.db"), self.key("message", "message_0.db"),
+                self.key("session", "session.db")}
+
+    def test_the_encrypted_shards_are_found(self):
+        self.assertEqual(set(live_source._pages(self.account)), self.readable())
+
+    def test_a_brand_new_empty_shard_does_not_hide_the_account(self):
+        (self.storage / "message" / "message_1.db").write_bytes(b"")
+        self.assertEqual(set(live_source._pages(self.account)), self.readable())
+
+    def test_a_leftover_plaintext_shard_is_skipped(self):
+        (self.storage / "message" / "message_2.db").write_bytes(
+            b"SQLite format 3\x00" + b"P" * (live_source.PAGE_SIZE - 16))
+        self.assertEqual(set(live_source._pages(self.account)), self.readable())
+
+    def test_a_required_database_still_fails_closed(self):
+        for folder, name, content in (("session", "session.db", b""),
+                                      ("contact", "contact.db",
+                                       b"SQLite format 3\x00" + b"P" * (live_source.PAGE_SIZE - 16))):
+            with self.subTest(database=name):
+                path = self.storage / folder / name
+                original = path.read_bytes()
+                path.write_bytes(content)
+                with self.assertRaisesRegex(RuntimeError, "unsupported active database page layout"):
+                    live_source._pages(self.account)
+                path.write_bytes(original)
+
+
 if __name__ == "__main__":
     unittest.main()

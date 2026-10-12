@@ -289,7 +289,14 @@ def _pages(account_dir: Path) -> dict[str, tuple[Path, bytes, bytes]]:
             with open(path, "rb") as source:
                 page = source.read(PAGE_SIZE)
             if len(page) != PAGE_SIZE or page.startswith(b"SQLite format 3\x00"):
-                raise RuntimeError("unsupported active database page layout")
+                # WeChat creates message shards while it runs, so a shard can legitimately be empty
+                # or half written when this runs, and a leftover plaintext copy looks the same.
+                # Such a file must not take the whole account down - skip it and let readiness
+                # decide from the shards that do look encrypted. session.db and contact.db stay
+                # required: a reader without them answers nothing, so it still fails closed.
+                if name.casefold() in ("session.db", "contact.db"):
+                    raise RuntimeError("unsupported active database page layout")
+                continue
             pages[rel] = (path, page[:16], page)
             if len(pages) > MAX_DB_FILES:
                 raise RuntimeError("too many active database files")
