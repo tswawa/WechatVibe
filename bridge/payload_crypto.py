@@ -153,7 +153,12 @@ class PayloadCipher:
         return self.protect(json.dumps(value, ensure_ascii=False))
 
     def backup_key(self):
-        """Retain one protected key backup; never replace an existing backup."""
+        """Retain one protected key backup; an unusable copy is moved aside, never deleted.
+
+        The live key is what decrypts the results and this file is only its redundancy, so a damaged
+        or foreign copy must not make the whole analysis store unopenable - the previous code raised
+        and the offline recovery tool refused the same copy, leaving no supported way back.
+        """
         if self.key_path is None:
             return None
         self._load_key(create=True)
@@ -162,9 +167,13 @@ class PayloadCipher:
         with ProcessLock(path.with_name(path.name + ".lock")).acquire(timeout=10):
             checked_path(backup)
             if backup.exists():
-                if backup.read_bytes() != path.read_bytes():
-                    raise PayloadUnreadable("分析密钥备份与当前密钥不一致，已有文件已保留")
-                return backup
+                if backup.read_bytes() == path.read_bytes():
+                    return backup
+                # Keep the bytes for the operator (a rename, so a failure keeps the old behaviour)
+                # and write a fresh copy below.
+                stale = backup.with_name(backup.name + ".stale." + uuid.uuid4().hex)
+                checked_path(stale)
+                os.replace(backup, stale)
             temporary = backup.with_name(backup.name + "." + uuid.uuid4().hex + ".tmp")
             try:
                 with temporary.open("xb") as stream:

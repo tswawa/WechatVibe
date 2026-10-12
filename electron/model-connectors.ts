@@ -200,7 +200,10 @@ function guardedFetch(config: SafeConfig, callerSignal?: AbortSignal,
       // Some compatible gateways ignore stream:true but still return a complete
       // JSON completion. Turn that one body into a local SSE envelope so the
       // caller observes one request and the normal incremental parser can run.
-      const raw = await response.text();
+      // Read it through the same size limit as every other response: a gateway that ignores
+      // stream:true can answer with an arbitrarily large body, and buffering that unbounded took
+      // the whole analysis worker down with it.
+      const raw = await (await boundedResponse(response)).text();
       const headers = new Headers(response.headers);
       headers.set("content-type", "text/event-stream");
       headers.delete("content-length");
@@ -234,7 +237,10 @@ function guardedFetch(config: SafeConfig, callerSignal?: AbortSignal,
       }
       return new Response(body, { status: response.status, statusText: response.statusText, headers });
     }
-    return bounded ? boundedResponse(response) : response;
+    // A streamed request stays streamed while it is healthy, but an error body must obey the same
+    // limit instead of being handed to the SDK unbounded.
+    if (!bounded && response.ok) return response;
+    return boundedResponse(response);
   };
 }
 

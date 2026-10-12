@@ -17,7 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from local_model_source import ModelSource
 from model_bundle import ModelBundleError
-from model_source import LOCAL_SOURCE_ID, ModelSourceStore, ModelSourceUnavailable, connection_values
+from model_source import (LOCAL_SOURCE_ID, MAX_MODEL_ID, MAX_PROFILE_NAME, ModelSourceStore,
+                          ModelSourceUnavailable, connection_values)
 from real_backend import Backend
 from api_pool import ApiAnalyzerPool
 from api_tasks import ApiTaskCoordinator
@@ -591,6 +592,39 @@ class ModelProfileTests(ModelSourceTestCase):
         with self.assertRaises(ValueError):
             self.store.save_profile("0" * 32, "线路 20", "responses",
                                     "https://missing.test/v1", "model-a", None, 128000)
+
+    def test_a_long_model_id_stays_savable_and_readable_without_a_name(self):
+        """The model ID doubles as the profile label, but the label limit is smaller than the ID one.
+
+        Saving without the optional name used to answer 400 right after a successful connection
+        test, and a version-1 document carrying such an ID made the whole settings unreadable
+        after the upgrade.
+        """
+        long_model = "m" * (MAX_PROFILE_NAME + 6)
+        self.assertLessEqual(len(long_model), MAX_MODEL_ID)
+        expected = long_model[:MAX_PROFILE_NAME]
+
+        profile_id = self.store.save_profile(None, None, "responses", "https://long.test/v1",
+                                             long_model, None, 128000)
+        saved = next(row for row in self.store.public()["profiles"] if row["id"] == profile_id)
+        self.assertEqual(saved["name"], expected)
+        self.assertEqual(saved["model"], long_model)
+
+        legacy = {"version": 1, "sourceId": "b" * 32, "selectedMode": "api",
+                  "api": {"protocol": "responses", "baseUrl": "https://legacy.test/v1",
+                          "model": long_model, "contextTokens": 128000,
+                          "encryptedKey": base64.b64encode(
+                              self.store.protect("legacy-long")).decode("ascii")}}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(legacy), encoding="utf-8")
+        migrated = self.store.public(mode="api", source_id="b" * 32)
+        self.assertEqual(migrated["profiles"][0]["name"], expected)
+        self.assertEqual(migrated["profiles"][0]["model"], long_model)
+
+    def test_an_explicit_over_long_name_is_still_rejected(self):
+        with self.assertRaises(ValueError):
+            self.store.save_profile(None, "n" * (MAX_PROFILE_NAME + 1), "responses",
+                                    "https://name.test/v1", "model-a", None, 128000)
 
 
 class DpapiProfileTests(unittest.TestCase):

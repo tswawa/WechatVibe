@@ -356,3 +356,42 @@ it("stops before buffering a response larger than the connector limit", async ()
     });
   });
 });
+
+/**
+ * A stream request with no content-length, so the limit has to be enforced while reading. A gateway
+ * that ignores `stream:true` and answers with one complete JSON completion is exactly the case the
+ * compatibility branch exists for, and an error body never carries a stream either.
+ */
+function oversizedBody(status: number): Response {
+  const payload = new TextEncoder().encode(JSON.stringify({
+    id: "chat_oversized",
+    choices: [{ index: 0, message: { role: "assistant", content: "x".repeat(3 * 1024 * 1024) } }],
+  }));
+  return new Response(new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(payload); controller.close(); },
+  }), { status, headers: { "content-type": "application/json" } });
+}
+
+it("caps the compatibility body read on a stream request", async () => {
+  await withMockFetch(() => oversizedBody(200), async () => {
+    await assert.rejects(() => generateStructured(configs.chat_completions, {
+      system: "", prompt: "synthetic prompt", maxOutputTokens: 64, stream: true,
+    }), (error: unknown) => {
+      assert.ok(error instanceof ModelConnectorError);
+      assert.equal(error.code, "response-too-large");
+      return true;
+    });
+  });
+});
+
+it("caps an error body on a stream request too", async () => {
+  await withMockFetch(() => oversizedBody(500), async () => {
+    await assert.rejects(() => generateStructured(configs.chat_completions, {
+      system: "", prompt: "synthetic prompt", maxOutputTokens: 64, stream: true,
+    }), (error: unknown) => {
+      assert.ok(error instanceof ModelConnectorError);
+      assert.equal(error.code, "response-too-large");
+      return true;
+    });
+  });
+});
