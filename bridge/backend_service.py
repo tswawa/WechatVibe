@@ -594,9 +594,14 @@ class Backend:
             account, workdir = self.source.identity()
         scope = (str(account), str(Path(workdir).resolve()))
         with self.analysis_cache_scope_lock:
-            if self.analysis_cache_scope is not None and self.analysis_cache_scope != scope:
-                self._clear_model_text_caches()
+            changed = self.analysis_cache_scope is not None and self.analysis_cache_scope != scope
             self.analysis_cache_scope = scope
+        if changed:
+            # Clearing the model text caches starts the analysis process and can wait up to two
+            # minutes for it, and every data endpoint takes this lock first - so clearing under it
+            # made the whole UI look hung after an account or data-root switch. The lock only
+            # publishes the scope now; the clear releases retained text of the previous scope.
+            self._clear_model_text_caches()
         if scope not in self.stores:
             store = self.store_factory(account, workdir)
             normalize = getattr(store, "clear_legacy_suspensions", None)
