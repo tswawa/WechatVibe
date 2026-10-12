@@ -772,6 +772,41 @@ def open_client(url, root=PROJECT_ROOT, profile=None):
         raise LauncherError(f"Could not open dedicated Electron shell: {error}") from error
 
 
+def _spawned_by_shell(shell_pid):
+    """Whether the pid that asked for this start is one of the launcher's ancestors.
+
+    At most two hops are accepted: the shell as the direct parent, or the shell as the grandparent
+    with one `python.exe`/`pythonw.exe` launcher in between. The documented Windows setup
+    (`py -3.14 -m venv .venv`) creates `Scripts/python.exe` as a redirector that runs the real
+    interpreter as a child, so the second shape is what a source run looks like; before this it
+    failed with "Desktop startup identity is invalid" and the client stopped with "鏈湴鏈嶅姟鏈氨缁?.
+
+    A terminal or a service in the parent position, a longer chain, a pid that is not an ancestor
+    and a process that cannot be inspected are all rejected. A parent that already exited cannot be
+    confirmed as an ancestor either, so it is rejected instead of compared against a stale ppid.
+    The value comes from the spawner's environment, so this pins the ancestry of the start rather
+    than who is allowed to start it.
+    """
+    import psutil
+
+    process = psutil.Process()
+    for _ in range(2):
+        try:
+            parent = process.parent()
+            if parent is None:
+                return False
+            if parent.pid == shell_pid:
+                return True
+            name = (parent.name() or "").lower()
+        except psutil.Error:
+            # A process that cannot be inspected is never accepted as the shell.
+            return False
+        if name not in ("python.exe", "pythonw.exe"):
+            return False
+        process = parent
+    return False
+
+
 def run_command(args, config):
     if args.stop_owned_bridge:
         result = stop_owned_bridge(config)
@@ -793,8 +828,7 @@ def run_command(args, config):
     try:
         shell_pid = os.environ.get("WECHATVIBE_SHELL_PID")
         if shell_pid:
-            import psutil
-            if int(shell_pid) != psutil.Process().ppid():
+            if not _spawned_by_shell(int(shell_pid)):
                 raise LauncherError("Desktop startup identity is invalid")
             InstallationGate(config.root).register(role="shell", pid=int(shell_pid))
         return _run_admitted(args, config)
