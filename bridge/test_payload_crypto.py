@@ -228,6 +228,27 @@ class PayloadCryptoTests(unittest.TestCase):
             self.assertEqual(json.loads(raw), [{"text": "restore this synthetic text"}])
         self.assertEqual((path.parent / manifest["keyBackup"]).read_bytes(), self.key_path.read_bytes())
 
+    def test_a_damaged_key_backup_no_longer_blocks_the_analysis_store(self):
+        """The live key decrypts the results; the backup copy is only its redundancy.
+
+        A damaged or foreign copy used to raise PayloadUnreadable for every ResultStore
+        construction, so the analysis feature answered 409 for good although the live key still
+        worked - and the offline recovery tool validated the same copy and refused too.
+        """
+        codec = cipher(self.key_path)
+        saved = codec.dumps({"synthetic": "text"})
+        backup = codec.backup_key()
+        self.assertEqual(backup.read_bytes(), self.key_path.read_bytes())
+        backup.write_bytes(b"damaged synthetic backup")
+
+        reopened = cipher(self.key_path)
+        self.assertEqual(reopened.backup_key(), backup)
+        self.assertEqual(backup.read_bytes(), self.key_path.read_bytes())
+        self.assertEqual(reopened.loads(saved), {"synthetic": "text"})
+        stale = sorted(backup.parent.glob("analysis-key.backup.bin.stale.*"))
+        self.assertEqual(len(stale), 1)
+        self.assertEqual(stale[0].read_bytes(), b"damaged synthetic backup")
+
     def test_backup_manifest_publish_failure_retries_without_replacing_snapshot(self):
         path = self.root / "synthetic.sqlite3"
         ResultStore(path).advance("acct", "friend", "v1", (1, "shard", 1), [{"text": "legacy"}])
