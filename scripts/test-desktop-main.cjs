@@ -141,6 +141,10 @@ async function main() {
   assert.deepEqual(Array.from(ownedCleanups[0].args).slice(-2), ['--stop-owned-bridge', '--json']);
   assert.equal(ownedCleanups[0].options.env.WECHATVIBE_CLIENT_ROOT,
     path.join(__dirname, 'synthetic-resources', 'client'));
+  // The failure path runs before the success path corrects process.env, so the inherited
+  // CHATUI_PORT must not reach the stop call either: the launcher would look for the bridge on
+  // that stale port and leave the one this launch created running.
+  assert.equal(ownedCleanups[0].options.env.CHATUI_PORT, undefined);
 
   const invalidReused = await launch(true, JSON.stringify({ version: 'real-ui-1',
     url: 'http://localhost:34567', instanceId, created: false }));

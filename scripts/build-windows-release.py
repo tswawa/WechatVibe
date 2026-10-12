@@ -142,6 +142,46 @@ def _check_private_path(relative: Path, *, directory: bool) -> None:
         raise ValueError(f"unreviewed image location is forbidden: {relative}")
 
 
+def _digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _verify_model_pins(rows, source: Path) -> None:
+    """Verify the bundled Laya model against the pins the same archive publishes.
+
+    The staging step and the runtime updater both enforce `scripts/model-files.json`; `--with-model`
+    used to include `resources/client/.models` unchecked, so the packager was the only link that
+    could publish ONNX weights whose bytes were never compared with the reviewed manifest - while
+    the same script refuses an app.asar or updater script that differs by one byte.
+    """
+    manifest_path = source / "resources" / "client" / "scripts" / "model-files.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        pins = {name: (entry["bytes"], entry["sha256"]) for name, entry in manifest["files"].items()}
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+        raise ValueError("pinned model manifest is unreadable") from error
+    if manifest.get("schema") != 1 or not pins:
+        raise ValueError("pinned model manifest is invalid")
+    present = {}
+    for path, relative, directory, _info in rows:
+        parts = relative.parts
+        if parts[:4] == ("resources", "client", ".models", "laya") and not directory:
+            present[Path(*parts[4:]).as_posix()] = path
+    for name, (size, checksum) in pins.items():
+        path = present.get(name)
+        if path is None:
+            raise ValueError(f"pinned model file is missing from the package: {name}")
+        if path.stat().st_size != size or _digest(path) != checksum:
+            raise ValueError(f"pinned model hash differs: {name}")
+    extra = sorted(set(present) - set(pins))
+    if extra:
+        raise ValueError("package holds unpinned model files: " + ", ".join(extra))
+
+
 def _scan(source: Path) -> list[tuple[Path, Path, bool, os.stat_result]]:
     if source.name != "win-unpacked":
         raise ValueError("input must be the electron-builder win-unpacked directory")
@@ -304,6 +344,8 @@ def build_release(source: Path, output_dir: Path, version: str,
         raise ValueError("output directory cannot be inside package input")
     rows = _scan(source)
     _require_package(rows, version, node_exe)
+    if with_model:
+        _verify_model_pins(rows, source)
     included = (rows if with_model else
                 [row for row in rows if row[1].parts[:3] != ("resources", "client", ".models")])
     output_dir.mkdir(parents=True, exist_ok=True)
