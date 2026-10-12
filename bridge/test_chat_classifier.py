@@ -6,6 +6,7 @@ import json
 import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import closing
 from http.server import ThreadingHTTPServer
@@ -162,6 +163,40 @@ class ClassifierCompatibilityTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=5)
+
+
+class ClassifierCostTests(unittest.TestCase):
+    """Classification runs while the shared source lock is held, so its cost must stay linear.
+
+    A single text message can carry tens of KB (zstd frames decode up to 200000 bytes), and the
+    rendering paths that classify hold `WeChatSource.lock`, which every other request needs.
+    A lazy `(.*?)` regex made that quadratic: 20000 unterminated `<text>` tokens cost 31 s for a
+    117 KB payload, and the appmsg `<title>` form cost 35 s, so one crafted message stalled the
+    whole UI. Both forms must now finish far below a second.
+    """
+
+    def test_unterminated_opening_tags_no_longer_blow_up(self):
+        for payload, expected in (
+                ("<sysmsg" + "<text>" * 20000, ("system", "")),
+                ("<msg><appmsg>" + "<title>" * 20000, ("other", "[应用消息]"))):
+            started = time.monotonic()
+            result = classify(1, payload)
+            elapsed = time.monotonic() - started
+            self.assertEqual(result, expected)
+            self.assertLess(elapsed, 1.0, f"{len(payload)} chars took {elapsed:.2f}s")
+
+    def test_tag_extraction_keeps_the_leftmost_shortest_pair(self):
+        self.assertEqual(classify(1, "<sysmsg><text>群公告</text></sysmsg>"), ("system", "群公告"))
+        self.assertEqual(classify(1, "<sysmsg><content>公告</content></sysmsg>"), ("system", "公告"))
+        self.assertEqual(classify(1, "<sysmsg><content>x</text></sysmsg>"), ("system", "x"))
+        self.assertEqual(classify(1, "<sysmsg><text>a<text>b</text></sysmsg>"), ("system", "ab"))
+        self.assertEqual(classify(1, "<sysmsg><text></text></sysmsg>"), ("system", ""))
+        self.assertEqual(classify(1, "<sysmsg><text>未闭合"), ("system", ""))
+        self.assertEqual(classify(1, "<sysmsg></text><text>y</text></sysmsg>"), ("system", "y"))
+        self.assertEqual(classify(1, "<msg><appmsg><title>标题</title></appmsg></msg>"),
+                         ("other", "标题"))
+        self.assertEqual(classify(1, "<msg><appmsg></appmsg></msg>"), ("other", "[应用消息]"))
+        self.assertEqual(classify(1, "<msg><appmsg><title></title></appmsg></msg>"), ("other", ""))
 
 
 if __name__ == "__main__":

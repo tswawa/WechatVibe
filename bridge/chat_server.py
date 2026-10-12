@@ -5,6 +5,29 @@ from __future__ import annotations
 import re
 
 
+def _tagged_text(text, tags):
+    """Body of the leftmost ``<tag>``/``</tag>`` pair, or None when the text has no such pair.
+
+    This replaces a lazy ``(.*?)`` regex, which is quadratic when many opening tags appear
+    without a closing one: a message starting with ``<sysmsg`` and carrying 20000 unterminated
+    ``<text>`` tokens took 35 s for 117 KB against 0.0014 s for the same size of plain text.
+    Classification runs while the shared source lock is held, so one such message stalls every
+    request. The answer here is the same leftmost/shortest pair in a single pass.
+    """
+    opened = [(text.find("<" + tag + ">"), tag) for tag in tags]
+    opened = [(at, tag) for at, tag in opened if at >= 0]
+    if not opened:
+        return None
+    start_at, tag = min(opened)
+    # A closing tag anywhere after the leftmost opening tag is enough for the pair to exist.
+    if max(text.rfind("</" + name + ">") for name in tags) < start_at:
+        return None
+    start = start_at + len(tag) + 2
+    closes = [text.find("</" + name + ">", start) for name in tags]
+    closes = [at for at in closes if at >= 0]
+    return text[start:min(closes)] if closes else None
+
+
 def classify(message_type, content):
     type_name = (message_type if isinstance(message_type, str) else
                  str(message_type) if isinstance(message_type, int) else "消息")
@@ -14,15 +37,15 @@ def classify(message_type, content):
         if "<revokemsg" in text:
             return "system", ""
         if "<sysmsg" in text:
-            match = re.search(r"<(?:text|content)>(.*?)</(?:text|content)>", text, re.S)
-            return "system", re.sub(r"<[^>]+>", "", match.group(1))[:80] if match else ""
+            body = _tagged_text(text, ("text", "content"))
+            return "system", re.sub(r"<[^>]+>", "", body)[:80] if body is not None else ""
         for tag, kind, label in (("<img", "image", "[图片]"), ("<emoji", "other", "[表情]"),
                                  ("<voicemsg", "other", "[语音]"), ("<videomsg", "other", "[视频]")):
             if tag in text:
                 return kind, label
         if "<appmsg" in text:
-            match = re.search(r"<title>(.*?)</title>", text, re.S)
-            return "other", re.sub(r"<[^>]+>", "", match.group(1))[:80] if match else "[应用消息]"
+            body = _tagged_text(text, ("title",))
+            return "other", re.sub(r"<[^>]+>", "", body)[:80] if body is not None else "[应用消息]"
         return "other", "[消息]"
     if type_name != "文本":
         if "图片" in type_name:
