@@ -47,6 +47,10 @@ function stopOwnedBridge(callback) {
     // exists in argv has to be carried here or the cleanup would stop the default instance.
     ...(instanceProfile ? { [PROFILE_ENV]: instanceProfile } : {}),
   };
+  // Only the success path fixes up the port in process.env, so on a startup failure a CHATUI_PORT
+  // inherited from a shell or a parent client is still here. Passing it on makes the launcher look
+  // for the bridge on that stale port and leave the one this launch just created behind.
+  delete environment.CHATUI_PORT;
   try {
     execFile(python, [launcher, "--stop-owned-bridge", "--json"], {
       cwd: root, env: environment, windowsHide: true, timeout: 30000, maxBuffer: 65536,
