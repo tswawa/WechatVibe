@@ -52,10 +52,17 @@ def _text(value, name, maximum):
 
 
 def profile_name(value, fallback):
-    """A blank or missing name falls back to the model ID so every profile is labelable."""
+    """A blank or missing name falls back to the model ID so every profile is labelable.
+
+    The fallback is cut to the label limit: a model ID may be MAX_MODEL_ID characters long, and a
+    derived label longer than MAX_PROFILE_NAME used to make the profile impossible to save (the
+    caller validates the name it is handed) and, after the version-1 migration, impossible to read
+    at all. An explicit over-long name is still rejected by `_text`.
+    """
+    derived = fallback[:MAX_PROFILE_NAME]
     if value is None or value == "":
-        return fallback
-    return _text(value, "name", MAX_PROFILE_NAME).strip() or fallback
+        return derived
+    return _text(value, "name", MAX_PROFILE_NAME).strip() or derived
 
 
 def connection_values(request, require_model=False):
@@ -182,8 +189,13 @@ class ModelSourceStore:
             api = raw.get("api")
             if not isinstance(api, dict):
                 raise ModelSourceUnavailable("model settings unavailable")
-            return [self._decode_profile({**api, "id": raw.get("sourceId"),
-                                          "name": api.get("name") or api.get("model")})]
+            entry = {**api, "id": raw.get("sourceId")}
+            if not entry.get("name"):
+                # Derive the label from the model ID in the decoder instead of copying it in: a
+                # version-1 document held no name of its own, and the ID can be longer than the
+                # name limit, which used to make the migrated settings unreadable.
+                entry.pop("name", None)
+            return [self._decode_profile(entry)]
         profiles = raw.get("profiles")
         if not isinstance(profiles, list) or len(profiles) > MAX_PROFILES:
             raise ModelSourceUnavailable("model settings unavailable")
