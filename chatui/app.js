@@ -104,7 +104,11 @@ if (typeof settingsState.settings.intent !== "boolean") settingsState.settings.i
 if (typeof settingsState.settings.backgroundAnalyze !== "boolean") settingsState.settings.backgroundAnalyze = false;
 // Reading and advising on the user's own dialogue style costs an extra judgement and
 // is opt-in; when it is off the advice only ever describes the other person.
-const save = () => localStorage.setItem("real-ui-settings-1", JSON.stringify(settingsState.settings));
+// Storage can fail (quota, a blocked or corrupt partition). Every other write in this file is
+// wrapped, and an unguarded one here threw out of the caller: the settings switch kept rendering
+// its old value, and a follow-list write inside loadConversationSelection was reported as a failed
+// WeChat session even though the bridge had answered.
+const save = () => { try { localStorage.setItem("real-ui-settings-1", JSON.stringify(settingsState.settings)); } catch { } };
 chatState.sessions = new Map();
 chatState.selectedConversations = new Set();
 chatState.selectionLoadedAccount = null;
@@ -874,13 +878,14 @@ function rememberConversations(account, ids) {
   const known = new Set(Array.isArray(data[account]?.known) ? data[account].known : []);
   for (const id of ids) known.add(id);
   data[account] = { known: [...known] };
-  localStorage.setItem(conversationFollowKey, JSON.stringify(data));
+  // Losing the follow list must not fail the caller that loaded the sessions.
+  try { localStorage.setItem(conversationFollowKey, JSON.stringify(data)); } catch { }
 }
 function forgetConversationFollow(account) {
   const data = readConversationFollow();
   if (!(account in data)) return;
   delete data[account];
-  localStorage.setItem(conversationFollowKey, JSON.stringify(data));
+  try { localStorage.setItem(conversationFollowKey, JSON.stringify(data)); } catch { }
 }
 async function trackNewConversations(account) {
   if (chatState.conversationSelectionBusy || chatState.selectionLoadedAccount !== account ||
@@ -5958,10 +5963,12 @@ function clearLocalUiAnalysis(account) {
     if (scope[0] === account && scope.length === 3) portraitState.profileSnapshotsRequireRefresh.delete(key);
   } catch { }
   saveStoredProfiles();
-  for (let index = localStorage.length - 1; index >= 0; index--) {
-    const key = localStorage.key(index);
-    if (key?.startsWith(`mbti-unlocked:${account}:`)) localStorage.removeItem(key);
-  }
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(`mbti-unlocked:${account}:`)) localStorage.removeItem(key);
+    }
+  } catch { }
   if (chatState.currentAccount === account) {
     labelState.results = {};
     chatState.conversationMood = null;
