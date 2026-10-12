@@ -669,6 +669,14 @@ class BatchStateStore:
                     if old_offset and (tuple(consumed[0]["position"]) != old_position or
                                        consumed[0]["startOffset"] != old_offset or
                                        len(consumed) > 1 and not consumed[0]["complete"]):
+                        if all(tuple(entry["position"]) != old_position for entry in consumed):
+                            # The message the cursor points at is not part of this window at all:
+                            # it was withdrawn (or its shard moved) while it was half read, so the
+                            # rest of its text can never be read again and every later pass repeats
+                            # this rejection. Say what the user can do instead of leaving an opaque
+                            # failure that only a manual portrait reset clears.
+                            raise ValueError("batch cursor message is not in this window; "
+                                             "reset this portrait to continue")
                         raise ValueError("unfinished message segment was skipped")
                     if not old_offset and tuple(consumed[0]["position"]) <= old_position:
                         raise ValueError("batch reread a complete cursor message")
