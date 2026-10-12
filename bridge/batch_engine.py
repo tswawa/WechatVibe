@@ -314,8 +314,18 @@ class BatchEngine:
                     continue
                 first_position = tuple(pending[0]["_sort"])
                 last_position = tuple(pending[-1]["_sort"])
-                # Resume a partial background span before the next member target, if any.
-                start_position = cursor if offset and cursor is not None and cursor <= first_position else first_position
+                # Resume a partial background span before the next member target, but only while
+                # that message is still pending for this subject. A message that already has a
+                # result is offered to the model from offset 0 (offsets() skips covered rows), and
+                # committing that against the saved partial offset is rejected - either as "batch
+                # cursor did not advance" or as "unfinished message segment was skipped" - which
+                # left the member portrait permanently stuck, burning one model window per
+                # attempt. The non-member branch re-bases past covered rows the same way.
+                leftmost = ([item for item in page_texts if tuple(item["_sort"]) == cursor]
+                            if offset and cursor is not None and cursor <= first_position else [])
+                pending_cursor = bool(leftmost) and leftmost[0]["id"] not in self.known(
+                    account, user, version, store, subject, leftmost)
+                start_position = cursor if pending_cursor else first_position
                 before = [item for item in page_texts if
                           (cursor is None or tuple(item["_sort"]) > cursor) and
                           tuple(item["_sort"]) < start_position]
@@ -324,6 +334,13 @@ class BatchEngine:
                     self.backend._assert_scope(scope)
                     cursor, offset = tuple(before[-1]["_sort"]), 0
                     self.move(account, user, version, store, subject, cursor, context, scope)
+                elif offset and leftmost and not pending_cursor:
+                    # Nothing to move over in between, so clear the stale partial offset of the
+                    # now-covered fragment instead of leaving a segment the next commit treats as
+                    # unfinished and skipped.
+                    self.backend._assert_scope(scope)
+                    self.move(account, user, version, store, subject, cursor, context, scope)
+                    offset = 0
                 items = [item for item in page_texts if
                          start_position <= tuple(item["_sort"]) <= last_position]
             cursor, offset, context = self.infer(account, user, version, store, scope,
