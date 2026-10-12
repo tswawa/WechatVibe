@@ -145,7 +145,13 @@ def _dpi_for_window(hwnd: int) -> int:
 
 
 def enumerate_windows(pids: set[int]) -> list[WindowInfo]:
-    foreground = int(user32.GetForegroundWindow())
+    # GetForegroundWindow returns NULL when nothing holds the foreground (locked session, switched
+    # desktop, destroyed focused window). ctypes maps that to None through wintypes.HWND, and
+    # int(None) raised TypeError before a single window was inspected - the whole geometry/UIA
+    # telemetry then failed instead of reporting that no window is foreground. Reading it as 0
+    # matches no real handle, i.e. the same answer as a foreground owned by another process.
+    foreground_handle = user32.GetForegroundWindow()
+    foreground = int(foreground_handle) if foreground_handle else 0
     results: list[WindowInfo] = []
 
     callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
