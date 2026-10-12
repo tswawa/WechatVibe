@@ -395,21 +395,33 @@ export class AdvisorRuntime {
       this.engine = engine;
       this.engineFingerprint = fingerprint;
       this.cwd = cwd;
-      const location = await engine.client.path.get({ directory: cwd }, { signal: AbortSignal.timeout(CONTROL_TIMEOUT_MS) });
-      if (!location.data || path.resolve(location.data.directory) !== cwd || typeof location.data.worktree !== "string") {
-        await engine.close(); this.engine = undefined; throw new AdvisorRuntimeError("scope-mismatch");
-      }
-      this.worktree = location.data.worktree;
-      this.streamController = new AbortController();
-      let subscription: Awaited<ReturnType<OpencodeClient["event"]["subscribe"]>>;
-      try { subscription = await engine.client.event.subscribe({ directory: cwd },
-        { signal: this.streamController.signal, sseMaxRetryAttempts: 0 }); }
-      catch { await engine.close(); this.engine = undefined; throw new AdvisorRuntimeError("engine-unavailable"); }
-      engine.onExit?.(() => { if (this.engine === engine && !this.closed) {
-        for (const run of this.active.values()) { run.failed = new AdvisorRuntimeError("engine-unavailable"); run.controller.abort(); }
+      try {
+        const location = await engine.client.path.get({ directory: cwd }, { signal: AbortSignal.timeout(CONTROL_TIMEOUT_MS) });
+        if (!location.data || path.resolve(location.data.directory) !== cwd || typeof location.data.worktree !== "string") {
+          throw new AdvisorRuntimeError("scope-mismatch");
+        }
+        this.worktree = location.data.worktree;
+        this.streamController = new AbortController();
+        let subscription: Awaited<ReturnType<OpencodeClient["event"]["subscribe"]>>;
+        try { subscription = await engine.client.event.subscribe({ directory: cwd },
+          { signal: this.streamController.signal, sseMaxRetryAttempts: 0 }); }
+        catch { throw new AdvisorRuntimeError("engine-unavailable"); }
+        engine.onExit?.(() => { if (this.engine === engine && !this.closed) {
+          for (const run of this.active.values()) { run.failed = new AdvisorRuntimeError("engine-unavailable"); run.controller.abort(); }
+          this.engine = undefined;
+        } });
+        void this.consume(subscription.stream, engine, this.streamController.signal);
+      } catch (error) {
+        // Nothing may stay bound to an engine this runtime could not finish setting up. A probe or
+        // subscription that throws used to leave `this.engine` set, so the next turn reused an
+        // engine it could not talk to instead of reconnecting.
+        await engine.close();
         this.engine = undefined;
-      } });
-      void this.consume(subscription.stream, engine, this.streamController.signal);
+        this.engineFingerprint = undefined;
+        this.cwd = undefined;
+        this.worktree = undefined;
+        throw error instanceof AdvisorRuntimeError ? error : new AdvisorRuntimeError("engine-unavailable");
+      }
       return engine;
     };
     this.starting = task();

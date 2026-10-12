@@ -50,6 +50,7 @@ async function fixture(t: TestContext) {
   let noTextTime = false;
   let noPrefaceTime = false;
   let equalNativeTime = false;
+  let pathFails = false;
   let streamed = "Hello";
   const pending = new Map<string, ServerResponse>();
   const emit = (event: unknown) => { for (const peer of peers) peer.write(`data: ${JSON.stringify(event)}\n\n`); };
@@ -68,6 +69,7 @@ async function fixture(t: TestContext) {
     }
     const json = (value: unknown, status = 200) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
     if (pathname === "/path") {
+      if (pathFails) { json({ error: "synthetic control failure" }, 500); return; }
       const directory = new URL(req.url!, "http://localhost").searchParams.get("directory");
       json({ directory, worktree: directory }); return;
     }
@@ -186,7 +188,8 @@ async function fixture(t: TestContext) {
     noPrefaceTime: () => { noPrefaceTime = true; },
     equalNativeTime: () => { equalNativeTime = true; },
     separateReadStep: () => { separateReadStep = true; },
-    setText: (value: string) => { streamed = value; }, getClosed: () => engineClosed };
+    setText: (value: string) => { streamed = value; }, getClosed: () => engineClosed,
+    setPathFails: (value: boolean) => { pathFails = value; } };
 }
 
 test("engine pin verification checks binary hash and rejects tampering before launch", async (t) => {
@@ -283,6 +286,21 @@ test("native session and account identity cannot be transplanted across scopes",
       (error) => error instanceof AdvisorRuntimeError && error.code === "scope-mismatch");
   }
   assert.equal(f.calls.filter((call) => call.pathname.endsWith("/message") && call.method === "POST").length, 1);
+});
+
+test("a control probe that fails closes the engine instead of leaving it bound", async (t) => {
+  const f = await fixture(t);
+  f.setPathFails(true);
+  await assert.rejects(f.runtime.respond(config, request),
+    (error) => error instanceof AdvisorRuntimeError && error.code === "engine-unavailable");
+  assert.equal(f.specs.length, 1);
+  assert.equal(f.getClosed(), 1);
+  // The next turn has to launch a fresh engine rather than reuse the one that never answered.
+  f.setPathFails(false);
+  const result = await f.runtime.respond(config, request);
+  assert.equal(typeof result.runtimeSessionId, "string");
+  assert.equal(f.specs.length, 2);
+  assert.equal(f.getClosed(), 1);
 });
 
 test("native permission requests are always rejected and cannot be approved by prompt", async (t) => {
