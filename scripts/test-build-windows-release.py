@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import shutil
@@ -50,7 +51,20 @@ class BuildReleaseTests(unittest.TestCase):
         self.add_file("resources/client/scripts/real-client-update-extract.py")
         self.add_file("resources/client/bridge/chat_server.py")
         self.add_file("resources/client/chatui/index.html")
-        self.add_file("resources/client/.models/laya/model.onnx", b"synthetic model")
+        # The full variant has to match the pin manifest it publishes, so the synthetic package
+        # carries a manifest for its synthetic model.
+        self.model_bytes = b"synthetic model"
+        self.add_file("resources/client/.models/laya/model.onnx", self.model_bytes)
+        self.write_model_manifest()
+
+    def write_model_manifest(self, *, files=None, schema=1):
+        self.add_file("resources/client/scripts/model-files.json", json.dumps({
+            "schema": schema,
+            "files": files if files is not None else {
+                "model.onnx": {"bytes": len(self.model_bytes),
+                               "sha256": hashlib.sha256(self.model_bytes).hexdigest()},
+            },
+        }).encode("utf-8"))
 
     def add_file(self, relative: str, payload: bytes = b"synthetic") -> Path:
         target = self.source / relative
@@ -95,6 +109,32 @@ class BuildReleaseTests(unittest.TestCase):
         with zipfile.ZipFile(archive_path) as archive:
             self.assertEqual(archive.read(
                 "win-unpacked/resources/client/.models/laya/model.onnx"), b"synthetic model")
+
+    def test_full_variant_refuses_a_model_that_does_not_match_its_pins(self):
+        """The staging step and the updater verify these pins; the packager used to skip them."""
+        for label, files, schema in (
+                ("wrong hash", {"model.onnx": {"bytes": len(self.model_bytes),
+                                               "sha256": "0" * 64}}, 1),
+                ("missing pin", {}, 1),
+                ("bad schema", {"model.onnx": {"bytes": len(self.model_bytes),
+                                               "sha256": hashlib.sha256(
+                                                   self.model_bytes).hexdigest()}}, 2)):
+            with self.subTest(case=label):
+                self.write_model_manifest(files=files, schema=schema)
+                with self.assertRaises(ValueError):
+                    builder.build_release(self.source, self.root / label, "1.0.2", with_model=True)
+
+    def test_full_variant_requires_every_pinned_model_file(self):
+        self.write_model_manifest(files={
+            "model.onnx": {"bytes": len(self.model_bytes),
+                           "sha256": hashlib.sha256(self.model_bytes).hexdigest()},
+            "tokenizer/tokenizer.json": {"bytes": 3, "sha256": "1" * 64},
+        })
+        with self.assertRaises(ValueError):
+            builder.build_release(self.source, self.root / "missing", "1.0.2", with_model=True)
+        self.add_file("resources/client/.models/laya/tokenizer/tokenizer.json", b"abc")
+        with self.assertRaises(ValueError):  # still not the pinned bytes
+            builder.build_release(self.source, self.root / "mismatch", "1.0.2", with_model=True)
 
     def test_version_and_required_artifacts(self):
         for version in ("1.0.2-preview.1", "v1.0.2", "01.0.2", "1.0.2+build", "1.0.2.3", "1.٠.2"):
