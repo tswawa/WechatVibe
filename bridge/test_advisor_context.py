@@ -6,7 +6,7 @@ import threading
 import unittest
 from pathlib import Path
 
-from advisor_context import ContextProjection
+from advisor_context import MAX_PENDING_WINDOWS, ContextProjection
 from advisor_store import AdvisorStoreRoot
 from test_advisor_support import FakeSource, wait_until
 
@@ -110,6 +110,30 @@ class ImportTests(unittest.TestCase):
         snapshot = self.projection.snapshot("synthetic-account-1", "user-a")
         self.assertEqual(snapshot["readCount"], 0)
         self.assertEqual(self.projection.messages("synthetic-account-1", "user-a"), [])
+
+
+    def test_observed_windows_stay_bounded_and_can_be_rebuilt(self):
+        """A retained window is a highwater hint, not a cache; one per conversation grows forever.
+
+        Opening the assistant preloads every added conversation in batches of 64, and each observed
+        window (up to 80 decoded messages) was kept for the whole process. `prepare` falls back to
+        `highwater()` when the entry is gone, so eviction only costs the hint.
+        """
+        binding = self.source.capture_binding(messages=True)
+        window = [{"_sort": [1, "message__message_0.db", 1], "id": "msg-1", "text": "消息",
+                   "side": "other"}]
+        for index in range(MAX_PENDING_WINDOWS + 8):
+            with self.subTest(user=index):
+                self.assertTrue(self.projection.observe_window(
+                    "synthetic-account-1", binding.workdir, f"user-bound-{index}", window, True,
+                    binding))
+        retained = self.projection._pending_windows
+        self.assertLessEqual(len(retained), MAX_PENDING_WINDOWS)
+        self.assertIn(("synthetic-account-1", f"user-bound-{MAX_PENDING_WINDOWS + 7}"), retained)
+        self.assertNotIn(("synthetic-account-1", "user-bound-0"), retained)
+        # An evicted conversation is simply observed again.
+        self.assertTrue(self.projection.observe_window("synthetic-account-1", binding.workdir,
+                                                       "user-bound-0", window, True, binding))
 
 
 class CompressionTests(unittest.TestCase):
