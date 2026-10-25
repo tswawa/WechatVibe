@@ -169,13 +169,16 @@ class ApiPortraitReconciliationTests(unittest.TestCase):
         ledger, identity = self.ledger()
         old = empty_api_portrait()
         old["summary"] = "previous synthetic portrait"
-        with self.repository().connect() as connection:
+        store = self.repository()
+        with store.connect() as connection:
             ledger.clear(connection, identity)
             row = connection.execute("SELECT resume_json FROM api_portrait_v1").fetchone()
-            resume = json.loads(row[0])
+            # The row must be written with the same cipher the store reads it with; the store
+            # may hold a dpapi-backed cipher, or plain JSON in an isolated synthetic repository.
+            resume = store.cipher.loads(row[0])
             resume.pop("portraitLedgerVersion", None)
             connection.execute("UPDATE api_portrait_v1 SET portrait_json=?,resume_json=?",
-                               (json.dumps(old), json.dumps(resume)))
+                               (store.cipher.dumps(old), store.cipher.dumps(resume)))
         self.assertEqual(self.backend.model_portrait("friend")["portrait"], old)
         previous_count = self.backend.model_portrait("friend")["nativeProfile"]["portraitCount"]
         before = len(self.analyzer.portrait_calls)

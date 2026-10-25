@@ -15,6 +15,9 @@ function section(start, end) {
   return source.slice(first, last);
 }
 const code = section("async function api(", "function status(") +
+  // `apiInsightCandidates` only offers messages the link rule accepts, so the helpers that
+  // decide it have to be in the same context (see `bridge/message_input.py`).
+  section("// Links never reach a model", "function hasIntentContent(") +
   section("labelState.messageLabels = null;", "function messageInsightView(") +
   section("function messageInsightView(", "function clearInlineIntentPending(") +
   section("function updateLabel(", "function messageNode(") +

@@ -76,7 +76,9 @@ it("refuses every analysis path for a conversation nobody requested", () => {
 it("explains the refusal instead of failing silently", () => {
   assert.match(gate, /尚未加入会话分析/u);
   assert.match(gate, /setStripStatus\(hint\)/u);
-  assert.match(gate, /if \(conversationAnalysisRequested\(user\)\) return false;/u);
+  // The gate opens for the sidebar grant and for the header scope, which only authorizes
+  // the loaded window; everything else is still refused with the hint above.
+  assert.match(gate, /if \(conversationAnalysisRequested\(user\) \|\| currentIntentRequestScope\(\)\) return false;/u);
 });
 
 it("analyses the clicked conversation immediately, not only via the background switch", () => {

@@ -64,6 +64,7 @@ it("the actual icon generates from context without a draft, portrait target or e
   await settle();
   assert.deepEqual(run.calls[0], { url: "/api/model-guidance", body: {
     account: "acct", user: "friend", sourceId: "source-v1", replyOptions: true, agentId: "advisor", agentRevision: 1,
+    windowMinutes: 1440,
   } });
   assert.equal(run.calls[1].url, "/api/model-guidance?user=friend&replyOptions=true&agentId=advisor&agentRevision=1");
   for (let i = 0; i < 3; i++) {

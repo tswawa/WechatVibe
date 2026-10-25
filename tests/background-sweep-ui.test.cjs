@@ -35,8 +35,8 @@ it("keeps hardware workers local and exposes the requested-conversation sweep fo
 
 it("defines the sweep, overview and worker-settings entry points", () => {
   const app = read("chatui", "app.js");
-  for (const name of ["backgroundAnalyzeAll", "renderAnalysisOverview", "loadAnalysisOverview",
-                      "loadWorkerSettings", "changeWorkerSettings"]) {
+  for (const name of ["backgroundAnalyzeAll", "analyzeConversations", "renderAnalysisOverview",
+                      "loadAnalysisOverview", "loadWorkerSettings", "changeWorkerSettings"]) {
     assert.match(app, new RegExp(`(?:async )?function ${name}\\(`), `app.js must define ${name}`);
   }
   // Opt-in: on a large account the sweep keeps the CPU or GPU busy for hours.
@@ -46,6 +46,14 @@ it("defines the sweep, overview and worker-settings entry points", () => {
   assert.match(app, /void backgroundAnalyzeAll\(\)/u);
   assert.match(app, /"\/api\/analysis-overview"/u);
   assert.match(app, /"\/api\/analysis-workers"/u);
+  // API mode sweeps conversations, not messages: one POST per conversation, and the
+  // window is a ceiling rather than a slice of a single conversation.
+  assert.match(app, /user: id, limit: API_SWEEP_WINDOW/u);
+  // One shared entry point posts a conversation for either model source, so the API and the
+  // local pool cannot drift apart.
+  assert.match(app, /if \(usingApiInsights\(\)\) \{/u);
+  assert.match(app, /user: id, limit: API_SWEEP_WINDOW/u);
+  assert.match(app, /mode: "incremental"/u);
 });
 
 it("keeps the switch, the stepper and the periodic refresh wired up", () => {

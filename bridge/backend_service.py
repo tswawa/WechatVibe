@@ -24,7 +24,7 @@ from pathlib import Path
 
 import message_input
 from account_pin_source import AccountPinError, UNRESOLVED, conflicting_instance
-from api_pool import ApiAnalyzerPool
+from api_pool import ApiAnalyzerPool, MAX_API_WORKERS
 from api_tasks import ApiTaskCoordinator
 from api_portrait_statistics import (append_batch, profile_from_statistics,
                                     valid_statistics, validate_batch_signal)
@@ -47,7 +47,7 @@ from data_root_source import DataRootSource
 from guidance_contracts import (GUIDANCE_CONTEXT_CHARACTERS, GUIDANCE_DRAFT_MAX, GUIDANCE_FEEDBACK_MAX,
                                 GUIDANCE_PORTRAIT_CONTEXT_MAX, GUIDANCE_REVISION,
                                 GUIDANCE_SCENARIOS, GUIDANCE_SUMMARY_CONTEXT_MAX,
-                                GUIDANCE_WINDOW_MESSAGES, MAX_SUBTEXTS, guidance_scope,
+                                GUIDANCE_WINDOW_MESSAGES, MAX_SUBTEXTS, guidance_scope, guidance_window_minutes,
                                 REPLY_OPTIONS_REVISION, normalize_guidance, normalize_reply_options)
 from history_browser import browse as browse_history, saved_results as saved_history_results, search as search_history
 from message_results import validate_fine_result, validate_portrait_result
@@ -147,6 +147,9 @@ class Backend:
         self.model_source_store = model_source_store or ModelSourceStore(
             ROOT / ".local" / "real-client-runtime" / "api-model-source.json", root=ROOT,
             legacy_path=ROOT / ".local" / "real-client-runtime" / "model-source.json")
+        # Message-label turns run one per analyzer, so N conversations can be in flight
+        # at once. Slot 0 is always the current api_analyzer, which keeps the injected
+        # test doubles working; extras are separate API-only processes.
         self.api_pool = ApiAnalyzerPool(lambda: self.api_analyzer,
                                        settings_path=self.model_source_store.path.parent / "api-workers.json")
         # API chat insights have their own source-scoped cache. The local Laya
@@ -229,8 +232,27 @@ class Backend:
                 from advisor_service import AdvisorService
                 from advisor_runtime import runtime_factory
                 service = self._advisor = AdvisorService(
-                    self.source, self.model_source_store, ROOT, runtime_factory(ROOT))
+                    self.source, self.model_source_store, ROOT, runtime_factory(ROOT),
+                    guidance_provider=self._guidance_reference)
             return service
+
+    def _guidance_reference(self, account, user):
+        """The conversation's saved 「潜台词与沟通建议」, for the assistant's reference material.
+
+        The assistant only reads it: nothing here may change analysis state, so an account
+        that is not the verified one, or a store that cannot answer, reads as "nothing to
+        cite" rather than raising into an assistant run.
+        """
+        try:
+            current, _workdir, store = self._scoped_identity()
+        except Exception:  # noqa: BLE001 - reference material must never fail a run
+            return None
+        if current != account:
+            return None
+        try:
+            return store.api_guidance_latest(account, user)
+        except Exception:  # noqa: BLE001 - same reason
+            return None
 
     def _observe_advisor_window(self, account, workdir, user, messages, has_more_before, binding=None):
         advisor = getattr(self, "_advisor", None)
@@ -435,6 +457,8 @@ class Backend:
             close_api = getattr(self.api_analyzer, "close", None)
             if callable(close_api):
                 close_api()
+        # Pool extras are separate processes and are never the primary.
+        self.api_pool.close_extras()
         if self.api_probe_analyzer not in (self.analyzer, self.api_analyzer):
             close_probe = getattr(self.api_probe_analyzer, "close", None)
             if callable(close_probe):
@@ -521,6 +545,32 @@ class Backend:
         if self._selection_account() != account:
             raise AccountChangedError()
         state = self.selection_store.set_selected(account, session, selected)
+        if self._selection_account() != account:
+            raise AccountChangedError()
+        return state
+
+    def set_conversation_requested(self, expected_account, session, requested):
+        """Ask for one conversation to be analysed by the background sweep.
+
+        This is the only way a conversation enters the analysis list, and it is what the
+        per-card button calls. Selecting a conversation does not request it.
+        """
+        if not isinstance(expected_account, str) or not expected_account:
+            raise ValueError("invalid expected account")
+        _session_id(session)
+        if type(requested) is not bool:
+            raise ValueError("invalid requested")
+        account = self._selection_account()
+        if account != expected_account:
+            raise AccountChangedError()
+        metadata = self.source.sessions()
+        if metadata.get("account") != account:
+            raise AccountChangedError()
+        if session not in {item.get("username") for item in metadata.get("sessions", [])}:
+            raise ValueError("unknown session")
+        if self._selection_account() != account:
+            raise AccountChangedError()
+        state = self.selection_store.set_requested(account, session, requested)
         if self._selection_account() != account:
             raise AccountChangedError()
         return state
@@ -959,32 +1009,6 @@ class Backend:
                     self._cancel_api_source_work_locked()
             return self.model_source()
 
-    def set_conversation_requested(self, expected_account, session, requested):
-        """Ask for one conversation to be analysed by the background sweep.
-
-        This is the only way a conversation enters the analysis list, and it is what the
-        per-card button calls. Selecting a conversation does not request it.
-        """
-        if not isinstance(expected_account, str) or not expected_account:
-            raise ValueError("invalid expected account")
-        _session_id(session)
-        if type(requested) is not bool:
-            raise ValueError("invalid requested")
-        account = self._selection_account()
-        if account != expected_account:
-            raise AccountChangedError()
-        metadata = self.source.sessions()
-        if metadata.get("account") != account:
-            raise AccountChangedError()
-        if session not in {item.get("username") for item in metadata.get("sessions", [])}:
-            raise ValueError("unknown session")
-        if self._selection_account() != account:
-            raise AccountChangedError()
-        state = self.selection_store.set_requested(account, session, requested)
-        if self._selection_account() != account:
-            raise AccountChangedError()
-        return state
-
     def _profile_id(self, value):
         if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{32}", value) is None:
             raise ValueError("invalid model source request")
@@ -1054,6 +1078,29 @@ class Backend:
             self.model_source_store.select_profile(profile_id)
             self._commit_api_source_locked(profile_id, config, previous_context)
             return self.model_source()
+
+    def model_source_select(self, request):
+        """Point the assistant at one saved profile; the analysis line keeps running as it is.
+
+        A ``null`` profile means "follow the analysis selection": it drops the assistant's own
+        pin so both lines read one source again. Unlike ``model_source_activate`` this never
+        flips ``active_model_source_mode`` and never touches the active API source, so local
+        analysis stays local and API analysis keeps its own profile.
+        """
+        if not isinstance(request, dict) or set(request) != {"profileId"}:
+            raise ValueError("invalid model source request")
+        profile_id = request["profileId"]
+        if profile_id is not None and (not isinstance(profile_id, str) or not profile_id):
+            raise ValueError("invalid model source request")
+        with self.api_lock:
+            if profile_id is None:
+                self.model_source_store.clear_assistant_profile()
+                source_id = self.model_source_store.saved_selection().get("sourceId")
+            else:
+                self.model_source_store.select_assistant_profile(profile_id)
+                source_id = self.model_source_store.profile_source_id(profile_id)
+            revision = self.model_source_revision
+        return {"profileId": profile_id, "sourceId": source_id, "revision": revision}
 
     def model_source_profile_save(self, request):
         """Create or update one profile without switching the conversation to it."""
@@ -1199,9 +1246,20 @@ class Backend:
                 "guidance": saved["guidance"] if saved else None, "job": job,
                 "suspended": store.cache_suspended(account, source_id) if mode == "api" else False}
 
+    def _guidance_window(self, user, minutes):
+        """Newest messages inside the chosen window, still capped by the message ceiling."""
+        window = self.source.messages(user, GUIDANCE_WINDOW_MESSAGES)
+        # A source without timestamps keeps the old newest-messages behaviour instead of
+        # silently producing an empty window.
+        if not any(type(item.get("time")) is int for item in window):
+            return window
+        cutoff = int(time.time() * 1000) - minutes * 60_000
+        return [item for item in window if type(item.get("time")) is int and item["time"] >= cutoff]
+
     def start_guidance(self, requested_account, user, member=None, scenario="auto",
                        analyze_self=False, feedback=None, draft=None, reply_options=False,
-                       expected_source_id=None, agent_id=None, agent_revision=None):
+                       expected_source_id=None, agent_id=None, agent_revision=None,
+                       window_minutes=None):
         if expected_source_id is not None and (
                 not isinstance(expected_source_id, str) or not 1 <= len(expected_source_id) <= 256 or
                 any(ord(char) < 32 or ord(char) == 127 for char in expected_source_id)):
@@ -1215,6 +1273,7 @@ class Backend:
         if member is not None and (not user.endswith("@chatroom") or
                                    not isinstance(member, str) or not 1 <= len(member) <= 256):
             raise ValueError("invalid guidance subject")
+        window_minutes = guidance_window_minutes(window_minutes)
         if scenario not in GUIDANCE_SCENARIOS:
             raise ValueError("invalid guidance scenario")
         if type(analyze_self) is not bool:
@@ -1264,7 +1323,7 @@ class Backend:
                 return {"account": account, "sourceId": source_id, "subject": subject,
                         **response_identity,
                         "job": {"id": None, "status": "suspended"}}
-        window = self.source.messages(user, GUIDANCE_WINDOW_MESSAGES)
+        window = self._guidance_window(user, window_minutes)
         self._assert_scope(scope)
         group = user.endswith("@chatroom")
         wire = []
@@ -1279,6 +1338,9 @@ class Backend:
             text = item["text"]
             if not isinstance(text, str):
                 continue
+            # Links never reach a model: the wire text is the link-free one, and a message
+            # that carried nothing but a link has no content to read.
+            analysis = message_input.analysis_text(text)
             speaker_name = None
             if group and not member and item["side"] == "other":
                 display = item.get("senderName")
@@ -1286,12 +1348,12 @@ class Backend:
                     display = re.sub(r"[\x00-\x1f\x7f]", " ", display).strip()
                     if display and display != item.get("senderId"):
                         speaker_name = display[:80]
-            characters += len(text) + len(speaker_name or "")
+            characters += len(analysis) + len(speaker_name or "")
             if characters > GUIDANCE_CONTEXT_CHARACTERS:
                 break
             message = {"id": item["id"],
                        "sender": "SELF" if item["side"] == "self" else "OTHER",
-                       "text": text}
+                       "text": analysis}
             if group and not member and item["side"] == "other":
                 # Keep group participants distinct without sending their contact ids.
                 # An unknown sender is never silently merged with another unknown one.
@@ -1302,7 +1364,8 @@ class Backend:
                 if speaker_name:
                     message["speakerName"] = speaker_name
             wire.append(message)
-            if (item["side"] == "other" and text.strip() and len(eligible) < MAX_SUBTEXTS and
+            if (item["side"] == "other" and message_input.has_analysis_content(text) and
+                    len(eligible) < MAX_SUBTEXTS and
                     (not group or not member or item.get("senderId") == member)):
                 eligible.append(item["id"])
         wire.reverse()
@@ -1382,7 +1445,12 @@ class Backend:
         except Exception:
             with self.api_lock:
                 job.update(status="error", error="model-source-changed")
+        finally:
+            # One finish per begin: this wrapper also covers a scope failure that never
+            # reaches the bound worker, so the bound worker must not finish as well.
             self.api_tasks.finish()
+            # `_run_guidance_bound` owns the inflight counter in its own finally; finishing
+            # here as well drove it negative, which `wait_for_idle` can never satisfy.
 
     def _run_guidance_bound(self, job_key, job, scope, store, config, api_key, wire, targets,
                             other_portrait, feedback, draft):
@@ -1459,8 +1527,6 @@ class Backend:
                     "model-source-changed", "invalid-guidance", "guidance-version-invalid",
                     "invalid-request", "agent-changed", "agent-disabled", "agent-unknown", "skill-unknown"} else "model-analysis-failed"
                 job["status"] = "error"
-        finally:
-            self.api_tasks.finish()
 
     def _guidance_self_summary(self, store, job_key):
         """Self advice uses SELF turns; the stored conversation portrait describes OTHER."""
@@ -1531,7 +1597,8 @@ class Backend:
             store.register_api_source(account, source_id, config["protocol"], config["model"])
             text_window = [item for item in window if item["side"] in ("self", "other") and
                            item["kind"] == "text" and isinstance(item["text"], str)]
-            eligible = [item for item in text_window if item["side"] == "other" and item["text"].strip()]
+            eligible = [item for item in text_window if item["side"] == "other" and
+                        message_input.has_analysis_content(item["text"])]
             if target_ids is None:
                 selected = eligible[-limit:]
             else:
@@ -1565,7 +1632,9 @@ class Backend:
                 for item in batch_window:
                     entry = {"id": item["id"],
                              "sender": "SELF" if item["side"] == "self" else "OTHER",
-                             "text": item["text"]}
+                             # Links never reach the model; the stored and displayed text is
+                             # untouched (`message_input.analysis_text`).
+                             "text": message_input.analysis_text(item["text"])}
                     if item["id"] in prepared:
                         entry["inputMeta"] = prepared[item["id"]]["inputMeta"]
                     wire.append(entry)
@@ -1703,7 +1772,8 @@ class Backend:
 
                     # Test doubles and legacy analyzers may keep their six-argument
                     # contract. Pass the optional callback whenever the adapter
-                    # explicitly exposes it, including streaming test doubles.
+                    # explicitly exposes it, including streaming test doubles. The lease is
+                    # taken per attempt, so a retry backoff does not hold a slot.
                     with self.api_pool.lease(validate=lambda: self._assert_api_insight_job(
                             job_key, job, scope, store)) as analyzer:
                         model_insights = analyzer.model_insights
@@ -1747,6 +1817,8 @@ class Backend:
                 except Exception as exc:
                     code = str(exc)
                     if code == "rate-limit":
+                        # The provider (or the Node lane queue) is throttling us. Step the
+                        # pool down before the per-job retry storm adds more turns.
                         self.api_pool.note_rate_limited()
                     if attempt >= API_INSIGHT_RETRY_MAX or code not in API_INSIGHT_RETRYABLE:
                         raise
@@ -1843,6 +1915,15 @@ class Backend:
                 if first_item and skip_first_pieces and item_sort != partial_sort:
                     raise ValueError("unfinished portrait source changed")
                 if item.get("kind") != "text" or sender not in ("self", "other") or not isinstance(text, str) or not text:
+                    if first_item and skip_first_pieces:
+                        raise ValueError("unfinished portrait source changed")
+                    previous_sort, first_item = item_sort, False
+                    continue
+                # The digests above keep the raw text, so editing a link still counts as a
+                # source change; the model only ever receives the text without links, and a
+                # message that was nothing but a link is not a portrait target at all.
+                text = message_input.analysis_text(text)
+                if not text.strip():
                     if first_item and skip_first_pieces:
                         raise ValueError("unfinished portrait source changed")
                     previous_sort, first_item = item_sort, False
@@ -2418,6 +2499,30 @@ class Backend:
             with self.request_condition:
                 self.analysis_scope_resets.discard(reset_scope)
                 self.request_condition.notify_all()
+
+    def forget_message_analysis(self, requested_account, user, source_id, message_id):
+        """Drop one message's saved analysis so the next run computes it again.
+
+        This is the "recompute this one" action behind the message context menu. It only
+        removes the stored row for that id and source; nothing else is invalidated, no job
+        is cancelled and no progress moves. The client then submits the single id through
+        the ordinary path for the active source (``/api/analyze`` with ``targetIds``, or
+        ``/api/model-insights``), which would otherwise skip an already-saved message.
+        """
+        _session_id(user)
+        if (not isinstance(source_id, str) or not isinstance(message_id, str) or
+                not 1 <= len(message_id) <= 200 or
+                any(ord(char) < 32 or ord(char) == 127 for char in message_id)):
+            raise ValueError("invalid analysis target")
+        account, workdir, store = self._scoped_identity()
+        if account != requested_account:
+            raise AccountChangedError()
+        known = {item["sourceId"] for item in self.analysis_cache_status()["sources"]}
+        if source_id != LOCAL_SOURCE_ID and source_id not in known:
+            raise ValueError("unknown analysis source")
+        self._assert_scope((account, workdir))
+        return {"account": account, "user": user, "sourceId": source_id, "messageId": message_id,
+                **store.clear_message(account, user, source_id, message_id)}
 
     def start_model_portrait(self, requested_account, user, member=None, refresh_axes=False):
         if member is not None and (not user.endswith("@chatroom") or
@@ -3062,7 +3167,10 @@ class Backend:
             context_items.pop(0)
         if context_items and len(context_items[-1]["text"]) > 4000:
             raise ForecastRequestError(422, "content-too-long", "这段内容过长，请缩短草稿或稍后重试")
-        context = [{"id": item["id"], "side": item["side"], "text": item["text"],
+        # Reply prediction keeps every message in its window (the draft answers the last one),
+        # but it never sends a link to the model (`message_input.analysis_text`).
+        context = [{"id": item["id"], "side": item["side"],
+                    "text": message_input.analysis_text(item["text"]),
                     "time": item.get("time", 0)} for item in context_items]
         if not context:
             raise ForecastRequestError(422, "no-text-context", "最近对话没有可用于预测的文字消息")
@@ -3175,6 +3283,8 @@ class Backend:
                 return self.start_model_insights(account, user, limit, [message_id], force=True)["job"]
         if store.cache_suspended(account, LOCAL_SOURCE_ID):
             return {"id": None, "status": "suspended", "total": 0, "processed": 0}
+        # A hand-picked selection is resolved (and rejected) before the 202 response, so a
+        # stale id is a 400 the UI can report instead of a job that fails silently later.
         selected = None
         if target_ids is not None:
             if mode != "recent":
@@ -3343,34 +3453,6 @@ class Backend:
         return self._analyze_item(account, user, version, store, context, item, scope,
                                   fine=True, portrait_context=portrait_context)
 
-    def _run_fine_recent(self, account, user, version, store, job, scope, limit):
-        self._assert_scope(scope)
-        window = self.source.messages(user, limit + 3)
-        self._assert_scope(scope)
-        selected = [(index, item) for index, item in enumerate(window)
-                    if index >= len(window) - limit and item["side"] == "other" and
-                    item["kind"] == "text" and item["text"].strip()]
-        known = store.fine_known(account, user, version, [item["id"] for _index, item in selected])
-        job["total"] = len(selected)
-        job["processed"] = sum(item["id"] in known for _index, item in selected)
-        contexts = {}
-        since_yield = 0
-        for index, item in reversed(selected):
-            if item["id"] in known:
-                continue
-            subject = item.get("senderId") if user.endswith("@chatroom") else user
-            if subject not in contexts:
-                contexts[subject] = self._fine_portrait_context(account, user, version, store, item)
-            self._analyze_fine_item(account, user, version, store,
-                                    window[max(0, index - 3):index + 1], item, scope,
-                                    portrait_context=contexts[subject])
-            known.add(item["id"])
-            job["processed"] += 1
-            since_yield += 1
-            if since_yield >= 8 or self._interactive_waiting():
-                since_yield = 0
-                yield
-
     def _resolve_selected_targets(self, user, limit, target_ids):
         """Validate a hand-picked id list against the analysable tail window.
 
@@ -3386,7 +3468,8 @@ class Backend:
         window = self.source.messages(user, limit + 3)
         tail = window[max(0, len(window) - limit):]
         eligible = {item["id"] for item in tail
-                    if item["side"] == "other" and item["kind"] == "text" and item["text"].strip()}
+                    if item["side"] == "other" and item["kind"] == "text" and
+                    message_input.has_analysis_content(item["text"])}
         if any(item not in eligible for item in target_ids):
             raise ValueError("analysis target is no longer in the current window")
         wanted = set(target_ids)
@@ -3403,7 +3486,7 @@ class Backend:
         start = max(0, len(window) - limit)
         selected = [(index, item) for index, item in enumerate(window)
                     if index >= start and item["id"] in wanted and item["side"] == "other" and
-                    item["kind"] == "text" and item["text"].strip()]
+                    item["kind"] == "text" and message_input.has_analysis_content(item["text"])]
         if not selected:
             return
         if self.batch_engine:
@@ -3429,6 +3512,34 @@ class Backend:
             else:
                 self._analyze_item(account, user, version, store,
                                    window[max(0, index - 3):index + 1], item, scope)
+            known.add(item["id"])
+            job["processed"] += 1
+            since_yield += 1
+            if since_yield >= 8 or self._interactive_waiting():
+                since_yield = 0
+                yield
+
+    def _run_fine_recent(self, account, user, version, store, job, scope, limit):
+        self._assert_scope(scope)
+        window = self.source.messages(user, limit + 3)
+        self._assert_scope(scope)
+        selected = [(index, item) for index, item in enumerate(window)
+                    if index >= len(window) - limit and item["side"] == "other" and
+                    item["kind"] == "text" and message_input.has_analysis_content(item["text"])]
+        known = store.fine_known(account, user, version, [item["id"] for _index, item in selected])
+        job["total"] = len(selected)
+        job["processed"] = sum(item["id"] in known for _index, item in selected)
+        contexts = {}
+        since_yield = 0
+        for index, item in reversed(selected):
+            if item["id"] in known:
+                continue
+            subject = item.get("senderId") if user.endswith("@chatroom") else user
+            if subject not in contexts:
+                contexts[subject] = self._fine_portrait_context(account, user, version, store, item)
+            self._analyze_fine_item(account, user, version, store,
+                                    window[max(0, index - 3):index + 1], item, scope,
+                                    portrait_context=contexts[subject])
             known.add(item["id"])
             job["processed"] += 1
             since_yield += 1
@@ -3487,7 +3598,7 @@ class Backend:
             item = window[index]
             analyzed = False
             if ((highwater is None or tuple(item["_sort"]) <= highwater) and
-                    item["kind"] == "text" and item["text"].strip()):
+                    item["kind"] == "text" and message_input.has_analysis_content(item["text"])):
                 stable_id = item["id"]
                 if stable_id not in counted_ids:
                     counted_ids.add(stable_id)
@@ -3558,12 +3669,14 @@ class Backend:
                 return
             if after is not None and next_after <= after:
                 raise RuntimeError("quoted backfill cursor did not advance")
-            eligible = [item for item in page if item["kind"] == "text" and item["text"].strip()]
+            eligible = [item for item in page if item["kind"] == "text" and
+                        message_input.has_analysis_content(item["text"])]
             known = self.batch_engine.known(account, user, version, store, subject, eligible)
             pending, characters = [], 0
             for item in page:
                 position = tuple(item["_sort"])
-                if item["id"] in known or item["kind"] != "text" or not item["text"].strip():
+                if (item["id"] in known or item["kind"] != "text" or
+                        not message_input.has_analysis_content(item["text"])):
                     continue
                 if member is not None and item["senderId"] != member:
                     continue
@@ -3639,7 +3752,7 @@ class Backend:
                 first = first or stable_id
                 last = stable_id
                 analyzed = False
-                if item["kind"] == "text" and item["text"].strip():
+                if item["kind"] == "text" and message_input.has_analysis_content(item["text"]):
                     if stable_id not in counted_ids:
                         counted_ids.add(stable_id)
                         job["total"] += 1
@@ -3711,7 +3824,7 @@ class Backend:
                     # Results and skips always reach durable storage before their scan cursor.
                     store.advance(account, user, version, position, saved_context, item)
                 cursor = position
-                if item["kind"] == "text" and item["text"].strip():
+                if item["kind"] == "text" and message_input.has_analysis_content(item["text"]):
                     job["total"] += 1
                     job["processed"] += 1
                 job["scope"]["last"] = item["id"]
@@ -3759,7 +3872,7 @@ class Backend:
                     continue
                 analyzed = False
                 prepared = None
-                if item["kind"] == "text" and item["text"].strip():
+                if item["kind"] == "text" and message_input.has_analysis_content(item["text"]):
                     if not store.has(account, user, version, item["id"]):
                         prepared = self._analyze_item(account, user, version, store,
                                                       [*context, item], item, defer=True)
@@ -3797,7 +3910,8 @@ class Backend:
         self._assert_scope(scope)
         selected = window[-limit:]
         cached = store.ids(account, user, version)
-        eligible = [item for item in selected if item["kind"] == "text" and item["text"].strip()]
+        eligible = [item for item in selected
+                    if item["kind"] == "text" and message_input.has_analysis_content(item["text"])]
         pending = [item for item in eligible if item["id"] not in cached]
         positions = {message["id"]: index for index, message in enumerate(window)}
         job["total"] = len(eligible)

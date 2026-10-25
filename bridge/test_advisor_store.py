@@ -11,7 +11,7 @@ from advisor_store import AdvisorPathError, AdvisorStoreRoot, _write_json_atomic
 
 class AgentConfigTests(unittest.TestCase):
     def setUp(self):
-        temp = tempfile.TemporaryDirectory()
+        temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.stores = AdvisorStoreRoot(self.root)
@@ -20,7 +20,7 @@ class AgentConfigTests(unittest.TestCase):
 
     def test_default_catalog_has_presets_and_stays_off_disk_until_mutated(self):
         agents = self.config.agents()
-        self.assertEqual(len(agents), 3)
+        self.assertEqual(len(agents), 4)
         self.assertTrue(all(agent["builtin"] for agent in agents))
         self.assertTrue(all(agent["welcome"] == "嗨，我是你的" + agent["name"] for agent in agents))
         self.assertFalse(self.config.path.exists())
@@ -95,7 +95,7 @@ class AgentConfigTests(unittest.TestCase):
                                           "skillIds": []})
         reloaded = AdvisorStoreRoot(self.root).config
         self.assertEqual(reloaded.agent(created["id"])["name"], "持久化")
-        self.assertEqual(len(reloaded.agents()), 4)
+        self.assertEqual(len(reloaded.agents()), 5)
 
     def test_custom_welcome_persists_and_rename_preserves_custom_text(self):
         created = self.config.save_agent({"name": "军师", "description": "", "prompt": "", "skillIds": [],
@@ -227,7 +227,7 @@ class AccountDatabaseTests(unittest.TestCase):
         self.assertEqual(database.latest_thread("user", "builtin:advisor")["id"], current["id"])
 
     def setUp(self):
-        temp = tempfile.TemporaryDirectory()
+        temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.stores = AdvisorStoreRoot(self.root)
@@ -314,8 +314,15 @@ class AccountDatabaseTests(unittest.TestCase):
                                      capture_output=True)
             if created.returncode != 0:
                 self.skipTest("symlinks and junctions unavailable")
-        with self.assertRaises(AdvisorPathError):
-            self.stores.account("acct-evil").create_thread("user", "agent", "source")
+        # Restricted sandboxes treat junctions as untrusted mount points and refuse to
+        # traverse them (Windows 448), which would test the machine rather than the store.
+        try:
+            with self.assertRaises(AdvisorPathError):
+                self.stores.account("acct-evil").create_thread("user", "agent", "source")
+        except OSError as error:
+            if getattr(error, "winerror", None) != 448:
+                raise
+            self.skipTest("reparse alias cannot be traversed on this volume")
 
     @staticmethod
     def _context_row(seq, text):

@@ -383,6 +383,9 @@
           </div>
         </div>
 
+        <!-- 潜台词与沟通建议 moved into the assistant panel (助手仓库 / 聊天助手):
+             `builtin-skill:guidance` plus the saved result as reference material. -->
+
       </div><!-- /persona-dashboard -->
     </div><!-- /personaView -->
     <!-- VIEW 3: ASSISTANT REPOSITORY VIEW -->
@@ -405,6 +408,10 @@
         <div class="settings-tab-btn active" data-tab="general">
           <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
           <span>通用设置</span>
+        </div>
+        <div class="settings-tab-btn" data-tab="model">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z"/></svg>
+          <span>模型配置</span>
         </div>
         <div class="settings-tab-btn" data-tab="about">
           <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
@@ -433,130 +440,6 @@
               <option value="1.5">150% (特大)</option>
             </select>
           </div>
-          <div class="settings-row">
-            <label for="selectModelSource">模型来源</label>
-            <div class="model-source-choice">
-              <span id="modelSourceActive" role="status">待读取</span>
-              <select id="selectModelSource" aria-label="模型来源" disabled>
-                <option value="local">本地部署</option>
-                <option value="api">API 接入</option>
-              </select>
-            </div>
-          </div>
-          <section class="model-source-panel" id="localModelSettings">
-            <div class="settings-row">
-              <span>本地模型</span>
-              <span class="model-source-value">Laya</span>
-            </div>
-            <div class="settings-row">
-              <label for="selectRuntimeProvider">模型设备</label>
-              <div class="runtime-control">
-                <span id="runtimeStatus" role="status">待读取</span>
-                <select id="selectRuntimeProvider" aria-label="模型设备" disabled>
-                  <option value="cpu">CPU</option>
-                  <option value="gpu">GPU</option>
-                </select>
-              </div>
-            </div>
-            <div class="settings-row">
-              <span>模型文件</span>
-              <span id="localModelStatus" role="status">检测中…</span>
-            </div>
-            <div class="local-model-control">
-              <button type="button" class="settings-action-btn" id="btnDownloadLocalModel">下载模型</button>
-              <button type="button" class="settings-action-btn" id="btnChooseLocalModelDir">选择目录</button>
-            </div>
-            <div class="local-model-progress" id="localModelDownloadProgress" role="status" hidden></div>
-            <div class="model-source-actions" id="localModelActions" hidden>
-              <button type="button" class="settings-action-btn" id="btnActivateLocal">启用本地模型</button>
-            </div>
-            <div class="settings-row settings-row-wide">
-              <span>本地分析并行数</span>
-              <span class="worker-stepper">
-                <button type="button" class="settings-action-btn" id="btnWorkerMinus" aria-label="减少并行数">−</button>
-                <strong id="workerLimitValue">—</strong>
-                <button type="button" class="settings-action-btn" id="btnWorkerPlus" aria-label="增加并行数">+</button>
-                <button type="button" class="settings-action-btn" id="btnToggleElasticWorkers" aria-label="本地分析跟随负载" aria-pressed="false" aria-describedby="workerLimitHint" title="负载高时自动降低本地分析并行数">跟随负载</button>
-              </span>
-            </div>
-            <div class="settings-row worker-hint-row">
-              <span id="workerLimitHint" class="model-source-status" role="status" aria-live="polite"></span>
-            </div>
-          </section>
-          <section class="model-source-panel api-model-settings" id="apiModelSettings" hidden>
-            <div class="settings-row">
-              <label for="selectApiProfile">已保存的配置</label>
-              <select id="selectApiProfile">
-                <option value="">新建配置</option>
-              </select>
-            </div>
-            <div class="model-source-field">
-              <label for="inputApiProfileName">配置名称</label>
-              <input id="inputApiProfileName" type="text" maxlength="64" placeholder="显示在聊天标题栏，例如 DeepSeek" autocomplete="off" spellcheck="false">
-            </div>
-            <div class="settings-row">
-              <label for="selectApiProtocol">接口协议</label>
-              <select id="selectApiProtocol">
-                <option value="anthropic">Anthropic 兼容</option>
-                <option value="responses">Responses 兼容</option>
-                <option value="chat_completions">Completions（旧版）</option>
-                <option value="gemini">Gemini 兼容</option>
-                <option value="ollama">Ollama 兼容</option>
-              </select>
-            </div>
-            <div class="model-source-field">
-              <label for="inputApiBaseUrl">Base URL</label>
-              <input id="inputApiBaseUrl" type="text" inputmode="url" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
-            </div>
-            <div class="model-source-field">
-              <label for="inputApiKey">API Key <span id="apiKeySaved" hidden>已保存</span></label>
-              <input id="inputApiKey" type="password" placeholder="留空沿用已保存密钥" autocomplete="new-password" spellcheck="false">
-            </div>
-            <div class="model-source-discovery">
-              <button type="button" class="settings-action-btn" id="btnFetchApiModels">获取模型列表</button>
-              <span id="apiModelCount" role="status"></span>
-            </div>
-            <div class="model-source-field">
-              <label for="selectApiModel">模型列表</label>
-              <select id="selectApiModel" aria-label="模型列表" disabled>
-                <option value="">获取列表后选择</option>
-              </select>
-            </div>
-            <div class="model-source-field">
-              <label for="inputApiModelId">模型 ID</label>
-              <input id="inputApiModelId" type="text" placeholder="可手动填写模型 ID" autocomplete="off" spellcheck="false">
-            </div>
-            <div class="model-source-field">
-              <label for="inputApiContextTokens">上下文大小（tokens）</label>
-              <input id="inputApiContextTokens" type="number" min="4096" max="1000000" step="1" placeholder="接口未提供时填写，例如 128000" inputmode="numeric">
-            </div>
-            <div class="settings-row settings-row-wide">
-              <span>API 分析并行数</span>
-              <span class="worker-stepper">
-                <button type="button" class="settings-action-btn" id="btnApiWorkerMinus" aria-label="减少 API 并行数">−</button>
-                <strong id="apiWorkerValue">—</strong>
-                <button type="button" class="settings-action-btn" id="btnApiWorkerPlus" aria-label="增加 API 并行数">+</button>
-              </span>
-            </div>
-            <div class="settings-row worker-hint-row">
-              <span id="apiWorkerLimitHint" class="model-source-status" role="status"></span>
-            </div>
-            <div class="model-source-actions">
-              <button type="button" class="settings-action-btn" id="btnTestApiModel">测试连接</button>
-              <button type="button" class="settings-action-btn" id="btnSaveApiProfile">仅保存配置</button>
-              <button type="button" class="settings-action-btn model-source-primary" id="btnActivateApi">保存并启用</button>
-              <button type="button" class="settings-danger-btn" id="btnDeleteApiProfile" hidden>删除配置</button>
-              <button type="button" class="settings-danger-btn" id="btnClearApiKey" hidden>清除密钥</button>
-            </div>
-            <div class="model-source-status-row" id="apiProfileDeleteConfirm" hidden>
-              <span id="apiProfileDeleteQuestion" class="model-source-status" role="status"></span>
-              <span class="model-source-actions">
-                <button type="button" class="settings-danger-btn" id="btnConfirmDeleteApiProfile">确认删除</button>
-                <button type="button" class="settings-action-btn" id="btnCancelDeleteApiProfile">取消</button>
-              </span>
-            </div>
-            <div id="apiModelTestStatus" class="model-source-status" role="status"></div>
-          </section>
           <div class="settings-row settings-row-wide">
             <span>后台分析名单中的会话</span>
             <button type="button" class="settings-action-btn" id="btnToggleBackgroundAnalyze" aria-label="后台分析名单中的会话" aria-pressed="false" aria-describedby="backgroundAnalyzeHint" title="不自动在后台分析会话">已关闭</button>
@@ -564,9 +447,19 @@
           <div class="settings-row settings-status-row">
             <span id="backgroundAnalyzeHint" class="model-source-status" role="status" aria-live="polite">已关闭：不会自动在后台分析会话；仍可手动分析。API 分析会产生接口用量。</span>
           </div>
-          <div class="model-source-status-row">
-            <div id="modelSourceStatus" class="model-source-status" role="status"></div>
-            <button type="button" class="settings-action-btn" id="btnReloadModelSource" hidden>重新读取</button>
+          <div class="settings-row">
+            <label for="inputGuidanceWindow">生成回复的聊天范围</label>
+            <span class="guidance-window-input">
+              <input type="number" id="inputGuidanceWindow" min="1" max="720" step="0.5"
+                     inputmode="decimal" aria-describedby="guidanceWindowHint" value="1">
+              <select id="selectGuidanceWindowUnit" aria-label="时间单位">
+                <option value="hours">小时</option>
+                <option value="days" selected>天</option>
+              </select>
+            </span>
+          </div>
+          <div class="settings-row settings-status-row">
+            <span id="guidanceWindowHint" class="model-source-status" role="status" aria-live="polite">只把最近 1 天内的聊天发送给模型。</span>
           </div>
           <div class="settings-row">
             <span>信息列表</span>
@@ -653,7 +546,140 @@
           </section>
         </div>
 
-        <!-- Panel 2: About -->
+        <!-- Panel 2: Model configuration -->
+        <div class="settings-panel" id="panelModel">
+          <div class="settings-title">模型配置</div>
+          <div class="settings-row">
+            <label for="selectModelSource">模型来源</label>
+            <div class="model-source-choice">
+              <span id="modelSourceActive" role="status">待读取</span>
+              <select id="selectModelSource" aria-label="模型来源" disabled>
+                <option value="local">本地部署</option>
+                <option value="api">API 接入</option>
+              </select>
+            </div>
+          </div>
+          <section class="model-source-panel" id="localModelSettings">
+            <div class="settings-row">
+              <span>本地模型</span>
+              <span class="model-source-value">Laya</span>
+            </div>
+            <div class="settings-row">
+              <label for="selectRuntimeProvider">模型设备</label>
+              <div class="runtime-control">
+                <span id="runtimeStatus" role="status">待读取</span>
+                <select id="selectRuntimeProvider" aria-label="模型设备" disabled>
+                  <option value="cpu">CPU</option>
+                  <option value="gpu">GPU</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-row">
+              <span>模型文件</span>
+              <span id="localModelStatus" role="status">检测中…</span>
+            </div>
+            <div class="local-model-control">
+              <button type="button" class="settings-action-btn" id="btnDownloadLocalModel">下载模型</button>
+              <button type="button" class="settings-action-btn" id="btnChooseLocalModelDir">选择目录</button>
+            </div>
+            <div class="local-model-progress" id="localModelDownloadProgress" role="status" hidden></div>
+            <div class="model-source-actions" id="localModelActions" hidden>
+              <button type="button" class="settings-action-btn" id="btnActivateLocal">启用本地模型</button>
+            </div>
+            <div class="settings-row settings-row-wide">
+              <span>本地分析并行数</span>
+              <span class="worker-stepper">
+                <button type="button" class="settings-action-btn" id="btnWorkerMinus" aria-label="减少并行数">−</button>
+                <strong id="workerLimitValue">—</strong>
+                <button type="button" class="settings-action-btn" id="btnWorkerPlus" aria-label="增加并行数">+</button>
+                <button type="button" class="settings-action-btn" id="btnToggleElasticWorkers" aria-label="跟随负载调整并行数" aria-pressed="false" aria-describedby="workerLimitHint">跟随负载</button>
+              </span>
+            </div>
+            <div class="settings-row worker-hint-row">
+              <span id="workerLimitHint" class="model-source-status" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+          <section class="model-source-panel api-model-settings" id="apiModelSettings" hidden>
+            <div class="settings-row">
+              <label for="selectApiProfile">已保存的配置</label>
+              <select id="selectApiProfile">
+                <option value="">新建配置</option>
+              </select>
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiProfileName">配置名称</label>
+              <input id="inputApiProfileName" type="text" maxlength="64" placeholder="显示在聊天标题栏，例如 DeepSeek" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="settings-row">
+              <label for="selectApiProtocol">接口协议</label>
+              <select id="selectApiProtocol">
+                <option value="anthropic">Anthropic 兼容</option>
+                <option value="responses">Responses 兼容</option>
+                <option value="chat_completions">Completions（旧版）</option>
+                <option value="gemini">Gemini 兼容</option>
+                <option value="ollama">Ollama 兼容</option>
+              </select>
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiBaseUrl">Base URL</label>
+              <input id="inputApiBaseUrl" type="text" inputmode="url" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiKey">API Key <span id="apiKeySaved" hidden>已保存</span></label>
+              <input id="inputApiKey" type="password" placeholder="留空沿用已保存密钥" autocomplete="new-password" spellcheck="false">
+            </div>
+            <div class="model-source-discovery">
+              <button type="button" class="settings-action-btn" id="btnFetchApiModels">获取模型列表</button>
+              <span id="apiModelCount" role="status"></span>
+            </div>
+            <div class="model-source-field">
+              <label for="selectApiModel">模型列表</label>
+              <select id="selectApiModel" aria-label="模型列表" disabled>
+                <option value="">获取列表后选择</option>
+              </select>
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiModelId">模型 ID</label>
+              <input id="inputApiModelId" type="text" placeholder="可手动填写模型 ID" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="model-source-field">
+              <label for="inputApiContextTokens">上下文大小（tokens）</label>
+              <input id="inputApiContextTokens" type="number" min="4096" max="1000000" step="1" placeholder="接口未提供时填写，例如 128000" inputmode="numeric">
+            </div>
+            <div class="settings-row settings-row-wide">
+              <span>API 分析并行数</span>
+              <span class="worker-stepper">
+                <button type="button" class="settings-action-btn" id="btnApiWorkerMinus" aria-label="减少 API 并行数">−</button>
+                <strong id="apiWorkerValue">—</strong>
+                <button type="button" class="settings-action-btn" id="btnApiWorkerPlus" aria-label="增加 API 并行数">+</button>
+              </span>
+            </div>
+            <div class="settings-row worker-hint-row">
+              <span id="apiWorkerLimitHint" class="model-source-status" role="status"></span>
+            </div>
+            <div class="model-source-actions">
+              <button type="button" class="settings-action-btn" id="btnTestApiModel">测试连接</button>
+              <button type="button" class="settings-action-btn" id="btnSaveApiProfile">仅保存配置</button>
+              <button type="button" class="settings-action-btn model-source-primary" id="btnActivateApi">保存并启用</button>
+              <button type="button" class="settings-danger-btn" id="btnDeleteApiProfile" hidden>删除配置</button>
+              <button type="button" class="settings-danger-btn" id="btnClearApiKey" hidden>清除密钥</button>
+            </div>
+            <div class="model-source-status-row" id="apiProfileDeleteConfirm" hidden>
+              <span id="apiProfileDeleteQuestion" class="model-source-status" role="status"></span>
+              <span class="model-source-actions">
+                <button type="button" class="settings-danger-btn" id="btnConfirmDeleteApiProfile">确认删除</button>
+                <button type="button" class="settings-action-btn" id="btnCancelDeleteApiProfile">取消</button>
+              </span>
+            </div>
+            <div id="apiModelTestStatus" class="model-source-status" role="status"></div>
+          </section>
+          <div class="model-source-status-row">
+            <div id="modelSourceStatus" class="model-source-status" role="status"></div>
+            <button type="button" class="settings-action-btn" id="btnReloadModelSource" hidden>重新读取</button>
+          </div>
+        </div>
+
+        <!-- Panel 3: About -->
         <div class="settings-panel" id="panelAbout">
         <div class="settings-title about-title"><img src="/assets/wechatvibe-icon.png" alt="" class="about-brand-icon">关于 WechatVibe</div>
         <div class="about-card">
@@ -728,6 +754,11 @@
       <button type="button" class="settings-action-btn" id="btnConfirmAnalysisScopeReset">确认重置</button>
     </div>
   </div>
+</div>
+<!-- Per-message actions: right-clicking a chat record opens this menu. -->
+<div class="msg-context-menu" id="messageContextMenu" role="menu" aria-label="消息操作" hidden>
+  <button type="button" class="msg-context-item" id="btnRecomputeMessage" role="menuitem">重新算</button>
+  <div class="msg-context-hint" id="messageContextHint" role="status" hidden></div>
 </div>
 <script src="kaomoji.js"></script>
 <script src="view-state.js"></script>

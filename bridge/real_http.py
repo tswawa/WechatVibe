@@ -15,8 +15,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from backend_contracts import AccountUnavailableError, MessagesUnavailableError, ForecastRequestError, ROOT
-from backend_service import Backend
 from api_pool import MAX_API_WORKERS
+from backend_service import Backend
 from wechat_source import WeChatSource
 from account_store import AccountConflict, AccountNotFound, account_id
 from instance_identity import default_port, instance_id
@@ -125,6 +125,18 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
             return (self.headers.get("Host") in hosts and
                     (origin is None or origin in origins) and
                     self.path.startswith("/") and not self.path.startswith("//"))
+
+        def discard_body(self):
+            """Read a small request body the handler is about to ignore."""
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return
+            if 0 < length <= 1 << 20:
+                try:
+                    self.rfile.read(length)
+                except OSError:
+                    pass
 
         def send(self, status, body, content_type="application/json; charset=utf-8"):
             payload = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -299,6 +311,9 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
 
         def _do_POST(self):
             if not self.trusted_request():
+                # Answering before the request body is read makes Windows reset the
+                # connection, so the client sees an abort instead of this 403.
+                self.discard_body()
                 return self.send(403, {"error": "forbidden"})
             endpoint = urlsplit(self.path).path
             if endpoint == "/api/control/shutdown":
@@ -314,19 +329,22 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return
             model_endpoints = ("/api/model-source/list", "/api/model-source/test",
-                               "/api/model-source/activate", "/api/model-source/clear-key",
+                               "/api/model-source/activate", "/api/model-source/select",
+                               "/api/model-source/clear-key",
                                "/api/model-source/profiles", "/api/model-source/profiles/delete")
             if endpoint not in ("/api/analyze", "/api/predict-reply", "/api/messages/batch",
                                  "/api/runtime", "/api/local-model", "/api/model-insights",
                                  "/api/model-portrait", "/api/model-guidance", "/api/analysis-cache/clear",
                                  "/api/analysis-scope/clear",
+                                 "/api/analysis-target/forget",
                                  "/api/analysis-cache/resume", "/api/conversation-selection",
                                  "/api/data-root", "/api/data-root/clear",
                                  "/api/account-pin", "/api/account-pin/clear",
                                  "/api/analysis-workers", "/api/api-workers",
                                  *advisor_http.POST_PATHS,
                                  *model_endpoints):
-                return self.send(404, {"error": "not found"})
+                                 self.discard_body()
+                                 return self.send(404, {"error": "not found"})
             content_type = [part.strip().lower() for part in self.headers.get("Content-Type", "").split(";")]
             if content_type[0] != "application/json" or any(part != "charset=utf-8" for part in content_type[1:]):
                 return self.send(415, {"error": "application/json required"})
@@ -351,6 +369,8 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
                             return self.send(200, backend.model_source_test(request))
                         if endpoint == "/api/model-source/activate":
                             return self.send(200, backend.model_source_activate(request))
+                        if endpoint == "/api/model-source/select":
+                            return self.send(200, backend.model_source_select(request))
                         if endpoint == "/api/model-source/profiles":
                             return self.send(200, backend.model_source_profile_save(request))
                         if endpoint == "/api/model-source/profiles/delete":
@@ -443,6 +463,31 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
                         user_value(request.get("account")), user_value(request.get("user")),
                         user_value(member) if member is not None else None,
                         refresh_axes=refresh_axes))
+                if endpoint == "/api/model-guidance":
+                    if not set(request) <= {"account", "user", "member", "scenario", "analyzeSelf", "feedback", "draft", "replyOptions", "sourceId", "agentId", "agentRevision", "windowMinutes"} or "account" not in request:
+                        raise ValueError("invalid guidance request")
+                    member = request.get("member")
+                    analyze_self = request.get("analyzeSelf", False)
+                    if type(analyze_self) is not bool:
+                        raise ValueError("invalid guidance self-style flag")
+                    try:
+                        return self.send(202, backend.start_guidance(
+                            user_value(request.get("account")), user_value(request.get("user")),
+                            user_value(member) if member is not None else None,
+                            scenario=request.get("scenario", "auto"), analyze_self=analyze_self,
+                            feedback=request.get("feedback"), draft=request.get("draft"),
+                            reply_options=request.get("replyOptions", False),
+                            agent_id=request.get("agentId"), agent_revision=request.get("agentRevision"),
+                            expected_source_id=user_value(request["sourceId"]) if "sourceId" in request else None,
+                            window_minutes=request.get("windowMinutes")))
+                    except RuntimeError as exc:
+                        if str(exc) == "model-source-changed":
+                            return self.send(409, {"error": "model-source-changed",
+                                                   "message": "模型来源已切换，请重新生成"})
+                        if str(exc) == "guidance-busy":
+                            return self.send(409, {"error": "guidance-busy",
+                                                   "message": "上一条建议仍在生成，请完成后再试"})
+                        raise
                 if endpoint == "/api/analysis-scope/clear":
                     if (set(request) not in ({"account", "user", "sourceId", "kind"},
                                             {"account", "user", "sourceId", "kind", "member"}) or
@@ -457,30 +502,15 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
                         if str(exc) in {"analysis-reset-in-progress", "analysis-reset-busy"}:
                             return self.send(409, {"error": str(exc), "message": "当前分析尚未结束，请稍后重置"})
                         raise
-                if endpoint == "/api/model-guidance":
-                    if not set(request) <= {"account", "user", "member", "scenario", "analyzeSelf", "feedback", "draft", "replyOptions", "sourceId", "agentId", "agentRevision"} or "account" not in request:
-                        raise ValueError("invalid guidance request")
-                    member = request.get("member")
-                    analyze_self = request.get("analyzeSelf", False)
-                    if type(analyze_self) is not bool:
-                        raise ValueError("invalid guidance self-style flag")
-                    try:
-                        return self.send(202, backend.start_guidance(
-                            user_value(request.get("account")), user_value(request.get("user")),
-                            user_value(member) if member is not None else None,
-                            scenario=request.get("scenario", "auto"), analyze_self=analyze_self,
-                            feedback=request.get("feedback"), draft=request.get("draft"),
-                            reply_options=request.get("replyOptions", False),
-                            agent_id=request.get("agentId"), agent_revision=request.get("agentRevision"),
-                            expected_source_id=user_value(request["sourceId"]) if "sourceId" in request else None))
-                    except RuntimeError as exc:
-                        if str(exc) == "model-source-changed":
-                            return self.send(409, {"error": "model-source-changed",
-                                                   "message": "模型来源已切换，请重新生成"})
-                        if str(exc) == "guidance-busy":
-                            return self.send(409, {"error": "guidance-busy",
-                                                   "message": "上一条建议仍在生成，请完成后再试"})
-                        raise
+                if endpoint == "/api/analysis-target/forget":
+                    # "Recompute this message": the saved row goes away first, then the
+                    # client submits this single id like any other hand-picked target.
+                    if set(request) != {"account", "user", "sourceId", "messageId"}:
+                        raise ValueError("invalid analysis target")
+                    result = backend.forget_message_analysis(
+                        user_value(request["account"]), user_value(request["user"]),
+                        user_value(request["sourceId"]), request_id_value(request["messageId"]))
+                    return self.send(200, {"forgotten": True, **result})
                 if endpoint in ("/api/analysis-cache/clear", "/api/analysis-cache/resume"):
                     if set(request) != {"account", "sourceId"}:
                         raise ValueError("invalid cache request")
@@ -520,6 +550,9 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
                 mode = request.get("mode")
                 if mode not in ("recent", "history", "incremental", "message"):
                     raise ValueError("invalid mode")
+                # Hand-picked message ids. The backend resolves them against the same tail
+                # window this endpoint's `limit` describes, so the request is rejected with
+                # 400 when an id has fallen out of the window.
                 target_ids = request.get("targetIds")
                 if target_ids is not None and mode != "recent":
                     raise ValueError("invalid analysis targets")

@@ -189,20 +189,16 @@ class ConversationSelectionStore:
         if (not isinstance(sessions, list) or not 1 <= len(sessions) <= 1000 or
                 len(set(_session_id(session) for session in sessions)) != len(sessions)):
             raise ValueError("invalid session selection")
-        with self.lock:
-            path = self._path(account)
-            if not path.is_file():
+
+        def body(conn):
+            state = self._state(conn, account)
+            if not set(sessions) <= set(state["selectedSessions"]):
                 raise ValueError("session not selected")
-            try:
-                with closing(sqlite3.connect(path, timeout=15)) as conn:
-                    conn.execute("BEGIN IMMEDIATE")
-                    state = self._state(conn, account)
-                    if not set(sessions) <= set(state["selectedSessions"]):
-                        raise ValueError("session not selected")
-                    conn.executemany("DELETE FROM conversation_selection_v1 WHERE account=? AND session=?",
-                                     [(account, session) for session in sessions])
-                    state = self._state(conn, account)
-                    conn.commit()
-                    return state
-            except sqlite3.DatabaseError as exc:
-                raise SelectionCorrupt("conversation selection cannot be saved") from exc
+            conn.executemany("DELETE FROM conversation_selection_v1 WHERE account=? AND session=?",
+                             [(account, session) for session in sessions])
+
+        # `_write` would create the database; removing from an account that has no file must
+        # stay a rejection, not a side effect.
+        if not self._path(account).is_file():
+            raise ValueError("session not selected")
+        return self._write(account, body)

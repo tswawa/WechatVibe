@@ -12,6 +12,12 @@ Two independent stores live here:
 
 The native OpenCode state directory lives under the same account directory so
 the parent's account clear removes it with the rest of the projection.
+
+Every column that carries chat text — the transcript, the scoped request, the
+imported WeChat records and their summaries — is sealed with
+:class:`payload_crypto.PayloadCipher` before it reaches SQLite. Reading accepts
+both a sealed value and a legacy plaintext one, so an existing projection keeps
+working and turns into ciphertext on its next write.
 """
 from __future__ import annotations
 
@@ -30,10 +36,11 @@ from pathlib import Path
 from advisor_contracts import (
     MAX_AGENTS, MAX_AGENT_DESCRIPTION, MAX_AGENT_NAME, MAX_AGENT_WELCOME,
     MAX_AGENT_PROMPT, MAX_SKILLS, MAX_SKILL_CONTENT, MAX_SKILL_DESCRIPTION,
-    MAX_SKILL_IDS, MAX_SKILL_NAME, AdvisorError, builtin_agents, builtin_skill_ids, builtin_skills,
+    MAX_SKILL_IDS, MAX_SKILL_NAME, MAX_HISTORY_THREADS, AdvisorError, builtin_agents, builtin_skill_ids, builtin_skills,
     default_welcome, new_identifier, normalize_agent_payload, normalize_skill, single_line,
     text_block, valid_enabled, valid_identifier, valid_request_id, valid_sha256,
 )
+from payload_crypto import ENVELOPE, PayloadCipher, PayloadUnreadable
 
 SUPPORTED_CONFIG_VERSION = 2
 MAX_IMPORT_REQUESTS = 200
@@ -564,6 +571,10 @@ CREATE TABLE IF NOT EXISTS summaries (
     created_at_ms INTEGER NOT NULL,
     PRIMARY KEY(user, range_key, version, model_fp, level)
 );
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -574,16 +585,69 @@ def _now_ms():
 class AccountDatabase:
     """Private append-only projection for one real account."""
 
-    def __init__(self, data_root, account):
+    def __init__(self, data_root, account, *, cipher=None):
         self.data_root = _checked_root(data_root)
         self.account = account
         self.digest = hashlib.sha256(account.encode("utf-8")).hexdigest()
         self.directory = self.data_root / self.digest
         self.path = self.directory / "advisor.sqlite3"
         self.state_dir = self.directory / "opencode"
+        self.cipher = cipher if isinstance(cipher, PayloadCipher) else None
         self.lock = threading.RLock()
         self._connection = None
         self._closed = False
+
+    # -- chat text sealing ----------------------------------------------------
+    def _seal(self, value):
+        """Seal one text column; a blank value and an already sealed one pass through."""
+        if self.cipher is None or not isinstance(value, str) or not value:
+            return value
+        if value.startswith(ENVELOPE):
+            return value
+        return self.cipher.protect(value)
+
+    def _open(self, value):
+        """Read one text column; a legacy plaintext value stays readable as-is."""
+        if self.cipher is None or not isinstance(value, str) or not value.startswith(ENVELOPE):
+            return value
+        return self.cipher.unprotect(value)
+
+    def _open_row(self, row, fields):
+        if row is None or self.cipher is None:
+            return row
+        sealed = {field: self._open(row[field]) for field in fields if field in row.keys()}
+        return {**dict(row), **sealed} if sealed else dict(row)
+
+    # -- one-time sealing of legacy plaintext rows ---------------------------
+    _SEALED_COLUMNS = (
+        ("messages", ("id",), ("text",)),
+        ("requests", ("user", "agent_id", "request_id"), ("message",)),
+        ("context_messages", ("user", "seq"), ("text", "raw")),
+        ("summaries", ("user", "range_key", "version", "model_fp", "level"), ("text",)),
+    )
+
+    def _seal_existing_text(self, connection):
+        """Rewrite plaintext rows once so an old projection stops leaking chat text.
+
+        Recorded in ``meta`` so reopening an already sealed database is a cheap no-op scan.
+        """
+        if connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone() is None:
+            return
+        done = connection.execute("SELECT value FROM meta WHERE key='text-sealed'").fetchone()
+        if done is not None and done[0] == "1":
+            return
+        for table, keys, columns in self._SEALED_COLUMNS:
+            selection = ", ".join(keys + columns)
+            for row in connection.execute(f"SELECT {selection} FROM {table}").fetchall():
+                sealed = {column: self._seal(row[column]) for column in columns}
+                if all(sealed[column] == row[column] for column in columns):
+                    continue
+                assignments = ", ".join(f"{column}=?" for column in columns)
+                where = " AND ".join(f"{key}=?" for key in keys)
+                connection.execute(f"UPDATE {table} SET {assignments} WHERE {where}",
+                                   (*sealed.values(), *(row[key] for key in keys)))
+        connection.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('text-sealed','1')")
 
     # -- connection ----------------------------------------------------------
     def _connect(self):
@@ -598,6 +662,9 @@ class AccountDatabase:
                     raise AdvisorPathError("advisor database is not a plain file")
             connection = sqlite3.connect(str(self.path), timeout=30.0, check_same_thread=False)
             connection.row_factory = sqlite3.Row
+            if self.cipher is not None:
+                # Key setup (DPAPI + fsync) must not land inside the first write of a run.
+                self.cipher.warm()
             try:
                 connection.execute("PRAGMA journal_mode=WAL")
                 connection.execute("PRAGMA synchronous=FULL")
@@ -615,6 +682,8 @@ class AccountDatabase:
                         connection.execute("ALTER TABLE " + table + " ADD COLUMN " + field + " " + sql_type)
                 connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS context_message_identity ON context_messages(user,msg_id)")
                 connection.execute("PRAGMA user_version=3")
+                if self.cipher is not None:
+                    self._seal_existing_text(connection)
                 connection.commit()
                 self._connection = connection
                 self._mark_interrupted()
@@ -670,6 +739,20 @@ class AccountDatabase:
                     (thread_id, user, agent_id, source_id, now, now))
         return self.thread(thread_id)
 
+    def delete_thread(self, thread_id):
+        """Remove one conversation and everything hanging off it. Reports whether it existed."""
+        with self._connect() as connection:
+            row = connection.execute("SELECT id FROM threads WHERE id=?", (thread_id,)).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "DELETE FROM requests WHERE run_id IN (SELECT id FROM runs WHERE thread_id=?)",
+                (thread_id,))
+            connection.execute("DELETE FROM runs WHERE thread_id=?", (thread_id,))
+            connection.execute("DELETE FROM messages WHERE thread_id=?", (thread_id,))
+            connection.execute("DELETE FROM threads WHERE id=?", (thread_id,))
+            return True
+
     def thread(self, thread_id):
         return self._row("SELECT * FROM threads WHERE id=?", (thread_id,))
 
@@ -678,8 +761,30 @@ class AccountDatabase:
             "SELECT * FROM threads WHERE user=? AND agent_id=?"
             " ORDER BY created_at_ms DESC, rowid DESC LIMIT 1", (user, agent_id))
 
+    def list_threads(self, user, agent_id, limit=MAX_HISTORY_THREADS):
+        """This contact's saved conversations, newest first, with a title and a preview.
+
+        The title is the first thing the user asked in that conversation, the preview is its last
+        message: enough to recognise a conversation without opening it.
+        """
+        rows = self._rows(
+            "SELECT threads.id AS id, threads.created_at_ms AS created_at_ms,"
+            " threads.updated_at_ms AS updated_at_ms,"
+            " (SELECT COUNT(*) FROM messages WHERE messages.thread_id=threads.id) AS message_count,"
+            " (SELECT text FROM messages WHERE messages.thread_id=threads.id AND role='user'"
+            "   ORDER BY seq ASC LIMIT 1) AS title,"
+            " (SELECT text FROM messages WHERE messages.thread_id=threads.id"
+            "   ORDER BY seq DESC LIMIT 1) AS preview,"
+            " (SELECT role FROM messages WHERE messages.thread_id=threads.id"
+            "   ORDER BY seq DESC LIMIT 1) AS preview_role"
+            " FROM threads WHERE user=? AND agent_id=?"
+            " ORDER BY updated_at_ms DESC, rowid DESC LIMIT ?",
+            (user, agent_id, int(limit)))
+        return [self._open_row(row, ("title", "preview")) for row in rows]
+
     def thread_messages(self, thread_id):
-        return self._rows("SELECT * FROM messages WHERE thread_id=? ORDER BY seq ASC", (thread_id,))
+        return [self._open_row(row, ("text",)) for row in
+                self._rows("SELECT * FROM messages WHERE thread_id=? ORDER BY seq ASC", (thread_id,))]
 
     def set_runtime_session(self, thread_id, runtime_session_id):
         with self.lock:
@@ -689,8 +794,9 @@ class AccountDatabase:
                                    (runtime_session_id, thread_id))
 
     def recent_user_texts(self, thread_id):
-        return [row["text"] for row in reversed(self._rows(
+        return [self._open(row["text"]) for row in reversed(self._rows(
             "SELECT text FROM messages WHERE thread_id=? AND role='user' ORDER BY seq DESC LIMIT 2", (thread_id,)))]
+
 
     def bind_runtime(self, thread_id, source_id, model_fp, template_revision, context_epoch=None):
         with self.lock:
@@ -721,7 +827,7 @@ class AccountDatabase:
         connection.execute(
             "INSERT INTO messages(id,thread_id,seq,role,text,status,created_at_ms)"
             " VALUES(?,?,?,?,?,?,?)",
-            (message["id"], thread_id, seq, role, text, status, message["created_at_ms"]))
+            (message["id"], thread_id, seq, role, self._seal(text), status, message["created_at_ms"]))
         return message
 
     def append_message(self, thread_id, role, text, status=None):
@@ -745,8 +851,10 @@ class AccountDatabase:
         row = self._row("SELECT requests.message AS request_message,runs.* FROM requests "
                         "JOIN runs ON runs.id=requests.run_id WHERE requests.user=? AND "
                         "requests.agent_id=? AND requests.request_id=?", (user, agent_id, request_id))
-        if row is not None and row["request_message"] != message:
-            raise AdvisorError("request-conflict", "该请求编号已经用于另一条消息")
+        if row is not None:
+            row = self._open_row(row, ("request_message",))
+            if row["request_message"] != message:
+                raise AdvisorError("request-conflict", "该请求编号已经用于另一条消息")
         return row
 
     def run(self, run_id):
@@ -795,7 +903,8 @@ class AccountDatabase:
                 connection.execute("UPDATE runs SET user_message_id=? WHERE id=?", (message["id"], run_id))
                 if request_id is not None:
                     connection.execute("INSERT INTO requests(user,agent_id,request_id,message,run_id) VALUES(?,?,?,?,?)",
-                                       (thread["user"], thread["agent_id"], request_id, user_message, run_id))
+                                       (thread["user"], thread["agent_id"], request_id,
+                                        self._seal(user_message), run_id))
                 self._touch_thread(connection, thread["id"], now)
         return self.run(run_id), message
 
@@ -868,7 +977,8 @@ class AccountDatabase:
                     prior = connection.execute("SELECT sort_key,text,raw,sender_id FROM context_messages WHERE user=? AND msg_id=?",
                                                (user, row["msg_id"])).fetchone()
                     if prior is not None:
-                        if (prior["sort_key"], prior["text"], prior["raw"], prior["sender_id"]) != (
+                        if (prior["sort_key"], self._open(prior["text"]), self._open(prior["raw"]),
+                                prior["sender_id"]) != (
                                 row["sort_key"], row["text"], row["raw"], row["sender_id"]):
                             raise AdvisorError("context-error", "历史消息内容发生变化，请重新读取")
                         continue
@@ -879,7 +989,7 @@ class AccountDatabase:
                         " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                         (user, next_seq, row["msg_id"], row["sort_key"], row["group_chat"],
                          row["side"], row["sender_id"], row["sender_name"], row["kind"],
-                         row["text"], row["time_ms"], row["raw"]))
+                         self._seal(row["text"]), row["time_ms"], self._seal(row["raw"])))
                     inserted += cursor.rowcount
                 # The forward cursor always advances; only fresh rows bump the
                 # revision and the read count.
@@ -918,10 +1028,12 @@ class AccountDatabase:
 
     def context_messages(self, user, upto_seq):
         if upto_seq is None:
-            return self._rows("SELECT * FROM context_messages WHERE user=? ORDER BY seq ASC", (user,))
-        return self._rows(
-            "SELECT * FROM context_messages WHERE user=? AND seq<=? ORDER BY seq ASC",
-            (user, upto_seq))
+            rows = self._rows("SELECT * FROM context_messages WHERE user=? ORDER BY seq ASC", (user,))
+        else:
+            rows = self._rows(
+                "SELECT * FROM context_messages WHERE user=? AND seq<=? ORDER BY seq ASC",
+                (user, upto_seq))
+        return [self._open_row(row, ("text", "raw")) for row in rows]
 
     def context_window_matches(self, user, rows):
         """Validate overlap against immutable message facts, ignoring renamed contacts."""
@@ -934,6 +1046,7 @@ class AccountDatabase:
                 if previous is None:
                     continue
                 facts = ("sort_key", "side", "sender_id", "kind", "text", "time_ms")
+                previous = self._open_row(previous, ("text", "raw"))
                 old_quote = json.loads(previous["raw"] or "{}").get("inputMeta", {}).get("quote")
                 new_quote = json.loads(row["raw"] or "{}").get("inputMeta", {}).get("quote")
                 if any(previous[field] != row[field] for field in facts) or old_quote != new_quote:
@@ -946,7 +1059,7 @@ class AccountDatabase:
         row = self._row(
             "SELECT text FROM summaries WHERE user=? AND range_key=? AND version=?"
             " AND model_fp=? AND level=?", (user, range_key, version, model_fp, level))
-        return row["text"] if row else None
+        return self._open(row["text"]) if row else None
 
     def save_summary(self, user, range_key, version, model_fp, level, text, coverage=None):
         with self.lock:
@@ -955,7 +1068,7 @@ class AccountDatabase:
                 connection.execute(
                     "INSERT OR REPLACE INTO summaries(user,range_key,version,model_fp,level,text,"
                     "created_at_ms,coverage_json) VALUES(?,?,?,?,?,?,?,?)",
-                    (user, range_key, version, model_fp, level, text, _now_ms(),
+                    (user, range_key, version, model_fp, level, self._seal(text), _now_ms(),
                      json.dumps(coverage, separators=(",", ":")) if coverage is not None else None))
 
     # -- removal -------------------------------------------------------------
@@ -984,10 +1097,11 @@ class AccountDatabase:
 class AdvisorStoreRoot:
     """Factory and lifecycle owner for config + per-account databases."""
 
-    def __init__(self, root):
+    def __init__(self, root, *, cipher=None):
         self.root = _checked_root(root)
         self.data_root = self.root / ".local" / "advisor-data"
         self.config = AgentConfigStore(self.root)
+        self.cipher = cipher if isinstance(cipher, PayloadCipher) else None
         self.lock = threading.RLock()
         self._accounts = {}
         self._blocked = set()
@@ -1001,7 +1115,7 @@ class AdvisorStoreRoot:
                 raise AdvisorError("account-closed", "账号数据已关闭")
             database = self._accounts.get(account)
             if database is None or database._closed:
-                database = AccountDatabase(self.data_root, account)
+                database = AccountDatabase(self.data_root, account, cipher=self.cipher)
                 self._accounts[account] = database
             return database
 

@@ -312,6 +312,25 @@ class ServiceBoundaryTests(unittest.TestCase):
         self.assertIn("消息内容 1 ", request["contextFileText"])
         self.assertIn("消息内容 600 ", request["contextFileText"])
 
+    def test_progress_steps_are_published_without_echoing_the_message(self):
+        question = "请根据这段聊天给我一条建议"
+        result = self.service.start(ACCOUNT, USER, AGENT, None, question, "steps")
+        run = self.completed(result)
+        self.assertEqual(run.state, "done")
+        payload = self.service.events(ACCOUNT, USER, run.id)
+        steps = [(event.get("state"), event.get("text") or "") for event in payload["events"]
+                 if event.get("type") == "status" and
+                 event.get("state") in ("reading", "preparing", "thinking")]
+        states = [state for state, _text in steps]
+        # The three coarse phases have to show up in this order, before the answer streams.
+        for expected in ("reading", "preparing", "thinking"):
+            self.assertIn(expected, states)
+        self.assertLess(states.index("reading"), states.index("preparing"))
+        self.assertLess(states.index("preparing"), states.index("thinking"))
+        for _state, text in steps:
+            self.assertNotIn(question, text, "a progress label must not echo the user message")
+            self.assertNotIn("消息内容", text, "a progress label must not echo chat text")
+
     def test_cancel_while_first_import_blocks_prevents_generation(self):
         entered, release = threading.Event(), threading.Event()
         def block(_source):
@@ -558,7 +577,10 @@ class ServiceBoundaryTests(unittest.TestCase):
         result = self.service.start(ACCOUNT, USER, AGENT, payload["thread"]["id"], "first question", "silent-read")
         self.assertTrue(entered.wait(2))
         pending = self.service.events(ACCOUNT, USER, result["run"]["id"])
-        self.assertEqual(pending["events"], [])
+        # The only thing allowed out before any history is read is the coarse "reading" step:
+        # no counts, no message text, nothing that mirrors the payload.
+        self.assertEqual([event.get("state") for event in pending["events"]], ["reading"])
+        self.assertNotRegex(pending["events"][0].get("text", ""), r"\d")
         self.assertEqual(set(self.service.thread(ACCOUNT, USER, AGENT)["context"]), {"revision"})
         self.assertEqual([row["role"] for row in self.service.stores.account(ACCOUNT).thread_messages(result["threadId"])], ["user"])
         release.set()

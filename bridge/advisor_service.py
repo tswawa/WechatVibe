@@ -23,7 +23,8 @@ from pathlib import Path
 from contextlib import contextmanager
 
 from advisor_contracts import (
-    HISTORY_BUDGET_PERCENT, MAX_SKILL_CONTENT, MAX_USER_MESSAGE, TERMINAL_RUN_STATES, AdvisorError, char_budget,
+    GUIDANCE_SKILL_ID, HISTORY_BUDGET_PERCENT, MAX_SKILL_CONTENT, MAX_USER_MESSAGE,
+    TERMINAL_RUN_STATES, AdvisorError, char_budget, single_line,
     model_fingerprint, normalize_event, public_run, safety_margin,
     terminal_event, valid_identifier, valid_request_id, valid_scope_value,
     valid_user_message,
@@ -34,6 +35,8 @@ from backend_contracts import (
     AccountChangedError, AccountUnavailableError, MessagesUnavailableError,
     LOCAL_SOURCE_ID, ModelSourceUnavailable,
 )
+from guidance_contracts import GUIDANCE_MISSING_NOTE, guidance_material
+from payload_crypto import default_cipher
 
 MAX_EVENT_BATCH = 500
 MAX_RUNS_IN_MEMORY = 64
@@ -89,12 +92,18 @@ class _Run:
 
 
 class AdvisorService:
-    def __init__(self, source, model_source_store, root, runtime_factory=None):
+    def __init__(self, source, model_source_store, root, runtime_factory=None, guidance_provider=None):
         self.source = source
         self.model_source_store = model_source_store
         self.root = Path(os.path.abspath(root))
         self.runtime_factory = runtime_factory
-        self.stores = AdvisorStoreRoot(self.root)
+        # `Callable[[account, user], dict|None]` returning the stored 「潜台词与沟通建议」for a
+        # conversation. Injected by the parent integration so this module never reaches into
+        # the analysis result store itself.
+        self.guidance_provider = guidance_provider
+        # Every chat-bearing column in the advisor projection is sealed with the runtime's
+        # DPAPI-protected key; a missing key is a loud error, never a silent plaintext write.
+        self.stores = AdvisorStoreRoot(self.root, cipher=default_cipher(self.root))
         self.context = ContextProjection(self.stores, source)
         self.lock = threading.RLock()
         self.condition = threading.Condition(self.lock)
@@ -107,6 +116,28 @@ class AdvisorService:
         self._cleared = set()
         self._drained = set()
         self._import_previews = None
+
+    def _guidance_material(self, account, user, skills):
+        """Stored 「潜台词与沟通建议」for this conversation, or a note when none is saved.
+
+        The note only reaches runs that picked the guidance skill: those are the runs asking
+        for this kind of reading, so they are told to analyse the conversation themselves
+        instead of waiting for a result nobody generated. Reference material must never fail
+        a run, so an unavailable provider simply reads as "nothing to cite".
+        """
+        provider = self.guidance_provider
+        saved = None
+        if provider is not None:
+            try:
+                saved = provider(account, user)
+            except Exception:  # noqa: BLE001 - reference material must never fail a run
+                saved = None
+        material = guidance_material(saved)
+        if material:
+            return material
+        if any(skill.get("id") == GUIDANCE_SKILL_ID for skill in skills):
+            return GUIDANCE_MISSING_NOTE
+        return ""
 
     # ------------------------------------------------------------------ scope
     def _require_scope(self, account, with_fingerprint=False):
@@ -129,7 +160,10 @@ class AdvisorService:
 
     def _engine_selection(self):
         try:
-            selected = self.model_source_store.saved_selection()
+            # The assistant may run on its own saved profile while analysis keeps another one;
+            # without a dedicated choice the assistant follows the analysis selection.
+            choose = getattr(self.model_source_store, "assistant_selection", None)
+            selected = choose() if callable(choose) else self.model_source_store.saved_selection()
         except ModelSourceUnavailable:
             return None
         if not isinstance(selected, dict):
@@ -364,7 +398,66 @@ class AdvisorService:
         return {**self.catalog(), "importedAgentId": result["agent"]["id"], "created": result["created"]}
 
     # ------------------------------------------------------- threads/context
-    def thread(self, account, user, agent_id):
+    def thread(self, account, user, agent_id, thread_id=None):
+        account = self._require_scope(account)
+        user = valid_scope_value(user, "user")
+        if not valid_identifier(agent_id):
+            raise AdvisorError("invalid-request", "invalid agent id")
+        if self.stores.config.agent(agent_id) is None:
+            raise AdvisorError("agent-unknown", "Agent 不存在")
+        if thread_id is not None and not valid_identifier(thread_id):
+            raise AdvisorError("invalid-request", "invalid thread id")
+        database = self.stores.account(account)
+        with self.condition:
+            self._require_scope(account)
+            row = None
+            if thread_id is not None:
+                row = database.thread(thread_id)
+                # A saved conversation only ever belongs to one contact and one agent.
+                if row is not None and (row["user"] != user or row["agent_id"] != agent_id):
+                    row = None
+            if row is None:
+                if thread_id is not None:
+                    raise AdvisorError("thread-unknown", "会话不存在或不属于该 Agent")
+                row = database.latest_thread(user, agent_id)
+                if row is None:
+                    row = database.create_thread(user, agent_id, self._source_id())
+        run = database.latest_run(row["id"]) if row else None
+        with self.condition:
+            live_run = self._runs.get(run["id"]) if run else None
+        return {"thread": self._thread_payload(account, database, row),
+                "context": self._context_status(self.context.snapshot(account, user)),
+                "run": live_run.public() if live_run else self._public_run(run) if run else None}
+
+    def delete_thread(self, account, user, agent_id, thread_id):
+        """Delete one saved conversation. Another contact's thread is reported as unknown."""
+        account = self._require_scope(account)
+        user = valid_scope_value(user, "user")
+        if not valid_identifier(agent_id):
+            raise AdvisorError("invalid-request", "invalid agent id")
+        if self.stores.config.agent(agent_id) is None:
+            raise AdvisorError("agent-unknown", "Agent 不存在")
+        if not valid_identifier(thread_id):
+            raise AdvisorError("invalid-request", "invalid thread id")
+        database = self.stores.account(account)
+        with self.condition:
+            self._require_scope(account)
+            row = database.thread(thread_id)
+            if row is None or row["user"] != user or row["agent_id"] != agent_id:
+                raise AdvisorError("thread-unknown", "会话不存在或不属于该 Agent")
+            run = database.latest_run(thread_id)
+            if run is not None:
+                with self.condition:
+                    live = self._runs.get(run["id"])
+                if live is not None and live.state == "running":
+                    raise AdvisorError("run-active", "该会话正在生成，请先停止")
+            if not database.delete_thread(thread_id):
+                raise AdvisorError("thread-unknown", "会话不存在或不属于该 Agent")
+            self._runs.pop(run["id"], None) if run is not None else None
+        return {"deleted": True, "threadId": thread_id}
+
+    def threads(self, account, user, agent_id):
+        """The contact's saved conversations, newest first, for the history picker."""
         account = self._require_scope(account)
         user = valid_scope_value(user, "user")
         if not valid_identifier(agent_id):
@@ -374,15 +467,19 @@ class AdvisorService:
         database = self.stores.account(account)
         with self.condition:
             self._require_scope(account)
-            row = database.latest_thread(user, agent_id)
-            if row is None:
-                row = database.create_thread(user, agent_id, self._source_id())
-        run = database.latest_run(row["id"]) if row else None
-        with self.condition:
-            live_run = self._runs.get(run["id"]) if run else None
-        return {"thread": self._thread_payload(account, database, row),
-                "context": self._context_status(self.context.snapshot(account, user)),
-                "run": live_run.public() if live_run else self._public_run(run) if run else None}
+            rows = database.list_threads(user, agent_id)
+        conversations = []
+        for row in rows:
+            title = picker_line(row["title"] or row["preview"] or "", 60)
+            conversations.append({
+                "id": row["id"], "title": title or "新对话",
+                "preview": picker_line(row["preview"] or "", 60),
+                "previewRole": row["preview_role"] or "",
+                "messageCount": int(row["message_count"] or 0),
+                "createdAtMs": int(row["created_at_ms"] or 0),
+                "updatedAtMs": int(row["updated_at_ms"] or 0),
+            })
+        return {"threads": conversations}
 
     def prepare_context(self, account, user):
         account = self._require_scope(account)
@@ -724,6 +821,7 @@ class AdvisorService:
         try:
             database = run.database
             self._check_run(run)
+            self._step(run, "reading", "正在读取会话资料")
             self.context.prepare(run.account, run.user, run.cancel, run.source_scope, binding=run.binding)
             self._check_run(run)
             with self.condition:
@@ -735,6 +833,8 @@ class AdvisorService:
             if snapshot["sourceFingerprint"] != run.source_scope:
                 raise AdvisorError("context-error", "聊天数据来源已经变化")
             self._check_run(run)
+            # Counts only: the step tells the user the app is working without echoing chat text.
+            self._step(run, "preparing", "已读取 %d 条消息，正在整理上下文" % int(snapshot["readCount"]))
             with self.condition:
                 self._check_run(run, thorough=False)
                 database.freeze_run_context(run.id, snapshot["revision"])
@@ -759,7 +859,11 @@ class AdvisorService:
             remaining = budget - prompt_cost - len(run.message) - margin
             if remaining <= 0:
                 raise AdvisorError("context-too-long", "当前输入超出模型窗口，请缩短消息或更换模型")
-            context_budget = remaining
+            # A saved 「潜台词与沟通建议」is reference material the assistant may cite. It is
+            # paid for out of the same budget, so the chat window shrinks here instead of the
+            # request overflowing at the length check below.
+            guidance_text = self._guidance_material(run.account, run.user, skills)
+            context_budget = max(0, remaining - len(guidance_text))
             runtime = self._runtime_instance(run.cancel)
             self._check_run(run)
             compactor = self._compactor(run, runtime, config, snapshot["revision"],
@@ -769,6 +873,8 @@ class AdvisorService:
                 config["modelFp"], check=lambda: self._check_run(run),
                 compact_budget=max(64, budget - margin - 512), cancel=run.cancel,
                 commit_guard=lambda: self._cache_commit_guard(run), binding=run.binding)
+            if guidance_text:
+                context_text = (context_text.rstrip() + "\n\n" + guidance_text) if context_text else guidance_text
             request = {
                 "account": run.account, "user": run.user,
                 "agentId": run.agent_id,
@@ -786,6 +892,7 @@ class AdvisorService:
             self._check_run(run, fresh=True)
             if prompt_cost + len(run.message) + len(context_text) + margin > budget:
                 raise AdvisorError("context-too-long", "当前输入超出模型窗口，请缩短消息或更换模型")
+            self._step(run, "thinking", "正在调用模型")
             result = runtime.respond(config, request, lambda event: self._on_event(run, event),
                                      run.cancel)
             text = result.get("text") if isinstance(result, dict) else None
@@ -892,6 +999,14 @@ class AdvisorService:
             return summary
 
         return compact
+
+    def _step(self, run, state, text):
+        """Publish one coarse progress step. Labels only: no chat text, prompt or reasoning."""
+        try:
+            self._on_event(run, {"type": "status", "state": state, "text": text})
+        except AdvisorError:
+            # A stopped run must not turn a progress label into a failure.
+            pass
 
     def _on_event(self, run, event):
         try:
@@ -1076,3 +1191,25 @@ class AdvisorService:
         with self.condition:
             self._runs.clear()
             self._active_by_thread.clear()
+
+
+
+def picker_line(value, maximum):
+    """One line for the history picker: collapse whitespace, drop control characters, truncate.
+
+    The limit counts UTF-16 code units because the UI validates with JavaScript string
+    lengths; an emoji is two of them. Truncating by Python characters produced strings the
+    client rejected, which surfaced as a permanently failing history list.
+    """
+    text = " ".join(str(value or "").split())
+    text = "".join(char for char in text if ord(char) >= 32)
+    if len(text.encode("utf-16-le")) // 2 <= maximum:
+        return text
+    kept, used = [], 0
+    for char in text:
+        width = len(char.encode("utf-16-le")) // 2
+        if used + width > maximum - 1:
+            break
+        kept.append(char)
+        used += width
+    return "".join(kept) + "…"

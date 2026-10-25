@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import message_input
 import os
 import re
 import sqlite3
@@ -28,6 +29,18 @@ from api_portrait_statistics import empty_statistics, valid_statistics
 from payload_crypto import PayloadCipher, PayloadUnreadable, default_cipher
 from process_lock import ProcessLock, checked_path
 from guidance_contracts import valid_guidance_payload
+
+
+def _valid_source_id(source_id):
+    """A local scope, or a stored API source id (hex32 with an optional stream suffix)."""
+    return (isinstance(source_id, str) and bool(source_id) and
+            (source_id == LOCAL_SOURCE_ID or
+             re.fullmatch(r"[0-9a-f]{32}(?::[^\s]+)?", source_id) is not None))
+
+
+def _source_scope(source_id):
+    """Match a source and its per-stream variants (`<id>` or `<id>:<stream>`)."""
+    return ("source_id=?", source_id) if ":" in source_id else ("source_id LIKE ?", source_id + ":%")
 
 
 def project_result_store(account, _workdir):
@@ -119,6 +132,14 @@ class ResultStore:
                          "session TEXT NOT NULL, subject TEXT NOT NULL, highwater_json TEXT, "
                          "fingerprint TEXT NOT NULL, available_json TEXT NOT NULL, "
                          "PRIMARY KEY(account,session,subject))")
+            # One deep-semantic reading plus its scenario advice per conversation and
+            # subject. The revision is part of the scope so a prompt change never
+            # reuses an older result, and the row is replaced wholesale on recompute.
+            conn.execute("CREATE TABLE IF NOT EXISTS api_guidance_v1 (account TEXT NOT NULL, "
+                         "session TEXT NOT NULL, source_id TEXT NOT NULL, subject TEXT NOT NULL, "
+                         "revision TEXT NOT NULL, scenario TEXT NOT NULL, analyze_self INTEGER NOT NULL, "
+                         "payload_json TEXT NOT NULL, updated_at INTEGER NOT NULL, "
+                         "PRIMARY KEY(account,session,source_id,subject))")
             conn.execute("CREATE TABLE IF NOT EXISTS api_source_meta_v1 (account TEXT NOT NULL, "
                          "source_id TEXT NOT NULL, protocol TEXT NOT NULL, model TEXT NOT NULL, "
                          "PRIMARY KEY(account,source_id))")
@@ -393,7 +414,8 @@ class ResultStore:
                     (cursor == prior and not complete)):
                 return
             eligible = row[3]
-            if item is not None and item["kind"] == "text" and item["text"].strip():
+            if (item is not None and item["kind"] == "text" and
+                    message_input.has_analysis_content(item["text"])):
                 eligible += 1
             seq, shard, local_id = cursor if cursor is not None else (None, None, None)
             conn.execute("UPDATE progress_v1 SET cursor_seq=?,cursor_shard=?,cursor_local=?,complete=?,"
@@ -516,6 +538,8 @@ class ResultStore:
                          (account, source_id, protocol, model))
 
     def api_guidance_get(self, account, user, source_id, subject):
+        """Saved guidance for one conversation/subject, or None. A damaged row is
+        dropped rather than surfaced: the caller then reports "not analysed yet"."""
         with self.connect() as conn:
             row = conn.execute("SELECT revision,scenario,analyze_self,payload_json,updated_at "
                                "FROM api_guidance_v1 WHERE account=? AND session=? AND "
@@ -532,6 +556,36 @@ class ResultStore:
             return None
         return {"revision": row[0], "scenario": row[1], "analyzeSelf": bool(row[2]),
                 "guidance": guidance, "updatedAt": row[4]}
+
+    def api_guidance_latest(self, account, user):
+        """Newest saved guidance for one conversation, whatever source produced it, or None.
+
+        The assistant reads this as reference material, so it is deliberately not scoped to
+        the active model source: an analysis the user already paid for stays citable after a
+        source switch. A conversation-level row (subject is the session itself) wins over a
+        member's row, and a row that fails the contract or cannot be decrypted here is dropped
+        instead of being handed to the model.
+        """
+        with self.connect() as conn:
+            row = conn.execute("SELECT source_id,subject,revision,scenario,analyze_self,payload_json,updated_at "
+                               "FROM api_guidance_v1 WHERE account=? AND session=? "
+                               "ORDER BY (subject=?) DESC, updated_at DESC, rowid DESC LIMIT 1",
+                               (account, user, user)).fetchone()
+        if row is None:
+            return None
+        try:
+            guidance = self.cipher.loads(row[5])
+        except (PayloadUnreadable, ValueError, TypeError):
+            guidance = None
+        saved = {"sourceId": row[0], "subject": row[1], "revision": row[2], "scenario": row[3],
+                 "analyzeSelf": bool(row[4]), "guidance": guidance, "updatedAt": row[6]}
+        if not valid_guidance_payload(saved["guidance"]):
+            with self.connect() as conn:
+                conn.execute("DELETE FROM api_guidance_v1 WHERE account=? AND session=? AND "
+                             "source_id=? AND subject=? AND payload_json=?",
+                             (account, user, row[0], row[1], row[5]))
+            return None
+        return saved
 
     def api_guidance_save(self, account, user, source_id, subject, guidance):
         if not valid_guidance_payload(guidance):
@@ -587,6 +641,7 @@ class ResultStore:
                                (account, user, source_id, subject)).fetchone()
         if row is None:
             return None
+        # portrait_json is model-written text, resume_json carries verbatim evidence quotes.
         portrait = self.cipher.loads(row[9])
         if not valid_api_portrait(portrait):
             raise RuntimeError("invalid saved API portrait")
@@ -603,11 +658,14 @@ class ResultStore:
                 resume["synthesisFingerprint"]):
             resume.pop("synthesisFingerprint", None)
         available = json.loads(row[3])
-        # Legacy MBTI is gated by observed target texts, not classified texts.
-        # Read only after validation: a rejected or absent ledger must count as zero.
+        # The MBTI gate in api-portrait.ts counts the observation ledger, not analysed texts.
+        # Without this the UI can only see `targetTextCount` (2126 on a stalled run) and would
+        # report the card as unlocked while every axis is withheld, leaving a blank verdict
+        # with no explanation. Read after the validity pops: a rejected ledger must count as 0.
         available["mbtiEvidenceCount"] = (
-            resume["portraitEvidence"]["targetCount"]
+            int(resume["portraitEvidence"]["targetCount"])
             if isinstance(resume, dict) and isinstance(resume.get("portraitEvidence"), dict)
+            and type(resume["portraitEvidence"].get("targetCount")) is int
             else 0)
         return {"highwater": tuple(json.loads(row[0])) if row[0] else None,
                 "after": tuple(json.loads(row[1])) if row[1] else None,
@@ -854,7 +912,7 @@ class ResultStore:
         """Clear one stopped analysis scope; preserve source databases and Advisor state."""
         if not all(isinstance(value, str) and value for value in (account, user, source_id)):
             raise ValueError("invalid analysis scope")
-        if source_id != LOCAL_SOURCE_ID and not re.fullmatch(r"[0-9a-f]{32}(?::[^\s]+)?", source_id):
+        if not _valid_source_id(source_id):
             raise ValueError("invalid analysis source")
         if subject is not None:
             if not isinstance(subject, str) or not user.endswith("@chatroom") and subject != user:
@@ -891,8 +949,7 @@ class ResultStore:
                 else:
                     conn.execute("INSERT OR IGNORE INTO portrait_resets_v1 VALUES (?,?,?)", (account, user, subject))
             else:
-                source_query = "source_id=?" if ":" in source_id else "source_id LIKE ?"
-                source_value = source_id if ":" in source_id else source_id + ":%"
+                source_query, source_value = _source_scope(source_id)
                 args = (account, user, source_value)
                 if subject is None:
                     counts["messageRows"] = conn.execute(
@@ -905,6 +962,33 @@ class ResultStore:
                 conn.execute(query.replace("api_portrait_v1", "api_guidance_v1"), args)
                 from api_portrait_ledger import clear_ledger
                 clear_ledger(conn, account=account, user=user, source_id=source_id, subject=subject)
+        return counts
+
+    def clear_message(self, account, user, source_id, message_id):
+        """Forget one message's saved analysis so the next run computes it again.
+
+        The message itself, the conversation and every other row stay untouched, and no
+        job is cancelled: the caller re-submits this single id (``target_ids``) once the
+        row is gone. Local scopes drop the fine and the legacy row for every version plus
+        their skip marks, so a message whose stored outcome was a skip is re-judged too.
+        """
+        if not all(isinstance(value, str) and value for value in (account, user, source_id, message_id)):
+            raise ValueError("invalid analysis target")
+        if not _valid_source_id(source_id):
+            raise ValueError("invalid analysis source")
+        counts = {"messageRows": 0}
+        with self.profile_lock, self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if source_id == LOCAL_SOURCE_ID:
+                for table in ("results_v2", "analysis_skips", "fine_results_v1", "fine_skips_v1"):
+                    counts["messageRows"] += conn.execute(
+                        f"DELETE FROM {table} WHERE account=? AND session=? AND id=?",
+                        (account, user, message_id)).rowcount
+            else:
+                source_query, source_value = _source_scope(source_id)
+                counts["messageRows"] = conn.execute(
+                    "DELETE FROM api_insights_v1 WHERE account=? AND session=? AND id=? AND " + source_query,
+                    (account, user, message_id, source_value)).rowcount
         return counts
 
     def skip_fine(self, account, user, version, message, reason):

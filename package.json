@@ -18,7 +18,9 @@
     "build:advisor-ui": "node scripts/build-advisor-ui.mjs",
     "catalog:generate": "node scripts/build-analysis-catalog.mjs",
     "catalog:export": "python scripts/export-label-library.py --output WechatVibe-label-library.txt",
-    "test": "npm run typecheck && npm run test:node && npm run test:scripts && npm run test:python",
+    "test": "node scripts/run-all-tests.cjs",
+    "test:quick": "node scripts/run-all-tests.cjs --skip-typecheck --only=node,scripts",
+    "test:serial": "npm run typecheck && npm run test:node && npm run test:scripts && npm run test:python",
     "test:node": "node --import tsx --test tests/*.test.ts tests/*.test.cjs",
     "test:python": "python scripts/run-python-tests.py",
     "test:model": "tsx scripts/test-model.ts",
@@ -38,19 +40,26 @@
     "onnxruntime-node": "1.30.0",
     "openai": "7.23.0",
     "tsx": "4.23.15",
-    "undici": "7.29.1"
+    "undici": "7.30.1"
   },
   "devDependencies": {
     "@solidjs/meta": "0.29.4",
     "@types/node": "26.6.2",
-    "dompurify": "3.4.16",
-    "electron": "44.4.3",
+    "dompurify": "3.4.17",
+    "electron": "44.9.3",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
     "esbuild-plugin-solid": "0.6.0",
     "marked": "18.0.14",
     "remend": "1.4.0",
-    "solid-js": "1.9.15",
+    "solid-js": "1.9.17",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "fast-uri": "3.1.9",
+    "http-cache-semantics": "4.3.0",
+    "node-gyp": {
+      "undici": "6.29.1"
+    }
   }
 }

@@ -61,7 +61,8 @@ function getVisibleUnreadCount(session) {
   if (hasNewTime || hasNewPreview) return serverUnread;
   return 0;
 }
-const defaults = { theme: "dark", zoom: "1.0", intent: true, backgroundAnalyze: false };
+const defaults = { theme: "dark", zoom: "1.0", intent: true, backgroundAnalyze: false,
+  guidanceWindowMinutes: 1440 };
 const CURRENT_LABEL_SCHEMA = "generic-v11";
 const GENERIC_INTENT_LABELS = Object.freeze({
   small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助", deny: "否认",
@@ -1021,7 +1022,9 @@ function currentIntentRequestScope() {
  * matches the button that grants it.
  */
 function analysisBlockedWithoutRequest(user) {
-  if (conversationAnalysisRequested(user)) return false;
+  // Two ways in: the sidebar granted the conversation with 「开始分析」, or the header button
+  // just asked for this loaded window. The header scope never joins the cumulative list.
+  if (conversationAnalysisRequested(user) || currentIntentRequestScope()) return false;
   const hint = "尚未加入会话分析 · 请在左侧点击「开始分析」";
   setStripStatus(hint);
   text("analysisStatus", hint);
@@ -1607,6 +1610,40 @@ function displayedEmotion(values, messageText) {
   const second = scores[1];
   if (second && top.probability - second.probability < 0.15) return [];
   return [top];
+}
+// Links never reach a model: a shared URL is not what the reading is about, and in API mode
+// it is not something we want to send. Keep this in step with `bridge/message_input.py`
+// (`strip_links` / `analysis_text` / `has_analysis_content`). Display and every stored result
+// keep the original text — this only decides what may be analysed.
+const MESSAGE_LINK_PATTERN = /(?:https?:\/\/|www\.)[^\s<>"'“”‘’（）()\[\]【】{}《》]+/giu;
+const MESSAGE_LINK_TAIL = "。，、；：！？…·.,;:!?)]}>”’\"'";
+const MESSAGE_PLACEHOLDERS = new Set([
+  "图片", "表情", "动画表情", "语音", "视频", "文件", "链接", "位置", "名片", "转账",
+  "红包", "微信红包", "小程序", "音乐", "聊天记录", "合并转发", "视频号", "消息",
+  "应用消息", "系统消息", "群公告", "拍一拍", "接龙", "卡券", "商品", "直播", "频道",
+  "语音通话", "视频通话",
+]);
+function stripMessageLinks(value) {
+  return String(value ?? "").replace(MESSAGE_LINK_PATTERN, match => {
+    let end = match.length;
+    // A trailing "。" or "，" belongs to the sentence, not to the link.
+    while (end > 0 && MESSAGE_LINK_TAIL.includes(match[end - 1])) end -= 1;
+    return match.slice(end);
+  });
+}
+function messageAnalysisText(value) {
+  const stripped = stripMessageLinks(value);
+  const match = /^\[([^\[\]\s]{1,16})\]$/u.exec(stripped.trim());
+  return match && MESSAGE_PLACEHOLDERS.has(match[1]) ? "" : stripped;
+}
+function hasAnalyzableText(value) {
+  const text = String(value ?? "");
+  if (!text.trim()) return false;
+  const remaining = messageAnalysisText(text);
+  if (!remaining.trim()) return false;
+  // Punctuation still counts on its own — it carries tone. The one case excluded is a
+  // message that carried nothing but a link (and the punctuation around it).
+  return remaining === text || /[^\s\p{P}]/u.test(remaining);
 }
 function hasIntentContent(messageText) {
   // Punctuation-only messages can carry tone or intent (for example “？” or
@@ -2282,12 +2319,9 @@ function submitPickedMessages() {
   if (!candidates.length) return;
   const targetIds = candidates.map(message => String(message.id));
   if (usingApiInsights()) { submitPickedApiInsights(candidates); return; }
-  if (chatState.historyState || labelState.recentPending || !prepareManualLocalIntent()) return;
+  if (!canAnalyzeLocal() || chatState.historyState || labelState.recentPending) return;
   if (!portraitState.activeAnalysisScope) {
-    const alreadyWaiting = labelState.manualRecentDeferred;
     labelState.manualRecentDeferred = true;
-    setIntentActionState("waiting");
-    if (!alreadyWaiting) void loadAnalysis(chatState.currentUser, chatState.generation, chatState.controller.signal);
     return;
   }
   labelState.recentFailed = false;
@@ -2310,7 +2344,7 @@ function submitPickedApiInsights(candidates) {
   if (["queued", "running"].includes(entry.job?.status)) {
     // The backend answers a request made during a run with that same running job, so the
     // selection would be dropped silently; say so instead of pretending it was queued.
-    setStripStatus("已有分析正在进行，请完成后再提交所选消息");
+    setStripStatus("已有分析正在进行，选中的消息会在其中一并完成");
     return;
   }
   entry.error = "";
@@ -3693,6 +3727,7 @@ function clearApiPortraitView() {
   byId("apiPortraitStatus").hidden = false;
   byId("btnRetryApiPortrait").hidden = true;
   text("apiPortraitStatus", "正在读取会话消息");
+byId("apiPortraitStatus")?.classList?.toggle?.("ai-busy", !!(true));
 }
 function cancelApiPortraitPoll() {
   ++portraitState.apiPortraitRequest;
@@ -3800,6 +3835,7 @@ function renderApiPortrait(data) {
   }
   byId("apiPortraitStatus").hidden = false;
   text("apiPortraitStatus", state);
+byId("apiPortraitStatus")?.classList?.toggle?.("ai-busy", !!(running || job.status === "queued" || (!ready && data.inventoryStatus !== "error")));
   // Like local Laya, entering/switching back to a conversation automatically continues
   // the saved incremental analysis. The backend resumes from the persisted cursor and
   // sends only new/unprocessed text, and dedupes an in-flight job. A terminal error stops
@@ -3867,6 +3903,7 @@ async function loadApiPortrait(member = "") {
   } catch (error) {
     if (token === portraitState.apiPortraitRequest && error?.name !== "AbortError") {
       text("apiPortraitStatus", "画像读取失败，请稍后重试");
+byId("apiPortraitStatus")?.classList?.toggle?.("ai-busy", !!(false));
       portraitState.apiPortraitReadFailures++;
       if (portraitState.apiPortraitReadFailures <= 3)
         portraitState.apiPortraitPollTimer = setTimeout(() => { void loadApiPortrait(member); },
@@ -3885,6 +3922,7 @@ async function startApiPortrait(autoKey, force = false, refreshAxes = false) {
       portraitState.apiPortraitSubmitErrors.has(autoKey) && !force) return;
   if (!apiPortraitContextReady()) {
     text("apiPortraitStatus", API_PORTRAIT_CONTEXT_HINT);
+byId("apiPortraitStatus")?.classList?.toggle?.("ai-busy", !!(false));
     byId("btnRetryApiPortrait").disabled = true;
     return;
   }
@@ -3893,6 +3931,7 @@ async function startApiPortrait(autoKey, force = false, refreshAxes = false) {
   byId("btnRetryApiPortrait").hidden = true;
   setStripStatus("API 分析中");
   text("apiPortraitStatus", refreshAxes ? "正在根据已保存画像重新评估 MBTI" : "正在提交 API 画像");
+byId("apiPortraitStatus")?.classList?.toggle?.("ai-busy", !!(true));
   try {
     const body = { account, user, ...(member ? { member } : {}),
       ...(refreshAxes ? { refreshAxes: true } : {}) };
@@ -3909,6 +3948,7 @@ async function startApiPortrait(autoKey, force = false, refreshAxes = false) {
     rememberApiPortraitSubmitError(autoKey, reason);
     setStripStatus("分析失败，请重试");
     text("apiPortraitStatus", "API 画像提交失败（" + reason + "）");
+byId("apiPortraitStatus")?.classList?.toggle?.("ai-busy", !!(false));
     byId("btnRetryApiPortrait").hidden = false;
   } finally {
     portraitState.apiPortraitBusy = false;
@@ -4035,6 +4075,7 @@ function applySettings() {
   window.desktopHost?.setTheme?.(settingsState.settings.theme);
   byId("selectThemeMode").value = settingsState.settings.theme;
   byId("selectZoomLevel").value = settingsState.settings.zoom;
+  if (typeof applyGuidanceWindow === "function") applyGuidanceWindow();
   setIntentActionState(labelState.intentActionState);
   byId("btnToggleBackgroundAnalyze").classList.toggle("active", settingsState.settings.backgroundAnalyze);
   byId("btnToggleBackgroundAnalyze").setAttribute("aria-pressed", String(settingsState.settings.backgroundAnalyze));
@@ -4051,6 +4092,24 @@ function applySettings() {
 // Contextual reply choices use a dedicated result revision and share only the
 // existing request, source and cache infrastructure with the legacy guidance API.
 const GUIDANCE_VERSION = "api-reply-options-v2";
+// Reply generation uploads only recent chat. Keep the list in step with the backend's
+// GUIDANCE_WINDOW_CHOICES so the label always describes what is actually sent.
+// The user types an amount and picks hours or days; the range is clamped here too, so a
+// stale saved value can never widen what gets uploaded.
+const GUIDANCE_WINDOW_MIN = 60, GUIDANCE_WINDOW_MAX = 43200;
+const guidanceWindowMinutes = () => {
+  // Defensive: the settings object may not exist while the UI is still starting up.
+  const settings = (typeof settingsState !== "undefined" && settingsState.settings) || {};
+  const value = Math.round(Number(settings.guidanceWindowMinutes));
+  if (!Number.isFinite(value)) return 1440;
+  return Math.min(GUIDANCE_WINDOW_MAX, Math.max(GUIDANCE_WINDOW_MIN, value));
+};
+const guidanceWindowLabel = () => {
+  const minutes = guidanceWindowMinutes();
+  if (minutes % 1440 === 0) return `最近 ${minutes / 1440} 天`;
+  if (minutes % 60 === 0) return `最近 ${minutes / 60} 小时`;
+  return `最近 ${minutes} 分钟`;
+};
 const GUIDANCE_ERRORS = {
   "context-too-long": "当前上下文设置不足以容纳回复，请按模型实际容量调整",
   "invalid-output": "模型返回的回复选项不完整，请重试",
@@ -4143,6 +4202,7 @@ function renderGuidance(data) {
   else if (portraitState.guidanceRunning) state = "正在生成回复…";
   else if (job.status === "insufficient") state = "暂无可用于回复的聊天文本";
   text("guidanceStatus", state);
+byId("guidanceStatus")?.classList?.toggle?.("ai-busy", !!(portraitState.guidanceRunning || !!portraitState.guidanceBusy));
   syncGuidanceAction();
 }
 function syncGuidanceAction() {
@@ -4160,8 +4220,14 @@ function syncGuidanceAction() {
     !assistant.agentId ? "请先在助手仓库启用助手" : busy ? "正在生成回复" :
     portraitState.guidanceRendered ? "重新生成三个回复选项" : "生成三个回复选项";
   button.setAttribute("aria-label", button.title);
-  if (apiMode && chatState.view === "chat" && chatState.currentUser && chatState.currentAccount && !assistant.agentId)
+  if (apiMode && chatState.view === "chat" && chatState.currentUser && chatState.currentAccount && !assistant.agentId) {
     text("guidanceStatus", button.title);
+    byId("guidanceStatus")?.classList?.toggle?.("ai-busy", !!(false));
+  } else {
+    // Keep the ring in sync with the run instead of clearing it: this function runs right after
+    // renderGuidance(), which just turned it on for a running generation.
+    byId("guidanceStatus")?.classList?.toggle?.("ai-busy", !!busy);
+  }
   for (let index = 0; index < 3; index++)
     byId("replyChoice" + index).disabled = !available || !portraitState.guidanceRendered?.replies[index];
 }
@@ -4242,10 +4308,11 @@ async function startGuidance() {
   portraitState.guidanceBusy = true;
   portraitState.guidanceSubmitError = "";
   syncGuidanceAction();
-  text("guidanceStatus", "正在生成回复…");
+  text("guidanceStatus", `正在生成回复 · ${guidanceWindowLabel()}`);
   try {
     const data = await api("/api/model-guidance", { method: "POST",
-      body: JSON.stringify({ account, user, sourceId, replyOptions: true, agentId, agentRevision }) }, undefined, true);
+      body: JSON.stringify({ account, user, sourceId, replyOptions: true, agentId, agentRevision,
+        windowMinutes: guidanceWindowMinutes() }) }, undefined, true);
     if (!current()) return;
     if (data?.account !== account || data.sourceId !== sourceId || data.subject !== user ||
         data.version !== GUIDANCE_VERSION || data.agentId !== agentId || data.agentRevision !== agentRevision)
@@ -5303,7 +5370,7 @@ function parseApiPartialLabels(raw, ids) {
 function apiInsightCandidates() {
   if (!chatState.messages.length) return [];
   const eligible = message => message.side === "other" && message.kind === "text" &&
-    typeof message.text === "string" && !!message.text.trim() &&
+    typeof message.text === "string" && hasAnalyzableText(message.text) &&
     hasIntentContent(message.text) && !isIncompleteFragment(message.text) &&
     (!chatState.historyState || typeof message.historyCursor === "string");
   // Analyze the entire message window already loaded for this conversation.
@@ -5329,9 +5396,11 @@ function cancelApiInsightWork() {
 function renderApiInsightStatus() {
   const node = byId("analysisStatus");
   const retry = byId("btnRetryAnalysis");
+  let statusBusy = false;
   retry.textContent = "分析失败 · 重试";
   if (!settingsState.modelSourceResolved || settingsState.modelSourceSnapshot.mode !== "api" || !settingsState.settings.intent || !chatState.currentUser) {
     if (labelState.apiInsightStatusRendered) node.textContent = "";
+    node.classList?.remove?.("ai-busy");
     labelState.apiInsightStatusRendered = false;
     retry.hidden = !(portraitState.incrementalFailed || usingLocalFine() && labelState.recentFailed);
     if (usingLocalFine() && settingsState.localModelResolved && !settingsState.localModelReady) {
@@ -5364,6 +5433,7 @@ function renderApiInsightStatus() {
         `首段 ${(firstBodyMs / 1000).toFixed(1)} 秒 · ` : "";
       node.textContent = first + (total > 0 ? `分析中 ${Math.min(processed, total)}/${total} · ${elapsed} 秒` : `分析中 · ${elapsed} 秒`);
     }
+    statusBusy = true;
     setIntentActionState(labelState.apiInsightWork?.postPending ? "submitting" : entry?.job?.status || "queued");
   } else if (entry?.job?.status === "done") {
     // Real wall-clock total from the backend job, never a poll count.
@@ -5378,6 +5448,7 @@ function renderApiInsightStatus() {
     node.textContent = "";
     setIntentActionState("idle");
   }
+  node.classList?.toggle?.("ai-busy", statusBusy);
   if (!entry?.error) retry.hidden = !portraitState.incrementalFailed;
 }
 function renderApiInsightResult(result, text = "") {
@@ -5556,6 +5627,11 @@ async function submitApiInsightJob(work, candidates, signature) {
   }
 }
 function ensureApiInsights(force = false) {
+  if (analysisBlockedWithoutRequest(chatState.currentUser)) {
+    cancelApiInsightWork();
+    renderApiInsightStatus();
+    return;
+  }
   const key = settingsState.settings.intent && activeApiInsightKey();
   const sourceKey = JSON.stringify([chatState.currentAccount, settingsState.modelSourceSnapshot.sourceId]);
   if (settingsState.suppressedApiSources.has(sourceKey)) {
@@ -6050,6 +6126,9 @@ function closeSettingsModal() {
   showApiProfileDeleteConfirm(false);
   closeModelBadgeMenu();
   byId("settingsModal").classList.remove("show");
+  // The assistant panel stays open behind this modal, so its cached profile list is now the
+  // only stale copy. Announce the close instead of letting it read yesterday's models.
+  window.dispatchEvent(new CustomEvent("model-source-settings-closed"));
   clearTimeout(settingsState.runtimePollTimer);
   ++analysisCacheRequest;
   pendingAnalysisCacheClear = null;
@@ -6568,6 +6647,31 @@ async function toggleIntentRecognition() {
   } else submitManualRecent(true);
 }
 byId("btnToggleIntent").addEventListener("click", () => { void toggleIntentRecognition(); });
+function guidanceWindowField() {
+  const field = byId("inputGuidanceWindow"), unit = byId("selectGuidanceWindowUnit");
+  const minutes = guidanceWindowMinutes();
+  if (!field || !unit) return;
+  unit.value = minutes >= 1440 && minutes % 1440 === 0 ? "days" : "hours";
+  field.value = String(unit.value === "days" ? minutes / 1440 :
+    (minutes % 60 === 0 ? minutes / 60 : Math.round(minutes / 6) / 10));
+}
+function applyGuidanceWindow() {
+  guidanceWindowField();
+  text("guidanceWindowHint", "只把" + guidanceWindowLabel() + "内的聊天发送给模型。");
+}
+function readGuidanceWindow() {
+  const field = byId("inputGuidanceWindow"), unit = byId("selectGuidanceWindowUnit");
+  const amount = Number(field && field.value);
+  if (!Number.isFinite(amount) || amount <= 0) return guidanceWindowMinutes();
+  const minutes = Math.round(amount * (unit && unit.value === "days" ? 1440 : 60));
+  return Math.min(GUIDANCE_WINDOW_MAX, Math.max(GUIDANCE_WINDOW_MIN, minutes));
+}
+for (const id of ["inputGuidanceWindow", "selectGuidanceWindowUnit"])
+  byId(id)?.addEventListener("change", () => {
+    settingsState.settings.guidanceWindowMinutes = readGuidanceWindow();
+    save();
+    applyGuidanceWindow();
+  });
 for (const [id, key] of [["selectThemeMode", "theme"], ["selectZoomLevel", "zoom"]]) byId(id).addEventListener("change", event => { settingsState.settings[key] = event.target.value; save(); applySettings(); });
 byId("selectRuntimeProvider").addEventListener("change", event => { void changeRuntime(event.target.value); });
 byId("selectModelSource").addEventListener("change", () => {
@@ -6628,6 +6732,8 @@ function handleModelMenuClick(event) {
   if (event.target.closest("[data-manage]")) {
     closeModelBadgeMenu();
     byId("btnSettings").click();
+    // The model rows live in their own panel, so the jump has to switch tabs first.
+    document.querySelector('.settings-tab-btn[data-tab="model"]')?.click();
     byId("selectModelSource").value = "api";
     settingsState.modelSourceDraftDirty = true;
     invalidateModelDiscovery();
@@ -6959,7 +7065,8 @@ byId("btnCancelDeleteAccount").addEventListener("click", () => {
 byId("btnConfirmDeleteAccount").addEventListener("click", () => { void deleteManagedAccount(); });
 document.querySelectorAll(".settings-tab-btn").forEach(tab => tab.addEventListener("click", () => {
   document.querySelectorAll(".settings-tab-btn").forEach(node => node.classList.toggle("active", node === tab));
-  document.querySelectorAll(".settings-panel").forEach(node => node.classList.toggle("active", node.id === ({ general: "panelGeneral", about: "panelAbout" })[tab.dataset.tab]));
+  document.querySelectorAll(".settings-panel").forEach(node =>
+    node.classList.toggle("active", node.id === ({ general: "panelGeneral", model: "panelModel", about: "panelAbout" })[tab.dataset.tab]));
   if (tab.dataset.tab === "about") void loadAboutVersion();
 }));
 async function loadCatalog() {

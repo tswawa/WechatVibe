@@ -153,7 +153,11 @@ def selected_port(config, *, allow_fallback):
     probe = Config(config.root, config.python_exe, preferred, config.timeout)
     # Leave matching, foreign and unhealthy live services to ensure_service's
     # existing identity/ownership checks. Never hop around a live owned process.
-    if health(probe) != "unavailable" or port_occupied(preferred) or previous_live_bridge(probe):
+    # Cheap checks first: with nothing listening and no live record, health() can only answer
+    # "unavailable", so a cold start skips its live-account survey (~0.6 s on this machine).
+    if port_occupied(preferred) or previous_live_bridge(probe):
+        return preferred
+    if health(probe) != "unavailable":
         return preferred
     if port_bindable(preferred):
         return preferred
@@ -794,9 +798,25 @@ def run_command(args, config):
         shell_pid = os.environ.get("WECHATVIBE_SHELL_PID")
         if shell_pid:
             import psutil
-            if int(shell_pid) != psutil.Process().ppid():
+            try:
+                expected = int(shell_pid)
+            except ValueError:
+                raise LauncherError("Desktop startup identity is invalid") from None
+            # The shell must be an ancestor, not necessarily the direct parent: a virtual
+            # environment launcher (and some py launchers) run the interpreter one level
+            # deeper, so comparing only with ppid() rejected legitimate desktop starts.
+            ancestor = psutil.Process()
+            related = False
+            for _ in range(4):
+                ancestor = ancestor.parent()
+                if ancestor is None:
+                    break
+                if ancestor.pid == expected:
+                    related = True
+                    break
+            if not related:
                 raise LauncherError("Desktop startup identity is invalid")
-            InstallationGate(config.root).register(role="shell", pid=int(shell_pid))
+            InstallationGate(config.root).register(role="shell", pid=expected)
         return _run_admitted(args, config)
     finally:
         admission.close()

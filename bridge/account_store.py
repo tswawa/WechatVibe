@@ -57,6 +57,10 @@ def _reparse(path):
         details = path.lstat()
     except FileNotFoundError:
         return False
+    except OSError:
+        # Windows reports ERROR_CANT_RESOLVE_FILENAME (448) for a path below a reparse point
+        # it cannot traverse. A path we cannot inspect is not a path we accept.
+        return True
     return (stat.S_ISLNK(details.st_mode) or bool(
         getattr(details, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
     ) or bool(getattr(os.path, "isjunction", lambda _path: False)(path)))
@@ -80,7 +84,12 @@ def _same_checked_directory(left, right):
     """Compare directory identities only after rejecting reparse points in both paths."""
     _check_root(left)
     _check_root(right)
-    return left.resolve() == right.resolve()
+    try:
+        return left.resolve() == right.resolve()
+    except OSError as error:
+        # Windows reports ERROR_CANT_RESOLVE_FILENAME (448) when a path cannot be resolved
+        # through a reparse point. Comparing an identity we cannot establish is unsafe.
+        raise AccountConflict("账号缓存路径不安全") from error
 
 
 class AccountStore:

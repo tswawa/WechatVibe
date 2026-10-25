@@ -32,17 +32,43 @@
 
   <footer class="advisor-input-area">
     <textarea class="advisor-textarea" id="advisorInput" rows="3" maxlength="16000" aria-label="军师消息" placeholder="发送消息"></textarea>
+    <div class="advisor-composer-note" id="advisorComposerNote" role="status" aria-live="polite" hidden></div>
     <div class="advisor-input-bar">
-      <button type="button" class="advisor-send-btn" id="btnAdvisorSend" title="发送" aria-label="发送">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-7 7 7-7 7 7"/></svg>
-      </button>
-      <button type="button" class="advisor-send-btn advisor-stop-btn" id="btnStopRun" title="停止生成" aria-label="停止生成" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-      </button>
+      <div class="advisor-composer-left">
+        <button type="button" class="advisor-new-thread" id="btnNewThread" title="新建对话" aria-label="新建对话">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/></svg>
+          <span id="newThreadLabel">新建</span>
+        </button>
+        <div class="advisor-history-control">
+          <button type="button" class="advisor-history-btn" id="btnHistory" aria-expanded="false" aria-controls="historyMenu"
+            aria-haspopup="menu" title="历史会话">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="8"/></svg>
+            <span id="historyLabel">历史</span>
+          </button>
+          <div class="advisor-history-menu" id="historyMenu" role="menu" aria-label="历史会话" hidden></div>
+        </div>
+        <div class="advisor-model-control">
+          <button type="button" class="advisor-model-chip" id="btnModelMenu" aria-expanded="false" aria-controls="modelMenu"
+            aria-haspopup="menu" title="选择聊天助手使用的模型">
+            <span class="advisor-model-label" id="modelName" aria-live="polite">模型</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="advisor-model-menu" id="modelMenu" role="menu" aria-label="聊天助手模型" hidden></div>
+        </div>
+      </div>
+      <div class="advisor-send-group">
+        <button type="button" class="advisor-send-btn" id="btnAdvisorSend" title="发送" aria-label="发送">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-7 7 7-7 7 7"/></svg>
+        </button>
+        <button type="button" class="advisor-send-btn advisor-stop-btn" id="btnStopRun" title="停止生成" aria-label="停止生成" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+        </button>
+      </div>
     </div>
   </footer>
 
   <script src="advisor-ui-bundle.js"></script>
+  <script src="advisor-steps.js"></script>
   <script src="advisor-frame.js"></script>
 </body>
 </html>

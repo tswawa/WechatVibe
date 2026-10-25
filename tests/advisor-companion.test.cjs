@@ -72,6 +72,32 @@ test('only owned native frames can send state and current scoped actions',()=>{
   f.ipcMain.emit('advisor:from-window',f.event(view),envelope('ADVISOR_SEND',{account:'other',user:'u',agentId:'advisor',generation:1},{text:'bad'}));assert.equal(f.main.webContents.sent.length,before+1);
   assert.equal(f.handlers.has('real-client:exit-app'),false);f.manager.close();
 });
+test('model list and model choice cross the native bridge in both directions',()=>{
+  const f=fixture(),toggle=f.handlers.get('advisor:toggle');toggle(f.event(f.main),true);
+  const view=f.views[0],scope={account:'a',user:'u',agentId:'advisor',generation:1};
+  f.ipcMain.emit('advisor:from-main',f.event(f.main),envelope('ADVISOR_INIT',scope));
+  assert.equal(view.webContents.sent.length,1);
+  const profiles=[{id:'a'.repeat(32),name:'档案甲',model:'model-a',protocol:'anthropic'}];
+  f.ipcMain.emit('advisor:from-main',f.event(f.main),envelope('ADVISOR_SET_MODELS',scope,{profiles,assistantProfileId:null,analysisLabel:'档案甲'}));
+  assert.equal(view.webContents.sent.length,2);
+  assert.equal(view.webContents.sent[1].value.type,'ADVISOR_SET_MODELS');
+  const before=f.main.webContents.sent.length;
+  f.ipcMain.emit('advisor:from-window',f.event(view),envelope('ADVISOR_SELECT_MODEL',scope,{profileId:null}));
+  assert.equal(f.main.webContents.sent.length,before+1);
+  assert.equal(f.main.webContents.sent.at(-1).value.type,'ADVISOR_SELECT_MODEL');
+  assert.equal(f.main.webContents.sent.at(-1).value.payload.profileId,null);
+  f.manager.close();
+});
+test('new conversation crosses the native bridge to the main frame',()=>{
+  const f=fixture(),toggle=f.handlers.get('advisor:toggle');toggle(f.event(f.main),true);
+  const view=f.views[0],scope={account:'a',user:'u',agentId:'advisor',generation:1};
+  f.ipcMain.emit('advisor:from-main',f.event(f.main),envelope('ADVISOR_INIT',scope));
+  const before=f.main.webContents.sent.length;
+  f.ipcMain.emit('advisor:from-window',f.event(view),envelope('ADVISOR_NEW_THREAD',scope));
+  assert.equal(f.main.webContents.sent.length,before+1);
+  assert.equal(f.main.webContents.sent.at(-1).value.type,'ADVISOR_NEW_THREAD');
+  f.manager.close();
+});
 test('modal suspends the view and copy; hiding leaves the application alive',()=>{
   const f=fixture();f.handlers.get('advisor:toggle')(f.event(f.main),true);const view=f.views[0];f.ipcMain.emit('advisor:from-main',f.event(f.main),envelope('ADVISOR_INIT'));
   f.ipcMain.emit('advisor:modal',f.event(f.main),true);assert.equal(view.visible,false);f.ipcMain.emit('advisor:from-window',f.event(view),envelope('ADVISOR_COPY',undefined,{text:'suggestion'}),true);assert.equal(f.copied.length,0);

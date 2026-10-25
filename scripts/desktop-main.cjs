@@ -56,13 +56,33 @@ function stopOwnedBridge(callback) {
   }
 }
 
-function fail() {
-  dialog.showErrorBox("WechatVibe 启动失败", "本地服务未就绪，请检查运行文件是否完整。");
+// The dialog text alone cannot explain a failed launch, so every failure writes what the
+// launcher printed into logs/desktop-launch.log and quotes its last line.
+function recordLaunchFailure(reason) {
+  const text = String(reason || "").trim();
+  if (!text) return "";
+  try {
+    const directory = path.join(root, "logs");
+    fs.mkdirSync(directory, { recursive: true });
+    const stamp = new Date().toISOString();
+    fs.appendFileSync(path.join(directory, "desktop-launch.log"),
+                      `[${stamp}] ${text}\n`, "utf8");
+  } catch (_) {
+    // A read-only install still deserves the dialog, just without the log line.
+  }
+  const lines = text.split(/\r?\n/).filter(line => line.trim());
+  return lines.length ? lines[lines.length - 1].slice(0, 300) : "";
+}
+
+function fail(reason) {
+  const detail = recordLaunchFailure(reason);
+  dialog.showErrorBox("WechatVibe 启动失败",
+                      "本地服务未就绪，请检查运行文件是否完整。" + (detail ? `\n\n${detail}` : ""));
   app.quit();
 }
 
-function failAfterCleanup() {
-  stopOwnedBridge(() => fail());
+function failAfterCleanup(reason) {
+  stopOwnedBridge(() => fail(reason));
 }
 
 app.whenReady().then(() => {
@@ -88,10 +108,10 @@ app.whenReady().then(() => {
   delete environment.CHATUI_PORT;
   execFile(python, [launcher, "--no-open", "--json"], {
     cwd: root, env: environment, windowsHide: true, timeout: 45000, maxBuffer: 65536,
-  }, (error, stdout) => {
+  }, (error, stdout, stderr) => {
     if (error) {
       // The launcher stops a bridge it started before failing, so do not stop one here.
-      fail();
+      fail(["launcher failed:", error.message, stderr, stdout].filter(Boolean).join("\n"));
       return;
     }
     let result;
@@ -106,16 +126,16 @@ app.whenReady().then(() => {
         WECHATVIBE_BRIDGE_CREATED: bridgeCreated ? "1" : "0",
       });
       delete process.env.WECHATVIBE_SHELL_PID;
-    } catch (_) {
+    } catch (invalid) {
       if (!bridgeCreated) bridgeCreated = /"created"\s*:\s*true/.test(String(stdout || ""));
-      failAfterCleanup();
+      failAfterCleanup(["invalid launcher result:", invalid.message, stderr, stdout].filter(Boolean).join("\n"));
       return;
     }
     process.argv.push("--client-url", `${result.url}/`);
     try {
       require("./real-client-shell.cjs");
-    } catch (_) {
-      failAfterCleanup();
+    } catch (shellError) {
+      failAfterCleanup(["shell failed:", shellError && shellError.stack || String(shellError)].join("\n"));
     }
   });
-}).catch(fail);
+}).catch(error => fail(["startup failed:", error && error.stack || String(error)].join("\n")));

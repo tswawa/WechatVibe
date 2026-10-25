@@ -64,7 +64,7 @@ class CatalogTests(ServiceTestCase):
         catalog = self.service.catalog()
         self.assertEqual(catalog["permissions"], {"readOnly": True})
         self.assertEqual(catalog["engine"], {"state": "available"})
-        self.assertEqual(len(catalog["agents"]), 3)
+        self.assertEqual(len(catalog["agents"]), 4)
         self.assertTrue(all(agent["revision"] >= 1 for agent in catalog["agents"]))
         created = self.service.save_template({"action": "save", "agent": {
             "name": "我的参谋", "description": "", "prompt": "帮我分析",
@@ -369,7 +369,7 @@ class SendPerformanceTests(ServiceTestCase):
         run.worker.join(2)
         self.assertFalse(run.worker.is_alive())
         self.assertEqual(self.service.stores.account(ACCOUNT).run(run.id)["state"], "stopped")
-        self.assertEqual(len(self.service.stores.config.agents()), 2)
+        self.assertEqual(len(self.service.stores.config.agents()), 3)
 
     def running_fixture(self):
         self.wait_context_ready()

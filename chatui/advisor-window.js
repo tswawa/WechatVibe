@@ -6,7 +6,7 @@
   const pending = new Map();
   let pendingScope = null;
   const bufferedTypes = new Set(["ADVISOR_SET_TEMPLATES", "ADVISOR_SET_THREAD", "ADVISOR_THEME",
-    "ADVISOR_PROBLEM", "ADVISOR_SUBMIT_STATE", "ADVISOR_STOP_STATE", "ADVISOR_STREAM_UPDATE"]);
+    "ADVISOR_PROBLEM", "ADVISOR_SUBMIT_STATE", "ADVISOR_STOP_STATE", "ADVISOR_STREAM_UPDATE", "ADVISOR_SET_MODELS"]);
   const sameScope = (a, b) => a && b && ["account", "user", "agentId", "generation"].every(key => a[key] === b[key]);
   function buffer(data) {
     if (!bufferedTypes.has(data.type)) return;

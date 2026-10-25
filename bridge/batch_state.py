@@ -14,6 +14,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from payload_crypto import default_cipher
 from profile_signals import STYLE_LABELS
 from profile_state import empty_state, add_result as add_profile_result, covers_tail_emotions
 from profile_signals import keyword_counts
@@ -430,8 +431,10 @@ class BatchStateStore:
         if row is None:
             return None
         seq, shard, local, offset, context, state, complete = row
+        # Up to three full messages are stored verbatim in context_json.
+        context = self.cipher.loads(context)
         return {"cursor": (seq, shard, local) if seq is not None else None,
-                "charOffset": offset, "context": self.cipher.loads(context), "state": json.loads(state),
+                "charOffset": offset, "context": context, "state": json.loads(state),
                 "complete": bool(complete)}
 
     def legacy_known(self, account, session, base_version, subject, ids):

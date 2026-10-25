@@ -15,7 +15,11 @@ function body(signature) {
 const actionStart = app.indexOf('byId("btnToggleIntent").addEventListener("click",');
 const actionEnd = app.indexOf('for (const [id, key] of [["selectThemeMode"', actionStart);
 assert.ok(actionStart >= 0 && actionEnd > actionStart);
-const source = [
+// The link/placeholder filter (`stripMessageLinks` -> `hasAnalyzableText`) sits between the
+// model blocks these cases slice out, so carry it over whole instead of by signature.
+const linkFilter = app.slice(app.indexOf("const MESSAGE_LINK_PATTERN"), app.indexOf("function hasIntentContent("));
+assert.ok(linkFilter.includes("function hasAnalyzableText("), "app.js is missing the link filter");
+const source = linkFilter + "\n" + [
   "function validConversationSelection(", "async function requestConversationAnalysis(",
   "function conversationAnalysisRequested(", "function currentIntentRequestScope(", "function analysisBlockedWithoutRequest(",
   "function fineWindow(", "function analyzableMessages(", "function fineMessageResult(",

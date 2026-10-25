@@ -252,7 +252,7 @@ class ModelSourceTestCase(unittest.TestCase):
                         side_effect=lambda path: Path(path) == selected):
             self.assertEqual(self.local_source.status()["path"], str(selected))
             self.assertEqual(self.request(self.server(), "GET", "/api/model-source"),
-                             (200, {"mode": "local", "api": None, "profiles": [],
+                             (200, {"mode": "local", "api": None, "profiles": [], "assistantProfileId": None,
                                     "label": "本地 Laya",
                                     "sourceId": LOCAL_SOURCE_ID, "status": "active"}))
             self.store.save_api("responses", "https://example.test/v1", "test-model",
@@ -325,7 +325,7 @@ class ModelSourceTestCase(unittest.TestCase):
         server = self.server()
         status, initial = self.request(server, "GET", "/api/model-source")
         self.assertEqual(status, 200)
-        self.assertEqual(initial, {"mode": "local", "api": None, "profiles": [],
+        self.assertEqual(initial, {"mode": "local", "api": None, "profiles": [], "assistantProfileId": None,
                                    "label": "本地 Laya",
                                    "sourceId": LOCAL_SOURCE_ID, "status": "active"})
         settings = {"protocol": "responses", "baseUrl": "https://example.test/v1",

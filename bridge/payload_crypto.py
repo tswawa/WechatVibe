@@ -50,6 +50,16 @@ class PayloadCipher:
         if key is not None and (not isinstance(key, bytes) or len(key) != KEY_BYTES):
             raise ValueError("invalid analysis payload key")
         self._key = key
+        self._signature = None
+
+    @staticmethod
+    def _key_signature(path):
+        """Cheap identity of the key file; None means "not readable as it stands"."""
+        try:
+            stat = path.stat()
+        except OSError:
+            return None
+        return (stat.st_size, stat.st_mtime_ns)
 
     def _read_key(self):
         try:
@@ -71,6 +81,13 @@ class PayloadCipher:
                 if not create:
                     raise PayloadUnreadable()
                 self._key = os.urandom(KEY_BYTES)
+                return self._key
+            # Fast path: an unchanged key *and* format marker are trusted without the ancestor
+            # walk or the process lock, which would otherwise dominate a per-column write. A
+            # missing file yields a None signature and always falls through to the locked path.
+            marker_path = self.key_path.with_name("payload-format.json")
+            signature = (self._key_signature(self.key_path), self._key_signature(marker_path))
+            if self._key is not None and signature[0] is not None and signature == self._signature:
                 return self._key
             path = checked_path(self.key_path)
             with ProcessLock(path.with_name(path.name + ".lock")).acquire(timeout=10):
@@ -105,6 +122,7 @@ class PayloadCipher:
                 # Keep a format marker even if somebody later removes the key file.
                 self._ensure_marker(marker)
                 self._key = key
+                self._signature = (self._key_signature(path), self._key_signature(marker))
                 return key
 
     @staticmethod
@@ -151,6 +169,15 @@ class PayloadCipher:
 
     def dumps(self, value):
         return self.protect(json.dumps(value, ensure_ascii=False))
+
+    def warm(self):
+        """Load (or create) the key now so a write never pays for key setup.
+
+        Callers on a request path warm once when they open their store; a missing key stays a
+        loud :class:`PayloadUnreadable` here instead of surfacing mid-write.
+        """
+        self._load_key(create=True)
+        return self
 
     def backup_key(self):
         """Retain one protected key backup; never replace an existing backup."""

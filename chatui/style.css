@@ -3391,3 +3391,12 @@ body.theme-light .about-version-row { border-bottom-color: #f1f5f9; }
 body.theme-light .update-modal-card { border-color: var(--border-color); background: #fff; box-shadow: 0 24px 70px rgba(23, 56, 70, .22); }
 @media (max-width: 460px) { .update-modal-head, .update-modal-body { padding-left: 18px; padding-right: 18px; } .update-modal-actions { padding-left: 18px; padding-right: 18px; } }
 @media (prefers-reduced-motion: reduce) { .update-progress-track.indeterminate span { animation: none; } }
+
+/* Long-running AI work (意图识别 / 人物画像 / 回复选项): a small spinner before the phase text. */
+.ai-busy::before { content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -1px; opacity: .7; animation: ai-busy-spin .8s linear infinite; }
+@keyframes ai-busy-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ai-busy::before { animation: none; border-right-color: currentColor; } }
+
+/* While a reply is being generated the status must read as "working", not as a hint. */
+.guidance-status.ai-busy { flex-basis: auto; max-width: none; font-size: 13px; font-weight: 500;
+  color: inherit; white-space: normal; overflow: visible; text-overflow: clip; }

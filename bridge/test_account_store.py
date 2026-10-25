@@ -54,6 +54,15 @@ def directory_reparse_alias(target, alias):
                                 env=environment, capture_output=True, text=True)
         if result.returncode or not getattr(os.path, 'isjunction', lambda _path: False)(alias):
             raise unittest.SkipTest('directory junction unavailable')
+    # Some volumes cannot resolve a path *below* the alias (Windows reports
+    # ERROR_CANT_RESOLVE_FILENAME, 448, even for a healthy junction). Then this machine
+    # cannot exercise the case at all, and asserting on it would test the volume, not us.
+    try:
+        (alias / 'resolve-probe').lstat()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        raise unittest.SkipTest('reparse alias cannot be traversed on this volume')
 
 
 class AccountManagementTests(unittest.TestCase):
@@ -77,7 +86,10 @@ class AccountManagementTests(unittest.TestCase):
         self.assertEqual(calls, [('pause', account)])
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        # The reparse-point cases below leave a junction behind on sandboxes that treat
+        # them as untrusted mount points (they cannot be deleted from inside the process).
+        # A leftover link must not turn a skipped case into an error.
+        self.temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.data = self.root / 'results'

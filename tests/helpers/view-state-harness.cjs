@@ -14,7 +14,12 @@ const VIEW_STATE_SOURCE = readFileSync(path.join(__dirname, "..", "..", "chatui/
 // declarations are redeclarable, so a slice that also carries them is harmless.
 const APP_SOURCE = readFileSync(path.join(__dirname, "..", "..", "chatui/app.js"), "utf8");
 const GATE_SOURCE = (() => {
-  const start = APP_SOURCE.indexOf("function conversationAnalysisRequested(");
+  // The gate decides what may be analysed, so it also carries the link/placeholder filter
+  // (`hasAnalyzableText` and friends). Those helpers sit above the gate, so the slice starts
+  // at the deepest anchor that exists.
+  const gate = APP_SOURCE.indexOf("function conversationAnalysisRequested(");
+  const helpers = APP_SOURCE.indexOf("const MESSAGE_LINK_PATTERN");
+  const start = helpers >= 0 && gate >= 0 ? Math.min(gate, helpers) : Math.max(gate, helpers);
   const end = APP_SOURCE.indexOf("/** Analyse exactly the given conversations", start);
   if (start < 0 || end <= start) throw new Error("app.js is missing the analysis request gate");
   return APP_SOURCE.slice(start, end);

@@ -147,6 +147,27 @@ class BackendTests(unittest.TestCase):
             self.backend.start("friend", "recent", 1, expected_account="other-account")
         self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
 
+    def test_a_message_that_is_only_a_link_is_not_analysed(self):
+        self.source.add("friend", 3, text="synthetic")
+        rows = self.source.rows["friend"]
+        rows[0]["text"] = "https://example.com/share"
+        rows[1]["text"] = "看这个 https://example.com/a 挺好"
+        seen = []
+        original = self.analyzer.analyze
+
+        def spy(session, messages, target, **kwargs):
+            seen.append([item["text"] for item in messages])
+            return original(session, messages, target, **kwargs)
+
+        self.analyzer.analyze = spy
+        job = self.run_job("friend", "recent", 3)
+        self.assertEqual(sorted(target for _session, target, _context in self.analyzer.calls),
+                         sorted([rows[1]["id"], rows[2]["id"]]))
+        self.assertEqual(job["total"], 2)
+        sent = " ".join(text for call in seen for text in call)
+        self.assertNotIn("example.com", sent, "a link must never reach the model")
+        self.assertIn("看这个", sent)
+
     def test_selected_targets_analyse_only_the_picked_ids(self):
         self.source.add("friend", 30)
         rows = self.source.rows["friend"]
