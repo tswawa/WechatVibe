@@ -8,6 +8,10 @@
 意图识别 · 情绪感知 · 人物画像 · 群聊画像 · 好感度 · MBTI 聊天推测 · 聊天助手
 
 [![最新版本](https://img.shields.io/github/v/release/tswawa/WechatVibe?label=release)](https://github.com/tswawa/WechatVibe/releases/latest)
+[![Release 累计下载量](https://img.shields.io/github/downloads/tswawa/WechatVibe/total?style=flat&logo=github&label=downloads)](https://github.com/tswawa/WechatVibe/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/tswawa/WechatVibe?style=flat&logo=github)](https://github.com/tswawa/WechatVibe/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/tswawa/WechatVibe?style=flat&logo=github)](https://github.com/tswawa/WechatVibe/forks)
+[![GitHub Issues](https://img.shields.io/github/issues/tswawa/WechatVibe?style=flat&logo=github)](https://github.com/tswawa/WechatVibe/issues)
 [![Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6)](#运行要求)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
