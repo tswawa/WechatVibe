@@ -4293,8 +4293,10 @@ function guidanceScopeKey() {
 function normalizeGuidance(value) {
   if (!value || value.kind !== "reply-options" || value.version !== GUIDANCE_VERSION ||
       !Array.isArray(value.replies) || value.replies.length !== 3) return null;
-  const replies = value.replies.map(item => typeof item?.text === "string" ? item.text.trim() : "");
-  if (replies.some(text => !text || Array.from(text).length > 90 || /[\u0000-\u001f\u007f]/u.test(text)) ||
+  // Preserve the line breaks the model produced; only other control characters are unsafe.
+  const replies = value.replies.map(item => typeof item?.text === "string" ? item.text : "");
+  if (replies.some(text => !text.trim() || Array.from(text).length > 90 ||
+    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(text)) ||
       new Set(replies).size !== 3) return null;
   return { replies };
 }

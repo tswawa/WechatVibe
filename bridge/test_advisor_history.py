@@ -81,9 +81,11 @@ class PickerLineTests(unittest.TestCase):
         self.assertEqual(len(line), 60)  # the ellipsis counts toward the 60-character wire limit
         self.assertTrue(line.endswith("…"))
 
-    def test_newlines_and_control_characters_collapse_to_one_line(self):
+    def test_newlines_blank_lines_and_indentation_are_kept_verbatim(self):
         from advisor_service import picker_line
-        self.assertEqual(picker_line("  第一行\n第二行\t第三行  ", 60), "第一行 第二行 第三行")
+        original = "  第一行\n\n第三行\t缩进  "
+        self.assertEqual(picker_line(original, 60), original)
+        self.assertEqual(picker_line("a\r\n\r\nb", 60), "a\r\n\r\nb")
         self.assertEqual(picker_line(None, 60), "")
 
 

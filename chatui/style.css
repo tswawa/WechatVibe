@@ -789,6 +789,8 @@ body.theme-light .chat-status-pill .status-pill-text {
   border-radius: 4px;
   font-size: 14px;
   line-height: 1.5;
+  /* WeChat messages are plain text: keep every newline and blank line exactly. */
+  white-space: pre-wrap;
   word-break: break-word;
   user-select: text;
 }
@@ -3382,7 +3384,7 @@ body:not(.theme-light) .btn-send.ready:hover, body:not(.theme-light) .btn-read-c
 .history-result { width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-search); color: var(--text-main); font: inherit; text-align: left; cursor: pointer; }
 .history-result:hover { background: var(--bg-session-active); border-color: var(--color-green); }
 .history-result-meta { display: block; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px; }
-.history-result-text { display: block; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.history-result-text { display: block; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .history-search-pages { justify-content: space-between; padding-top: 10px; }
 .msg-item.history-hit .msg-bubble { outline: 2px solid var(--color-green); outline-offset: 3px; }
 .about-pending {

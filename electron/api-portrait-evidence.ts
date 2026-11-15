@@ -25,6 +25,9 @@ const controls = /[\u0000-\u001f\u007f]/u;
 const quoteControls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;
 const bounded = (x: unknown, max: number): x is string => typeof x === "string" &&
   !!x.trim() && charCount(x) <= max && !controls.test(x);
+// Observation text and quotes are free text: line breaks are evidence, not control noise.
+const boundedText = (x: unknown, max: number): x is string => typeof x === "string" &&
+  !!x.trim() && charCount(x) <= max && !quoteControls.test(x);
 const boundedQuote = (x: unknown): x is string => typeof x === "string" &&
   !!x.trim() && charCount(x) <= 240 && !quoteControls.test(x);
 const validId = (x: unknown): x is string => bounded(x, 200);
@@ -45,7 +48,7 @@ export function checkedPortraitEvidence(value: unknown): ApiPortraitEvidenceStat
   for (const item of value.items) {
     if (!object(item) || !keys(item, ["id", "dimension", "text", "sources"]) ||
         !validId(item.id) || seen.has(item.id) || !dimensions.has(item.dimension as string) ||
-        !bounded(item.text, 160) || !Array.isArray(item.sources) || !item.sources.length ||
+        !boundedText(item.text, 160) || !Array.isArray(item.sources) || !item.sources.length ||
         item.sources.length > 8) inputError();
     seen.add(item.id);
     for (const source of item.sources) {
@@ -258,7 +261,7 @@ export async function fitPortraitFacts(config: ModelConfig, evidence: ApiPortrai
       const refs = new Map(batch.map(f => [f.id, f]));
       const covered = new Set<string>();
       for (const raw of result.observations) {
-        if (!object(raw) || !dimensions.has(raw.dimension as string) || !bounded(raw.text, 160) ||
+        if (!object(raw) || !dimensions.has(raw.dimension as string) || !boundedText(raw.text, 160) ||
             !Array.isArray(raw.evidenceIds) || !raw.evidenceIds.length ||
             raw.evidenceIds.some(id => typeof id !== "string" || !refs.has(id))) outputError();
         const cited = (raw.evidenceIds as string[]).map(id => refs.get(id)!);

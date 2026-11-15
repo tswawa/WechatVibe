@@ -126,7 +126,8 @@
     templateSignature = signature;
     const selected = templates.find(template => template.id === scope?.agentId);
     agentName.textContent = selected?.name || (catalogReady ? "未启用模板" : "模板未读取");
-    welcomeText.textContent = selected?.welcome?.trim() || `嗨，我是你的${selected?.name || "狗头军师"}`;
+    const welcome = selected?.welcome;
+  welcomeText.textContent = welcome && welcome.trim() ? welcome : `嗨，我是你的${selected?.name || "狗头军师"}`;
     menuButton.disabled = templates.length < 2;
     agentMenu.replaceChildren();
     for (const template of templates) {

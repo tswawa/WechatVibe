@@ -41,9 +41,10 @@ export function emptyApiPortrait(): ApiPortrait {
 }
 function cleanText(value: unknown, maximum: number): string {
   if (typeof value !== "string") return "";
-  return Array.from(value.replace(/[\u0000-\u001f\u007f]/gu, " ")
-    .replace(/^(?:根据(?:以上|上述)(?:分析|内容)[，,:：]?|作为AI[，,:：]?|综上所述[，,:：]?)/iu, "")
-    .trim()).slice(0, maximum).join("");
+  // Tabs, line breaks and blank lines survive; only other control characters become spaces.
+  const clean = value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, " ")
+    .replace(/^(?:根据(?:以上|上述)(?:分析|内容)[，,:：]?|作为AI[，,:：]?|综上所述[，,:：]?)/iu, "");
+  return Array.from(clean).slice(0, maximum).join("");
 }
 
 /** Model owns judgments; code verifies provenance and never invents scores. */

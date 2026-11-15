@@ -43,7 +43,7 @@ function harness(fetcher) {
     },
   });
   vm.runInContext(app.slice(start, end) +
-    "\nthis.actions={loadGuidance,startGuidance,syncGuidanceMode,clearGuidanceView,copyReplyChoice};", context);
+    "\nthis.actions={loadGuidance,startGuidance,syncGuidanceMode,clearGuidanceView,copyReplyChoice,normalizeGuidance};", context);
   context.actions.syncGuidanceMode();
   return { ...ui, context, actions: context.actions, calls, clipboard, timers, assistant,
     changeAssistant(value) { Object.assign(assistant, value); listeners.get("advisor-selection-changed")?.(); } };
@@ -306,4 +306,14 @@ it("guidance polling uses its own abort signal and cancels it on scope change", 
   // Once the GET settles the private controller is released; a scope change aborts only a
   // controller that is still in flight (covered by chat-load-interruption.test.cjs).
   assert.equal(run.context.portraitState.guidanceController, null);
+});
+
+it("keeps newlines and blank lines in generated reply options", () => {
+  const run = harness();
+  const text = "第一行\n\n第三行\n  缩进";
+  const result = run.actions.normalizeGuidance({ kind: "reply-options", version: "api-reply-options-v2",
+    replies: [{ text }, { text: "第二条" }, { text: "第三条" }] });
+  assert.equal(result.replies[0], text);
+  assert.equal(run.actions.normalizeGuidance({ kind: "reply-options", version: "api-reply-options-v2",
+    replies: [{ text: "坏\u0001字符" }, { text: "第二条" }, { text: "第三条" }] }), null);
 });

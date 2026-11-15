@@ -92,7 +92,7 @@ function prepare(input: ApiInsightInput): {
         (message.portraitContext !== undefined &&
           (message.sender !== "OTHER" || typeof message.portraitContext !== "string" ||
            charCount(message.portraitContext) > 80 ||
-           /[\u0000-\u001f\u007f]/u.test(message.portraitContext)))) inputError();
+           /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(message.portraitContext)))) inputError();
     rawCharacters += charCount(message.text) + charCount(message.portraitContext || "");
     if (rawCharacters > MAX_CHAT_CHARACTERS) inputError();
     byId.set(message.id, index);

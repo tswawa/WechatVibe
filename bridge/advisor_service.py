@@ -1227,14 +1227,14 @@ class AdvisorService:
 
 
 def picker_line(value, maximum):
-    """One line for the history picker: collapse whitespace, drop control characters, truncate.
+    """One line of history preview text, truncated by UTF-16 units.
 
-    The limit counts UTF-16 code units because the UI validates with JavaScript string
-    lengths; an emoji is two of them. Truncating by Python characters produced strings the
-    client rejected, which surfaced as a permanently failing history list.
+    Line breaks, blank lines and indentation are part of the message and stay verbatim;
+    only control characters other than tabs/newlines are dropped. The limit counts UTF-16
+    code units because the UI validates with JavaScript string lengths.
     """
-    text = " ".join(str(value or "").split())
-    text = "".join(char for char in text if ord(char) >= 32)
+    text = str(value or "")
+    text = "".join(char for char in text if ord(char) >= 32 or char in "\r\n\t")
     if len(text.encode("utf-16-le")) // 2 <= maximum:
         return text
     kept, used = [], 0

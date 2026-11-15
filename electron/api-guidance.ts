@@ -131,12 +131,15 @@ export type GuidanceGenerator = typeof generateStructured;
 
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
-const CONTROL = /[\u0000-\u001f\u007f]/u;
+const CONTROL = /[\u0000-\u001f\u007f]/u;  // identifiers and display names stay single-line
+const TEXT_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;  // free text keeps \t \n \r
 
-/** Bounded display text: no control characters, no echoed markup, capped length. */
+/** Bounded display text: other control characters are dropped, but tabs, newlines and
+ * blank lines are part of the text and stay exactly where the model put them. */
 function bounded(value: unknown, maximum: number): string {
   if (typeof value !== "string") outputError();
-  return Array.from(value.replace(/[\u0000-\u001f\u007f]/gu, " ").trim()).slice(0, maximum).join("");
+  const clean = value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, " ");
+  return Array.from(clean).slice(0, maximum).join("");
 }
 
 function boundedList(value: unknown, maximum: number, limit: number): string[] {
@@ -145,7 +148,7 @@ function boundedList(value: unknown, maximum: number, limit: number): string[] {
   const items: string[] = [];
   for (const item of value) {
     const text = bounded(item, maximum);
-    if (text) items.push(text);
+    if (text.trim()) items.push(text);
   }
   return items.slice(0, limit);
 }
@@ -168,7 +171,7 @@ function prepare(input: GuidanceInput): {
       input.contextTokens > 1_000_000) inputError();
   for (const key of ["otherPortrait", "selfSummary", "feedback"] as const) {
     const value = input[key];
-    if (value !== undefined && (typeof value !== "string" || CONTROL.test(value))) inputError();
+    if (value !== undefined && (typeof value !== "string" || TEXT_CONTROL.test(value))) inputError();
   }
   if (input.feedback !== undefined && charCount(input.feedback) > MAX_FEEDBACK_CHARACTERS) inputError();
   if (input.draft !== undefined && (typeof input.draft !== "string" ||
@@ -278,11 +281,11 @@ function normalizeAdvice(value: unknown, analyzeSelf: boolean): GuidanceAdvice {
   for (const entry of rawReplies) {
     if (!object(entry)) outputError();
     const text = bounded(entry.text, REPLY_TEXT_MAX);
-    if (!text) outputError();
+    if (!text.trim()) outputError();
     const tone = optionalText(entry.tone, REPLY_TONE_MAX);
     replies.push({ ...(tone ? { tone } : {}), text });
   }
-  if (!reading || !strategies.length) outputError();
+  if (!reading.trim() || !strategies.length) outputError();
   const forOthers: GuidanceOthers = { reading, strategies, replies };
   const self = value.forSelf;
   if (!analyzeSelf) {
@@ -293,7 +296,7 @@ function normalizeAdvice(value: unknown, analyzeSelf: boolean): GuidanceAdvice {
   const summary = bounded(self.summary, SELF_SUMMARY_MAX);
   const strengths = boundedList(self.strengths, SELF_POINT_MAX, MAX_SELF_POINTS);
   const improvements = boundedList(self.improvements, SELF_POINT_MAX, MAX_SELF_POINTS);
-  if (!summary || !strengths.length || !improvements.length) outputError();
+  if (!summary.trim() || !strengths.length || !improvements.length) outputError();
   return { forOthers, forSelf: { summary, strengths, improvements } };
 }
 
