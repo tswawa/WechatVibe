@@ -1609,9 +1609,12 @@ function displayedEmotion(values, messageText) {
   const hidden = new Set(["自然", "随和", "坦诚"]);
   const scores = rankedEmotionScores(values).filter(({ item }) => !hidden.has(String(item.label)));
   const top = scores[0];
-  if (!top || top.probability < 0.30) return [];
+  // 15 个可见情绪候选摊开后绝对概率天然偏低：本机 43 条真实结果里能同时过
+  // 「>= 0.30」与「领先次选 0.15」的只有 5 条，整行因此几乎不出现。改为
+  // 「首选够高且明显领先次选」。
+  if (!top || top.probability < 0.25) return [];
   const second = scores[1];
-  if (second && top.probability - second.probability < 0.15) return [];
+  if (second && top.probability - second.probability < 0.10) return [];
   return [top];
 }
 function hasIntentContent(messageText) {
@@ -1631,11 +1634,6 @@ function isIncompleteFragment(messageText) {
 const PLAIN_ACK_TEXT = /^(?:嗯+|哦+|好(?:的|呀|啊|了|吧)?|行(?:的|呀|啊|了|吧)?|可以(?:的|呀|啊|吧)?|收到(?:了)?|明白(?:了)?|知道(?:了)?|搞定(?:了|啦)?|没问题|ok|okay)(?:[。！!，,~～\s]*)$/iu;
 const PLAIN_STATUS_TEXT = /^(?:已经)?(?:完成|做好|处理完|弄好|弄完|上传|提交|发送|到了|搞定)(?:了)?(?:[。！!，,~～\s]*)$/u;
 const PLAIN_ACTION_LABELS = new Set(["确认", "同意", "状态报告", "一般交流"]);
-// These are useful internal candidates, but ordinary messages must not expose them
-// as if they carried a meaningful social decision. A salient cue keeps real sharing,
-// questions, requests and decisions visible.
-const LOW_SIGNAL_INTENT_LABELS = new Set(["闲聊", "一般交流", "确认", "同意", "状态报告", "告知事实", "分享", "表达感受"]);
-const SALIENT_INTENT_CUE = /[？?]|帮我|请|能不能|可不可以|麻烦|要不要|一起|改天|下次|不行|不了|拒绝|不想|不愿|建议|因为|所以|解释|澄清|计划|准备|打算|邀请|邀约|改期|发给我|给你看|喜欢|在乎|抱歉|谢谢|求助|安慰|陪我|检查|查看|看看|确认一下|\bcheck\b/iu;
 const PLAIN_TURN = /[？?]|但是|不过|可是|其实|然而|而且|顺便|另外|请你|帮我|能不能|可不可以|麻烦|建议|要不要|一起/u;
 function plainAcknowledgementOnly(messageText, candidates) {
   const text = String(messageText || "").trim();
@@ -1643,11 +1641,6 @@ function plainAcknowledgementOnly(messageText, candidates) {
   if (!PLAIN_ACK_TEXT.test(text) && !PLAIN_STATUS_TEXT.test(text)) return false;
   return candidates.length > 0 &&
     candidates.every(item => PLAIN_ACTION_LABELS.has(String(item.label)));
-}
-function lowSignalIntentOnly(messageText, candidates) {
-  const text = String(messageText || "").trim();
-  return !!text && !SALIENT_INTENT_CUE.test(text) && candidates.length > 0 &&
-    candidates.every(item => LOW_SIGNAL_INTENT_LABELS.has(String(item.label)));
 }
 function localIntentTextGuard(messageText) {
   const original = String(messageText || "");
@@ -1689,12 +1682,20 @@ function displayedIntent(result, messageText) {
     if (guard === "unattributed" && !["correct", "clarify", "explain"].includes(ranked[0]?.rawLabel)) return [];
     if (guard === "statement" && ["ask_question", "agree", "confirm", "inform", "status_report", "small_talk", "general_exchange"].includes(ranked[0]?.rawLabel)) return [];
   }
+  // 45 个候选摊平后绝对概率天然偏低：本机 43 条真实结果里 30 条 top1 在 0.50 以下，
+  // 旧的 0.50 硬门槛把它们全部隐藏，叠上「低信号标签一律不显示」后整行只剩 9% 可见。
+  // 改为「首选够高且明显领先次选」，让模型真正有把握的日常消息也能显示。
+  const top = modelCandidates[0];
+  const second = modelCandidates[1];
+  const confident = !!top && top.probability >= 0.35 &&
+    (!second || top.probability - second.probability >= 0.10);
   const shown = evidenced
     ? [{ label: ({ concrete_reschedule: "改期", conversation_pause: "收尾", conditional_acceptance: "条件同意" })[grounded.evidenceKind] ||
         GENERIC_INTENT_LABELS[grounded.label], probability: null }]
-    : modelCandidates.length && modelCandidates[0].probability >= 0.50
-      ? [modelCandidates[0]] : [];
-  return plainAcknowledgementOnly(messageText, shown) || lowSignalIntentOnly(messageText, shown) ? [] : shown;
+    : confident ? [top] : [];
+  // 只有「纯应答」这一类短文本仍整行留白；其余低信号标签（闲聊 / 分享 / 告知事实 /
+  // 表达感受）就是日常对话的主体，按置信度决定是否显示，而不是整类拉黑。
+  return plainAcknowledgementOnly(messageText, shown) ? [] : shown;
 }
 labelState.messageLabels = null;
 function messageLabelsApi() {
