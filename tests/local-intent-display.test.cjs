@@ -5,6 +5,10 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { it } = require("node:test");
 
+// 直接 `node --test tests/*.test.cjs` 时没有 tsx 加载器，这里补上，让下面
+// require .ts 源码可解析；标准套件已带 `--import tsx`，重复注册无副作用。
+require("tsx/cjs");
+
 const app = fs.readFileSync(path.join(__dirname, "../chatui/app.js"), "utf8").replace(/\r/g, "");
 function body(signature) {
   const start = app.indexOf(signature), end = app.indexOf("\n}\n", start);
@@ -62,8 +66,8 @@ it("a mismatched evidence kind cannot grant an action label", () => {
     assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.1}],groundedIntent:grounded},"合成消息。"), []);
 });
 
-it("frontend guards agree with the model-side interpretation of reported acts and statements", async () => {
-  const { isUnattributableIntentTarget, isEmbeddedQuestionStatement } = await import("../electron/laya/grounded-intent.ts");
+it("frontend guards agree with the model-side interpretation of reported acts and statements", () => {
+  const { isUnattributableIntentTarget, isEmbeddedQuestionStatement } = require("../electron/laya/grounded-intent.ts");
   for (const text of ["小王问我，能不能帮我检查文档。", "我说的不是请你帮我修。", "他说我先休息一下，明天再聊。",
     "我的想法是：我在意实际能不能完成。", "我已经知道怎么备份。", "你知道怎么备份吗？",
     "我想知道怎么备份。", "有点多，可以帮我分担吗？", "下午不方便，我们改到周六吧。", "“请你帮我修。”"])

@@ -35,6 +35,8 @@ credentials*.json
 .gemini/
 .vscode/
 .idea/
+.workbuddy/
+.workbuddy-ai/
 AGENTS.md
 CURRENT_TASKS.md
 *_RESULT.md
