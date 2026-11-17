@@ -13,10 +13,10 @@ function body(signature) {
 }
 const maps = app.slice(app.indexOf("const GENERIC_INTENT_LABELS"), app.indexOf("settingsState.settings = undefined"));
 const constants = app.split("\n").filter(line => ["const PLAIN_ACK_TEXT", "const PLAIN_STATUS_TEXT", "const PLAIN_ACTION_LABELS",
-  "const LOW_SIGNAL_INTENT_LABELS", "const SALIENT_INTENT_CUE", "const PLAIN_TURN"].some(prefix => line.startsWith(prefix))).join("\n");
+  "const PLAIN_TURN"].some(prefix => line.startsWith(prefix))).join("\n");
 const context = vm.createContext({});
 vm.runInContext(maps + "\n" + constants + "\n" + ["function hasIntentContent(", "function isIncompleteFragment(",
-  "function plainAcknowledgementOnly(", "function lowSignalIntentOnly(", "function localIntentTextGuard(", "function displayedIntent("].map(body).join("\n"), context);
+  "function plainAcknowledgementOnly(", "function localIntentTextGuard(", "function displayedIntent("].map(body).join("\n"), context);
 const shown = (result, text) => JSON.parse(JSON.stringify(context.displayedIntent(result, text)));
 
 for (const [text, label, kind, display] of [
@@ -37,7 +37,23 @@ it("ordinary acknowledgements and ungrounded low scores still stay blank", () =>
   for (const text of ["好", "收到", "嗯嗯"])
     assert.deepEqual(shown({intent:[{rawLabel:"agree",probability:0.9}],
       groundedIntent:{label:"agree",evidenceKind:"explicit_acceptance"}},text), []);
-  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.49}],groundedIntent:null},"明天的安排还没决定。"), []);
+  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.34}],groundedIntent:null},"明天的安排还没决定。"), []);
+});
+
+it("keeps a confident everyday label that used to be suppressed as low signal", () => {
+  // 本机真实结果里 top1 几乎都是闲聊 / 分享 / 同意这类，旧规则把它们整类隐藏，
+  // 整行只剩 9% 可见。只要首选够高、明显领先次选，就该显示出来。
+  for (const [raw, label] of [["share_news", "分享"], ["small_talk", "闲聊"], ["inform", "告知事实"],
+    ["share_feeling", "表达感受"]])
+    assert.deepEqual(shown({intent:[{rawLabel:raw,probability:0.62},{rawLabel:"agree",probability:0.18}],
+      groundedIntent:null},"今天路上看到一只特别胖的猫，蹲在车顶上不肯走。"), [{label,probability:0.62}]);
+});
+
+it("still hides a high score that does not lead the second candidate", () => {
+  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.42},
+    {rawLabel:"agree",probability:0.38}],groundedIntent:null},"明天可能去看电影。"), []);
+  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.45},
+    {rawLabel:"agree",probability:0.20}],groundedIntent:null},"明天可能去看电影。"), [{label:"计划",probability:0.45}]);
 });
 
 it("a mismatched evidence kind cannot grant an action label", () => {
