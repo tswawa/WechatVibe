@@ -34,11 +34,11 @@ it("returns message-only label scores and ranks them by probability", async () =
   ]);
 });
 
-it("issues the same fine questions as the previous inline branch and never asks MBTI/style", async () => {
+it("issues only the fine display questions and never asks relationship, MBTI or style", async () => {
   let asked: Record<string, Question> = {};
   await generateFineMessageInsight(async (questions) => { asked = questions; return answersFor(); },
     "other", "请把文件发给我");
-  assert.deepEqual(Object.keys(asked).sort(), ["emotion", "intent", "relationship"]);
+  assert.deepEqual(Object.keys(asked).sort(), ["emotion", "intent"]);
   const intentCaption = asked.intent.criteria as string[];
   assert.ok(intentCaption.length >= 8, "general intent stays a bounded choice set with anchors");
   assert.ok(intentCaption.includes("一般交流"));
@@ -46,7 +46,8 @@ it("issues the same fine questions as the previous inline branch and never asks 
   assert.notEqual(asked.emotion, ANALYSIS_QUESTIONS.emotion,
     "fine display emotion must not reuse portrait emotion routing");
   assert.deepEqual(asked.emotion, FINE_DISPLAY_QUESTIONS.emotion);
-  assert.equal(asked.relationship, ANALYSIS_QUESTIONS.relationship);
+  // The char-ngram classifier owns relationship now, so Laya must not be asked for it.
+  assert.equal("relationship" in asked, false);
   for (const name of ["socialEnergy", "composure", "initiative"]) {
     assert.equal(name in asked, false, "fine path must not request MBTI/style questions");
   }

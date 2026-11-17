@@ -69,10 +69,18 @@ export async function routeEmotion(
     .filter(([label, probability]) => label in EMOTION_BUCKETS && Number.isFinite(probability) && probability > 0)
     .sort((left, right) => right[1] - left[1])
     .slice(0, Math.max(...Object.values(answer.probabilities)) >= 0.65 ? 1 : 2);
+  if (!buckets.length) return [];
+  // Ask every selected family in one call. `LayaAgent.predict` batches the rows into a single
+  // forward pass, so a per-family loop only paid the runner/sequence overhead twice for the same
+  // answer. Answers are matched back by index, not by question name.
+  const detailQuestions: Record<string, Question> = {};
+  for (const [index, [label]] of buckets.entries())
+    detailQuestions[`emotion_detail_${index}`] = emotionDetailQuestion(label as keyof typeof EMOTION_BUCKETS);
+  const details = await predict(detailQuestions);
   const scores: LabelScore[] = [];
-  for (const [label, parentProbability] of buckets) {
+  for (const [index, [label, parentProbability]] of buckets.entries()) {
     const bucket = label as keyof typeof EMOTION_BUCKETS;
-    const detail = (await predict({ emotion_detail: emotionDetailQuestion(bucket) })).emotion_detail;
+    const detail = details[`emotion_detail_${index}`];
     if (!detail || detail.type !== "choice") continue;
     for (const id of EMOTION_BUCKETS[bucket]) {
       const leaf = EMOTIONS.find((emotion) => emotion.id === id)!;
@@ -125,10 +133,17 @@ export async function routeIntent(
     .filter(([label, probability]) => familyByLabel.has(label) && Number.isFinite(probability) && probability > 0)
     .sort((left, right) => right[1] - left[1]);
   const families = ranked.slice(0, ranked[0]?.[1] >= 0.65 ? 1 : 2);
+  if (!families.length) return { scores: [], selectedGroups: [], parentProbabilities: {} };
+  // Both levels ask their branches in one call each, for the same reason as `routeEmotion`:
+  // one forward pass over two rows instead of two round trips through the runner.
+  const groupQuestions: Record<string, Question> = {};
+  for (const [index, [label]] of families.entries())
+    groupQuestions[`intent_group_${index}`] = groupQuestion(familyByLabel.get(label)!.id);
+  const groupAnswers = await predict(groupQuestions);
   const groupCandidates: Array<{ id: string; probability: number }> = [];
-  for (const [label, familyProbability] of families) {
+  for (const [index, [label, familyProbability]] of families.entries()) {
     const family = familyByLabel.get(label)!;
-    const groupAnswer = (await predict({ intent_group: groupQuestion(family.id) })).intent_group;
+    const groupAnswer = groupAnswers[`intent_group_${index}`];
     if (!groupAnswer || groupAnswer.type !== "choice") continue;
     for (const groupId of family.groups) {
       const group = INTENT_GROUPS.find((item) => item.id === groupId)!;
@@ -139,11 +154,15 @@ export async function routeIntent(
     }
   }
   const selected = groupCandidates.sort((left, right) => right.probability - left.probability).slice(0, 2);
+  const leafQuestions: Record<string, Question> = {};
+  for (const [index, { id }] of selected.entries())
+    leafQuestions[`intent_detail_${index}`] = leafQuestion(id);
+  const leafAnswers: Record<string, Answer> = selected.length ? await predict(leafQuestions) : {};
   const scores: LabelScore[] = [];
   const parentProbabilities: Record<string, number> = {};
-  for (const { id, probability } of selected) {
+  for (const [index, { id, probability }] of selected.entries()) {
     parentProbabilities[id] = probability;
-    const detail = (await predict({ intent_detail: leafQuestion(id) })).intent_detail;
+    const detail = leafAnswers[`intent_detail_${index}`];
     if (!detail || detail.type !== "choice") continue;
     const leaves = intentByGroup.get(id)!;
     for (const leaf of leaves) {

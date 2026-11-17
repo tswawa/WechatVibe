@@ -758,14 +758,14 @@ LayaAgent.predict(state, questions)
 - 温度标定：`z = logits / max(1e-3, temperature[qtype 或 temperature_by_options[bucket]])`。
 - **批量大小**：生产用 `BATCH_SIZE = 8`（基准：WebGPU batch 8 ≈ 91 decisions/s，14 题画像集在 8 达峰 ~106/s，16 反而回退；CPU 恒定 ~11.6/s）。
 - **provider**：`auto`（默认，Windows 优先 WebGPU，回退 CPU）/ `cpu`；创建后跑一次探针批（rows=2,length=8,markers=3）验证；运行期 WebGPU 抛错且允许回退时，重建 CPU 会话并重跑同一批。
-- **并发**：JSONL 主循环串行 + `runner.run` 串行 + `predict` 串行 → **本地并发恒为 1**。14 题 OTHER 消息还要叠加 `routeIntent`/`routeEmotion` 的多次 detail 前向。
+- **并发**：JSONL 主循环串行 + `runner.run` 串行 + `predict` 串行 → **本地并发恒为 1**。8 题 OTHER 画像集（emotion + intent + 6 个 style；relationship 与 4 个 MBTI 轴已改由训练模型负责）之后，`routeIntent` / `routeEmotion` 还要各叠 2 次 detail 前向 —— 两个同层分支合并进同一次 `predict`，由 batch 折成一次 `runner.run`。
 - **tokenizer**：Metaspace BPE（`@huggingface/tokenizers`），自实现 added-token 两阶段匹配（lstrip/rstrip 按 Unicode `White_Space` 扩展），编码结果 FIFO 缓存 256 条（超长 4096 id 不缓存）。
 - 缓存键：`sha256(ANALYSIS_VERSION + sessionId + msg.id + side + text + 前 6 条上下文 [+ portrait] [+ "message-labels-only"+schema])`；缓存条目各 5 000；`cacheEpoch` 保证 reset 之后的迟到结果不污染缓存。
 
 ### 7.2 分析路由（阈值 0.65）
 
-- **情绪**：`EMOTION_QUESTION` 先在 7 个 bucket（`happy/affectionate/neutral/amused/sad/anxious/angry`，共 40 叶）中选；`max(prob) ≥ 0.65` 取 1 个 bucket，否则 2 个；再 `emotionDetailQuestion(bucket)` 二阶段细分（18 个中文具体词）。叶分数 = `parentP × conditional`。
-- **意图**：`INTENT_GROUP_QUESTION` 在 12 个 family 上判定，`0.65` 阈值选 1-2 个 family → group 取 top2 → `leafQuestion` 细分（547 个叶 id，命名 `${group}_${slug}`）。
+- **情绪**：`EMOTION_QUESTION` 先在 7 个 bucket（`happy/affectionate/neutral/amused/sad/anxious/angry`，共 40 叶）中选；`max(prob) ≥ 0.65` 取 1 个 bucket，否则 2 个；再 `emotionDetailQuestion(bucket)` 二阶段细分（18 个中文具体词）。叶分数 = `parentP × conditional`。选中的 bucket 全部塞进**同一次** `predict`（键名 `emotion_detail_<i>`），答案按序号回配。
+- **意图**：`INTENT_GROUP_QUESTION` 在 12 个 family 上判定，`0.65` 阈值选 1-2 个 family → group 取 top2 → `leafQuestion` 细分（547 个叶 id，命名 `${group}_${slug}`）。group 层与 leaf 层各自只发一次 `predict`（`intent_group_<i>` / `intent_detail_<i>`），不再按分支循环。
 - **表达方式 / 人际需求**：三级路由实现完整（`routeExpression` / `routeSocialIntent`，含表达×需求联合题），但**当前无生产调用方**。
 
 ### 7.3 逐条消息得分与亲密度

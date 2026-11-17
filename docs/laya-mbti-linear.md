@@ -121,7 +121,9 @@ node --import tsx --test tests/mbti-linear.test.ts tests/laya-mbti-corpus.test.t
 
 1. 93.75% 是**合成语料 test** 的成绩，不等于真实微信聊天准确率。
 2. 单条消息只提供证据；短事务消息会正确弃权。人格结论仍受 100/30/0.2 门槛约束。
-3. 本地链仍把 4 个 `PERSONALITY_QUESTIONS` 送进 Laya，但其结果已被本模型覆盖，
-   属于可删除的纯浪费（移除会改变 58 题 API 契约与 13 题分块断言，需单独一轮做）。
+3. 本地链已不再把 4 个 `PERSONALITY_QUESTIONS` 送进 Laya（2026-11-17）：这些答案本来就由本模型
+   覆盖。同一轮把 `relationship` 题一起摘掉（改由 `relationship-linear` 负责），本地画像题集从
+   13 题降到 8 题（emotion + intent + 6 个 style），`ANALYSIS_VERSION` 追加 `local-questions-v2`
+   让旧缓存重算。API 画像链的 58 题契约不变。
 4. 下一步应建立用户明确授权的真实聊天标注集，保持 train/validation/test 隔离，
    再跑同一脚本与 90% 闸门。含蓄偏好（尤其 EI/JP 边界）仍是主要误差来源。

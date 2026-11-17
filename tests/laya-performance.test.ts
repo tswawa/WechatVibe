@@ -12,9 +12,7 @@ import { it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { LayaAgent, type Runner } from "../electron/laya/agent";
-import { ANALYSIS_QUESTIONS } from "../electron/laya/options";
-import { PERSONALITY_QUESTIONS } from "../electron/laya/personality";
-import { STYLE_QUESTIONS } from "../electron/laya/style";
+import { LOCAL_PORTRAIT_QUESTIONS } from "../electron/analysis";
 import { generateFineMessageInsight } from "../electron/local-message-insights";
 import type { AgentConfig, Batch, Question, RunnerOutput, State } from "../electron/laya/types";
 import type { LayaTokenizer } from "../electron/laya/tokenizer";
@@ -35,9 +33,7 @@ const tokenizer = {
 
 const state: State = "Earlier context. TARGET message: 我再纠结纠结，改天再说吧。";
 
-const portraitQuestions: Record<string, Question> = {
-  ...ANALYSIS_QUESTIONS, ...PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS,
-};
+const portraitQuestions = LOCAL_PORTRAIT_QUESTIONS;
 
 interface RecordingRunner {
   runner: Runner;
@@ -69,38 +65,45 @@ function recordingRunner(): RecordingRunner {
   return { runner, rows, concurrency: () => peak };
 }
 
-it("collates the 13-question portrait set as 8+5 without the retired global MBTI scope gate", async () => {
+it("collates the eight-question portrait set into one batch", async () => {
   const recorder = recordingRunner();
   const agent = new LayaAgent({ config, tokenizer, runner: recorder.runner,
     batchSize: BATCHED_QUESTIONS });
-  assert.equal(Object.keys(portraitQuestions).length, 13);
+  // relationship and the four MBTI axes are gone: the char-ngram and linear heads own them.
+  assert.deepEqual(Object.keys(portraitQuestions).sort(),
+    ["emotion", "intent", "style_affection", "style_care", "style_composure", "style_humor",
+      "style_initiative", "style_socialEnergy"].sort());
   const result = await agent.predict(state, portraitQuestions);
-  assert.deepEqual(recorder.rows, [8, 5]);
+  assert.deepEqual(recorder.rows, [8]);
   assert.deepEqual(Object.keys(result.answers).sort(), Object.keys(portraitQuestions).sort());
   assert.equal(result.usage.input_tokens > 0, true);
 });
 
-it("runs the fine three-question set in a single batch", async () => {
+it("runs the fine two-question set in a single batch and never asks for relationship", async () => {
   const recorder = recordingRunner();
   const agent = new LayaAgent({ config, tokenizer, runner: recorder.runner,
     batchSize: BATCHED_QUESTIONS });
   const fine = await generateFineMessageInsight(
     (questions) => agent.predict(state, questions).then((prediction) => prediction.answers),
     "other", "周六见吗？");
-  assert.deepEqual(recorder.rows, [3]);
+  assert.deepEqual(recorder.rows, [2]);
   assert.equal(fine.emotion.length > 0, true);
   assert.equal(fine.intent.length > 0, true);
-  assert.equal(fine.relationship.length > 0, true);
+  assert.deepEqual(fine.relationship, [], "the live path leaves relationship to the char-ngram model");
 });
 
 it("keeps runner calls serial and answer merging unchanged across batch sizes", async () => {
+  // Thirteen same-shape questions: this pins the agent's chunking, not the production set.
+  const template = portraitQuestions.emotion!;
+  const thirteenQuestions: Record<string, Question> =
+    Object.fromEntries(Array.from({ length: 13 }, (_, index) => [`q${index}`, template]));
   const chunked = recordingRunner();
   const single = recordingRunner();
   const chunkedAgent = new LayaAgent({ config, tokenizer, runner: chunked.runner, batchSize: 8 });
   const singleAgent = new LayaAgent({ config, tokenizer, runner: single.runner, batchSize: 14 });
   const [chunkedResult, singleResult] = await Promise.all([
-    chunkedAgent.predict(state, portraitQuestions),
-    singleAgent.predict(state, portraitQuestions),
+    chunkedAgent.predict(state, thirteenQuestions),
+    singleAgent.predict(state, thirteenQuestions),
   ]);
   assert.deepEqual(chunked.rows, [8, 5]);
   assert.deepEqual(single.rows, [13]);

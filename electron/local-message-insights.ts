@@ -9,7 +9,7 @@
 
 import type { LabelScore } from "../shared/contracts";
 import { generalIntentQuestion, generalIntentScores } from "./laya/general-intent";
-import { ANALYSIS_QUESTIONS, FINE_DISPLAY_QUESTIONS } from "./laya/options";
+import { FINE_DISPLAY_QUESTIONS } from "./laya/options";
 import type { Answer, Question } from "./laya/types";
 
 export interface FineMessageInsight {
@@ -17,9 +17,9 @@ export interface FineMessageInsight {
   intent: LabelScore[];
   intentBroad: LabelScore[];
   /**
-   * Legacy adaptation: the existing OTHER-side protocol still derives and validates the
-   * relationship `score` from this distribution. It is not part of the fine label display,
-   * and SELF targets always return an empty list.
+   * Only meaningful for test doubles that answer more than they were asked: the real path no
+   * longer asks Laya for `relationship` (the char-ngram classifier owns it), so a live run
+   * always leaves this empty. Kept because the OTHER-side protocol still reads the field.
    */
   relationship: LabelScore[];
 }
@@ -36,17 +36,15 @@ function rankedScores(answer: Answer | undefined): LabelScore[] {
 
 /** The fine question set for one target; split out so a window can be batched. */
 export function fineMessageQuestions(
-  side: "self" | "other",
+  _side: "self" | "other",
   targetText: string,
   contextHint = "",
 ): Record<string, Question> {
   const intentQuestion = generalIntentQuestion(targetText, contextHint);
-  return side === "other"
-    // Keep the portrait question object untouched, while using the same fine display
-    // emotion question for both sides.  The relationship question remains available for
-    // OTHER messages because it is a fine score input, not a portrait emotion route.
-    ? { ...ANALYSIS_QUESTIONS, ...FINE_DISPLAY_QUESTIONS, intent: intentQuestion.question }
-    : { ...FINE_DISPLAY_QUESTIONS, intent: intentQuestion.question };
+  // `relationship` is no longer asked of Laya: the trained char-ngram classifier owns that
+  // signal for both sides (analysis.ts calls `relationshipScoresForText`). Keeping the question
+  // cost one extra head per message and its answer was always discarded.
+  return { ...FINE_DISPLAY_QUESTIONS, intent: intentQuestion.question };
 }
 
 /** Map one prediction's answers back to the fine DTO; split out for the batched path. */

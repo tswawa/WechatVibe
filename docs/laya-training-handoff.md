@@ -395,9 +395,9 @@ npm run test:python
 扩到 32 条/类后 95.8%，但查出 4 对 ≥0.75 近重复，剔除后 93.75%。
 **加语料后必须重跑近重复检查**，否则指标虚高。
 
-API 画像链仍走 4 个固定题面（与关系模型架构一致）；本地链仍把 4 个
-`PERSONALITY_QUESTIONS` 送进 Laya 但结果被覆盖，属可删除的纯浪费，
-移除需同步改 58 题 API 契约与 13 题分块断言。
+API 画像链仍走 4 个固定题面（与关系模型架构一致）；本地链已不再问这 4 题（2026-11-17 移除，
+同轮也摘掉了 `relationship` 题），本地画像题集从 13 题降到 8 题：emotion + intent + 6 个 style。
+`ANALYSIS_VERSION` 追加 `local-questions-v2`，旧画像进度按新题集重建。
 
 ### P3：CUDA
 

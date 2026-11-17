@@ -32,7 +32,7 @@ import { LayaAgent } from "./laya/agent";
 import { classifyPackedBatch, MESSAGE_BATCH_VERSION,
   type BatchConsumed, type MessageBatchRequest } from "./laya/message-batch";
 import type { NodeOnnxRunner } from "./laya/runner";
-import { ANALYSIS_QUESTIONS, DISPLAY_QUESTIONS, RELATIONSHIP_QUESTION_VERSION, SELF_QUALITY_QUESTIONS } from "./laya/options";
+import { DISPLAY_QUESTIONS, RELATIONSHIP_QUESTION_VERSION, SELF_QUALITY_QUESTIONS } from "./laya/options";
 import { buildIsolatedTargetState, buildTargetState, DEFAULT_CONTEXT_WINDOW, fitTargetStateToBudget, sanitizeContextText } from "./laya/context";
 import { buildPrefix, serializeState } from "./laya/prompt";
 import { toInternal } from "./laya/questions";
@@ -43,7 +43,7 @@ import { fineMessageInsight, fineMessageQuestions, generateFineMessageInsight } 
 import { groundedIntentWithContext, type GroundedIntent } from "./laya/grounded-intent";
 import { classifyNextReply, REPLY_FORECAST_QUESTION, type ReplyForecastCandidate, type ForecastBudget } from "./laya/forecast";
 import { MBTI_LINEAR_VERSION, mbtiEvidenceForText } from "./laya/mbti-linear";
-import { MBTI_QUESTION_VERSION, PERSONALITY_QUESTIONS, type PersonalityEvidence } from "./laya/personality";
+import { MBTI_QUESTION_VERSION, type PersonalityEvidence } from "./laya/personality";
 import { RELATIONSHIP_LINEAR_VERSION, relationshipTextProbabilities } from "./laya/relationship-linear";
 import { STYLE_QUESTIONS, styleEvidenceFromAnswers } from "./laya/style";
 import {
@@ -92,7 +92,13 @@ const MAX_PORTRAIT_CONTEXT_TOKENS = 40;
 const MAX_CACHE_ENTRIES = 5000;
 // This value keys saved portrait progress. Keep it stable for the generic-v4 label rollout;
 // per-message labelSchema selects which fine results need an individual refresh.
-export const ANALYSIS_VERSION = `${CATALOG_VERSION}+routing-v4-style-v1+${MBTI_QUESTION_VERSION}+message-state-v2+expression-route-v2+social-intent-route-v2+${RELATIONSHIP_QUESTION_VERSION}+${RELATIONSHIP_LINEAR_VERSION}+${MBTI_LINEAR_VERSION}+${AFFINITY_CALIBRATION.version}`;
+/**
+ * Bumped whenever the local question set changes shape (dropping `relationship` and the four
+ * MBTI axes from the Laya portrait set, for example). It is part of `ANALYSIS_VERSION` so saved
+ * progress and cached results are rebuilt instead of being merged across two question shapes.
+ */
+export const LOCAL_QUESTION_SET_VERSION = "local-questions-v2";
+export const ANALYSIS_VERSION = `${CATALOG_VERSION}+routing-v4-style-v1+${MBTI_QUESTION_VERSION}+message-state-v2+expression-route-v2+social-intent-route-v2+${RELATIONSHIP_QUESTION_VERSION}+${RELATIONSHIP_LINEAR_VERSION}+${MBTI_LINEAR_VERSION}+${AFFINITY_CALIBRATION.version}+${LOCAL_QUESTION_SET_VERSION}`;
 
 const clamp = (value: number, min: number, max: number): number =>
   value < min ? min : value > max ? max : value;
@@ -613,6 +619,18 @@ function fineContextHint(messages: readonly Message[], index: number): string {
   return Array.from(parts.join("\n")).slice(-FINE_HINT_CODEPOINTS).join("");
 }
 
+/**
+ * What the local portrait path actually asks Laya for an OTHER-side message.
+ *
+ * `relationship` and the four MBTI axes used to be in this set and their answers were always
+ * thrown away: `relationshipScoresForText` (char-ngram classifier) and `mbtiEvidenceForText`
+ * (trained linear heads) own those signals. Dropping them removes five heads per message;
+ * `LOCAL_QUESTION_SET_VERSION` is part of `ANALYSIS_VERSION`, so old caches are re-analysed.
+ */
+export const LOCAL_PORTRAIT_QUESTIONS: Record<string, Question> = {
+  ...DISPLAY_QUESTIONS, ...STYLE_QUESTIONS,
+};
+
 async function classifyMessage(engine: AnalysisEngine, state: State, side: Message["side"], targetText: string,
   _batchIndependentExpression = false, hasPortrait = false, messageLabelsOnly = false,
   contextHint = ""): Promise<CachedMessageAnalysis> {
@@ -636,9 +654,7 @@ async function classifyMessage(engine: AnalysisEngine, state: State, side: Messa
       personalityEvidence: null,
     };
   }
-  const questions = side === "other"
-    ? { ...ANALYSIS_QUESTIONS, ...PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS }
-    : { ...DISPLAY_QUESTIONS };
+  const questions = side === "other" ? LOCAL_PORTRAIT_QUESTIONS : DISPLAY_QUESTIONS;
   const prediction = await predictForState(questions);
   // Portrait state is already persisted under this analysis version. Preserve its 40-emotion /
   // 547-intent dimensions so new portrait batches merge with old ones without mixing schemas.

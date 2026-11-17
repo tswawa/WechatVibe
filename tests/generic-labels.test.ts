@@ -80,14 +80,13 @@ it("an uncertain focused result keeps the model's generic answer without a force
 it("fine targets carry evidence only where target text supports it, without changing model scores", async () => {
   const engine: AnalysisEngine = {
     async predict(_state: State, questions: Record<string, Question>): Promise<PredictResult> {
-      assert.deepEqual(Object.keys(questions), ["emotion", "intent", "relationship"]);
+      assert.deepEqual(Object.keys(questions), ["emotion", "intent"]);
       return {
         model: "synthetic",
         usage: { input_tokens: 0, output_tokens: 0 },
         answers: {
           emotion: choice({ "坦诚自然": 0.8, "敏感上头": 0.2 }),
           intent: choice({ "状态报告": 0.64, "一般交流": 0.36 }),
-          relationship: choice({ neutral: 1 }),
         },
       };
     },
@@ -295,7 +294,7 @@ it("batched fine targets produce the same result as one predict per target", asy
     assert.equal(batched.length, 1, "one forward batch for the whole window");
     assert.equal(batched[0]!.length, 4);
     assert.deepEqual(batched[0]!.map((entry) => Object.keys(entry.questions)),
-      Array.from({ length: 4 }, () => ["emotion", "intent", "relationship"]));
+      Array.from({ length: 4 }, () => ["emotion", "intent"]));
     assert.deepEqual(result.messages, single.messages);
     assert.deepEqual(result.affinity, single.affinity);
     assert.deepEqual(batched[0]!.map((entry) => entry.state), singleStates,
