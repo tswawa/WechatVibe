@@ -46,14 +46,15 @@ it("treats a dangling copula as undecidable text", () => {
   }
 });
 
-it("shows evidence-backed intent plus distinct scored model alternatives", () => {
+it("shows evidence-backed intent even when the model's own top candidate is uncertain", () => {
   const result = select({
     groundedIntent: { label: "status_report", evidenceKind: "progress_statement" },
     intent: [{ rawLabel: "complain", probability: 0.49 },
       { rawLabel: "status_report", probability: 0.31 },
       { rawLabel: "inform", probability: 0.2 }],
   }, "文件已上传到共享盘。");
-  assert.deepEqual(plain(result), []);
+  // 证据给的是「状态报告」，就不该再被「低信号标签一律不显示」二次抹掉。
+  assert.deepEqual(plain(result), [{ label: "状态报告", probability: null }]);
 });
 
 it("shows grounded inspection and explanation but blanks a plain acknowledgement", () => {
@@ -146,13 +147,14 @@ it("allows punctuation and quote-only text to carry an intent", () => {
   }
 });
 
-it("does not present a forced intent for unfinished or ordinary fragments", () => {
+it("leaves a dangling fragment blank but keeps a confident complete statement", () => {
   const result = { groundedIntent: null, intent: [
     { rawLabel: "status_report", probability: 0.64 },
     { rawLabel: "inform", probability: 0.36 },
   ] };
   assert.deepEqual(plain(select(result, "这就是")), []);
-  assert.deepEqual(plain(select(result, "这是昨天说的文件")), []);
+  // 「这是昨天说的文件」是一句完整陈述，模型有 0.64 且领先次选 0.28，应当显示。
+  assert.deepEqual(plain(select(result, "这是昨天说的文件")), [{ label: "状态报告", probability: 0.64 }]);
 });
 
 it("renders model labels without percentages or grounded metadata", () => {
