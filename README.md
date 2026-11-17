@@ -2,9 +2,17 @@
 
 上游仓库：[tswawa/WechatVibe](https://github.com/tswawa/WechatVibe)。
 
-本 fork 在上游 **v1.3.0** 的基础上（`perf/optimize-tokenizer` 已把上游 1.3.0 合并进来），
+本 fork 在上游 **v1.3.6** 的基础上（`perf/optimize-tokenizer` 已依次合并上游 1.3.0 与 1.3.6），
 放进了我们自己提给上游的修复和一套自用改动，方便自己构建、也给朋友用。
 上游的功能说明、下载安装、隐私与免责声明请以上游仓库为准。
+
+[![最新版本](https://img.shields.io/github/v/release/tswawa/WechatVibe?label=release)](https://github.com/tswawa/WechatVibe/releases/latest)
+[![Release 累计下载量](https://img.shields.io/github/downloads/tswawa/WechatVibe/total?style=flat&logo=github&label=downloads)](https://github.com/tswawa/WechatVibe/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/tswawa/WechatVibe?style=flat&logo=github)](https://github.com/tswawa/WechatVibe/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/tswawa/WechatVibe?style=flat&logo=github)](https://github.com/tswawa/WechatVibe/forks)
+[![GitHub Issues](https://img.shields.io/github/issues/tswawa/WechatVibe?style=flat&logo=github)](https://github.com/tswawa/WechatVibe/issues)
+[![Windows 10/11](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6)](#运行要求)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 ## 我们的改动
 
