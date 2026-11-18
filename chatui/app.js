@@ -3152,6 +3152,53 @@ function renderCachedApiProfile(account, user, member, sourceId) {
   portraitState.renderedProfileSignature = JSON.stringify(cached);
   return true;
 }
+
+// Report export uses only data already on screen — the same messages, labels and
+// portrait the user is looking at. Nothing new is sent anywhere; the HTML is built
+// locally and handed to the desktop shell (or downloaded in a plain browser).
+async function exportCurrentReport() {
+  const user = chatState.currentUser;
+  if (!user || !chatState.messages.length) { toast("请先打开一个会话"); return; }
+  if (typeof window.Report?.buildReportHtml !== "function") { toast("报告组件未就绪"); return; }
+  const account = chatState.currentAccount;
+  const apiMode = settingsState.modelSourceResolved && settingsState.modelSourceSnapshot.mode === "api";
+  const sourceId = apiMode ? settingsState.modelSourceSnapshot.sourceId : undefined;
+  const member = portraitState.activeMember || "";
+  const profile = cachedProfileFor(account, user, member, sourceId) ||
+    cachedProfileFor(account, user, "", sourceId);
+  const session = chatState.sessions.get(user);
+  const contactName = session?.name || user;
+  const generatedAt = new Date().toISOString();
+  const html = window.Report.buildReportHtml({
+    messages: chatState.messages,
+    results: labelState.results,
+    profile,
+    meta: { user: contactName, contactName, generatedAt, rangeLabel: "当前已加载窗口" },
+  });
+  const suggestedName = window.Report.reportFileName(contactName, generatedAt);
+  const host = window.desktopHost;
+  if (host && typeof host.saveReport === "function") {
+    const outcome = await host.saveReport(html, suggestedName);
+    if (outcome && outcome.ok) toast("报告已保存");
+    else if (outcome && outcome.canceled) { /* 用户取消，不提示 */ }
+    else toast("报告保存失败");
+    return;
+  }
+  // Plain-browser fallback: an in-memory download, no file dialog available.
+  try {
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = suggestedName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("报告已下载");
+  } catch (_) {
+    toast("报告导出失败");
+  }
+}
 function rememberProfile(profile, account, user, member, sourceId) {
   if (profile.account !== account || profile.username !== (member || user)) return;
   const key = profileCacheKey(account, user, member, sourceId);
@@ -6551,6 +6598,7 @@ byId("navChat").addEventListener("click", () => switchView("chat"));
 byId("navPersona").addEventListener("click", () => switchView("persona"));
 byId("navAdvisor")?.addEventListener("click", () => switchView("advisor"));
 byId("btnToolbarPersona").addEventListener("click", () => switchView("persona"));
+byId("btnExportReport")?.addEventListener("click", () => { void exportCurrentReport(); });
 byId("btnToolbarAdvisor")?.addEventListener("click", () => { void window.Advisor?.togglePanel(); });
 byId("btnBackToChat").addEventListener("click", () => switchView("chat"));
 let pendingAnalysisScopeReset = null;

@@ -172,6 +172,26 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
       return true;
     });
 
+    // Report export: the renderer hands us a fully self-contained HTML document built
+    // from data already on screen. We only pick a destination file and write the exact
+    // bytes; no chat text leaves the machine and no second copy is kept.
+    ipcMain.handle("real-client:save-report", async (event, html, suggestedName) => {
+      if (!trustedFrame(event) || selfTest || typeof html !== "string" || !html.trim() ||
+          html.length > 8_000_000 || typeof suggestedName !== "string" ||
+          !/^[^\\/:*?"<>|]{1,120}\.html$/u.test(suggestedName) || !window) return { ok: false };
+      const choice = await dialog.showSaveDialog(window, {
+        title: "保存聊天报告", defaultPath: path.join(app.getPath("documents"), suggestedName),
+        filters: [{ name: "HTML 报告", extensions: ["html"] }],
+      });
+      if (choice.canceled || !choice.filePath || !trustedFrame(event)) return { ok: false, canceled: true };
+      try {
+        fs.writeFileSync(choice.filePath, html, "utf8");
+        return { ok: true };
+      } catch (_) {
+        return { ok: false };
+      }
+    });
+
     ipcMain.handle("real-client:app-version", (event) => {
       if (!trustedFrame(event)) return null;
       return app.getVersion();
