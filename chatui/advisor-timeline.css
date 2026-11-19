@@ -7,7 +7,7 @@
 .advisor-native-markdown pre code { white-space: pre; }
 .advisor-native-markdown li > p { margin-bottom: 4px; }
 .advisor-native-markdown code { font-size: 12px; }
-.advisor-native-markdown blockquote { margin: 8px 0; padding-left: 10px; border-left: 2px solid #789782; }
+.advisor-native-markdown blockquote { margin: 8px 0; padding-left: 10px; border-left: 2px solid var(--theme-accent); }
 .advisor-native-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 .advisor-native-markdown th, .advisor-native-markdown td { border: 1px solid #56595b; padding: 5px 8px; }
 .advisor-native-retry { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }

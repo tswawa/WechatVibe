@@ -148,6 +148,18 @@ class ModelSourceSelectTests(unittest.TestCase):
         self.backend.model_source_select({"profileId": self.assistant_profile})
         self.assertEqual(self.analyzer.calls, [])
 
+    def test_public_document_carries_what_the_assistant_picker_reads(self):
+        """The picker resolves the followed profile by id: `api` has no name of its own."""
+        self.store.select_profile(self.analysis_profile)
+        selection = self.store.saved_selection()
+        document = self.store.public("api", selection["sourceId"])
+        self.assertEqual(document["api"]["id"], self.analysis_profile)
+        self.assertNotIn("name", document["api"])
+        profiles = {item["id"]: item for item in document["profiles"]}
+        self.assertEqual(profiles[self.analysis_profile]["name"], "分析用")
+        self.assertEqual(profiles[self.analysis_profile]["model"], "model-a")
+        self.assertEqual(profiles[self.analysis_profile]["protocol"], "chat_completions")
+
     def test_unknown_or_malformed_profile_is_rejected_without_writing(self):
         before = self.path.read_text(encoding="utf-8")
         for payload in ({"profileId": "f" * 32}, {"profileId": "not-a-profile"},

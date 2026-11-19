@@ -104,6 +104,16 @@ test('model profiles and assistant selection cross the actual native relay with 
   assert.equal(f.main.webContents.sent.length,before);
   f.manager.close();
 });
+test('new conversation crosses the native bridge to the main frame',()=>{
+  const f=fixture(),toggle=f.handlers.get('advisor:toggle');toggle(f.event(f.main),true);
+  const view=f.views[0],scope={account:'a',user:'u',agentId:'advisor',generation:1};
+  f.ipcMain.emit('advisor:from-main',f.event(f.main),envelope('ADVISOR_INIT',scope));
+  const before=f.main.webContents.sent.length;
+  f.ipcMain.emit('advisor:from-window',f.event(view),envelope('ADVISOR_NEW_THREAD',scope));
+  assert.equal(f.main.webContents.sent.length,before+1);
+  assert.equal(f.main.webContents.sent.at(-1).value.type,'ADVISOR_NEW_THREAD');
+  f.manager.close();
+});
 test('modal suspends the view and copy; hiding leaves the application alive',()=>{
   const f=fixture();f.handlers.get('advisor:toggle')(f.event(f.main),true);const view=f.views[0];f.ipcMain.emit('advisor:from-main',f.event(f.main),envelope('ADVISOR_INIT'));
   f.ipcMain.emit('advisor:modal',f.event(f.main),true);assert.equal(view.visible,false);f.ipcMain.emit('advisor:from-window',f.event(view),envelope('ADVISOR_COPY',undefined,{text:'suggestion'}),true);assert.equal(f.copied.length,0);

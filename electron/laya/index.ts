@@ -28,6 +28,7 @@ export {
   EMOTION_OPTIONS,
   INTENT_OPTIONS,
   RELATIONSHIP_OPTIONS,
+  RELATIONSHIP_QUESTION_VERSION,
   RELATIONSHIP_WEIGHT,
   SELF_QUALITY_OPTIONS,
   SELF_QUALITY_QUESTIONS,
@@ -38,6 +39,8 @@ export {
   type SelfQuality,
 } from "./options";
 export {
+  AFFINITY_CALIBRATION,
+  affinityFromSignals,
   affinityFromScores,
   argmaxLabel,
   gradeFor,
@@ -46,6 +49,7 @@ export {
   nextStepFor,
   NO_SELF_GRADE,
   recencyWeights,
+  relationshipConfidence,
   selfQualityGrade,
   selfQualityScore,
   type AffinityResult,

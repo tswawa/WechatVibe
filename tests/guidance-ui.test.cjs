@@ -26,7 +26,7 @@ function harness(fetcher) {
     addEventListener: (name, handler) => listeners.set(name, handler) };
   let timer = 0;
   const context = vm.createContext({
-    ...ui, URLSearchParams, window,
+    ...ui, URLSearchParams, AbortController, window,
     chatState: { currentAccount: "acct", currentUser: "friend", view: "chat", controller: null },
     portraitState: {},
     settingsState: { modelSourceResolved: true, modelSourceSnapshot: { mode: "api", sourceId: "source-v1" } },
@@ -34,14 +34,16 @@ function harness(fetcher) {
     modelSourceRequestError: () => "合成错误",
     setTimeout: fn => { timers.set(++timer, fn); return timer; },
     clearTimeout: id => timers.delete(id),
-    api: async (url, options = {}) => {
+    api: async (url, options = {}, signal) => {
       const body = options.body ? JSON.parse(options.body) : null;
-      calls.push({ url, body });
+      const entry = { url, body };
+      if (signal !== undefined) entry.signal = signal;
+      calls.push(entry);
       return fetcher ? fetcher(url, body) : response();
     },
   });
   vm.runInContext(app.slice(start, end) +
-    "\nthis.actions={loadGuidance,startGuidance,syncGuidanceMode,clearGuidanceView,copyReplyChoice};", context);
+    "\nthis.actions={loadGuidance,startGuidance,syncGuidanceMode,clearGuidanceView,copyReplyChoice,normalizeGuidance};", context);
   context.actions.syncGuidanceMode();
   return { ...ui, context, actions: context.actions, calls, clipboard, timers, assistant,
     changeAssistant(value) { Object.assign(assistant, value); listeners.get("advisor-selection-changed")?.(); } };
@@ -64,6 +66,7 @@ it("the actual icon generates from context without a draft, portrait target or e
   await settle();
   assert.deepEqual(run.calls[0], { url: "/api/model-guidance", body: {
     account: "acct", user: "friend", sourceId: "source-v1", replyOptions: true, agentId: "advisor", agentRevision: 1,
+    windowMinutes: 1440,
   } });
   assert.equal(run.calls[1].url, "/api/model-guidance?user=friend&replyOptions=true&agentId=advisor&agentRevision=1");
   for (let i = 0; i < 3; i++) {
@@ -283,4 +286,34 @@ it("actual guidance HTTP failures preserve the assistant reason in GET and POST"
     assert.equal(run.byId("btnToolbarGuidance").disabled, false);
     assert.equal(run.byId("replyChoice0").disabled, true);
   }
+});
+
+it("generating replies never aborts the controller shared with chat loading", async () => {
+  const run = harness();
+  const controller = new AbortController();
+  run.context.chatState.controller = controller;
+  await run.actions.startGuidance();
+  assert.equal(controller.signal.aborted, false);
+});
+
+it("guidance polling uses its own abort signal and cancels it on scope change", async () => {
+  const run = harness();
+  run.context.chatState.controller = new AbortController();
+  await run.actions.loadGuidance();
+  const get = run.calls.find(call => call.url.startsWith("/api/model-guidance?"));
+  assert.ok(get?.signal, "the guidance GET must have a signal");
+  assert.notEqual(get.signal, run.context.chatState.controller.signal);
+  // Once the GET settles the private controller is released; a scope change aborts only a
+  // controller that is still in flight (covered by chat-load-interruption.test.cjs).
+  assert.equal(run.context.portraitState.guidanceController, null);
+});
+
+it("keeps newlines and blank lines in generated reply options", () => {
+  const run = harness();
+  const text = "第一行\n\n第三行\n  缩进";
+  const result = run.actions.normalizeGuidance({ kind: "reply-options", version: "api-reply-options-v2",
+    replies: [{ text }, { text: "第二条" }, { text: "第三条" }] });
+  assert.equal(result.replies[0], text);
+  assert.equal(run.actions.normalizeGuidance({ kind: "reply-options", version: "api-reply-options-v2",
+    replies: [{ text: "坏\u0001字符" }, { text: "第二条" }, { text: "第三条" }] }), null);
 });

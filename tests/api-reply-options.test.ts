@@ -104,7 +104,7 @@ it("rejects incomplete, duplicate, oversized or analysis-bearing replies without
     { replies: [replies[0], replies[0], replies[2]] },
     { replies: [{ text: " " }, ...replies.slice(1)] },
     { replies: [{ text: "例".repeat(91) }, ...replies.slice(1)] },
-    { replies: [{ text: "第一行\n第二行" }, ...replies.slice(1)] },
+    { replies: [{ text: "第一行\u0001第二行" }, ...replies.slice(1)] },
     { replies: [{ text: "好", tone: "温柔" }, ...replies.slice(1)] },
     { replies, subtexts: [] }, { replies, reading: "额外分析" },
   ]) {
@@ -112,6 +112,14 @@ it("rejects incomplete, duplicate, oversized or analysis-bearing replies without
       async () => ({ text: JSON.stringify(payload) })),
     (error: unknown) => error instanceof ModelConnectorError && error.code === "invalid-output");
   }
+});
+
+it("preserves newlines and blank lines in generated replies", async () => {
+  const multiline = "第一行\n\n第三行\n  缩进";
+  const result = await generateReplyOptions(config, input, async () => ({
+    text: JSON.stringify({ replies: [{ text: multiline }, replies[1], replies[2]] }),
+  }));
+  assert.equal(result.replies[0].text, multiline);
 });
 
 it("rejects oversized latest context and no readable OTHER before the provider", async () => {

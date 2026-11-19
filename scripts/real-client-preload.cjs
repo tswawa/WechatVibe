@@ -94,6 +94,13 @@ contextBridge.exposeInMainWorld("desktopHost", Object.freeze({
         !navigator.userActivation.isActive || window.top !== window) return Promise.resolve(false);
     return ipcRenderer.invoke("real-client:copy-draft", value);
   },
+  saveReport(html, suggestedName) {
+    if (typeof html !== "string" || !html.trim() || html.length > 8_000_000 ||
+        typeof suggestedName !== "string" || !/^[^\\/:*?"<>|]{1,120}\.html$/u.test(suggestedName) ||
+        !navigator.userActivation.isActive || window.top !== window)
+      return Promise.resolve({ ok: false });
+    return ipcRenderer.invoke("real-client:save-report", html, suggestedName);
+  },
   exitApp() {
     if (window.top !== window) return Promise.resolve(false);
     return ipcRenderer.invoke("real-client:exit-app");

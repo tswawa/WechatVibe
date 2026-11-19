@@ -19,6 +19,7 @@ from contextlib import closing
 from pathlib import Path
 
 from account_store import _check_root, _regular, _safe_account, account_id
+from process_lock import sqlite_open_lock
 
 
 META_TABLE = "conversation_selection_meta_v1"
@@ -110,7 +111,8 @@ class ConversationSelectionStore:
             if not path.is_file():
                 return _empty(account)
             try:
-                with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=15)) as conn:
+                with sqlite_open_lock(path), closing(
+                        sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=15)) as conn:
                     return self._state(conn, account)
             except sqlite3.DatabaseError as exc:
                 raise SelectionCorrupt("conversation selection unreadable") from exc
@@ -122,7 +124,9 @@ class ConversationSelectionStore:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             _check_root(self.data_dir)
             try:
-                with closing(sqlite3.connect(path, timeout=15)) as conn:
+                # The open lock covers first-time creation: several stores for the same account
+                # are built independently, so `self.lock` cannot serialize their first open.
+                with sqlite_open_lock(path), closing(sqlite3.connect(path, timeout=15)) as conn:
                     conn.execute("BEGIN IMMEDIATE")
                     self._state(conn, account)  # Never silently repair a partial or mismatched schema.
                     _ensure_tables(conn)
@@ -189,20 +193,16 @@ class ConversationSelectionStore:
         if (not isinstance(sessions, list) or not 1 <= len(sessions) <= 1000 or
                 len(set(_session_id(session) for session in sessions)) != len(sessions)):
             raise ValueError("invalid session selection")
-        with self.lock:
-            path = self._path(account)
-            if not path.is_file():
+
+        def body(conn):
+            state = self._state(conn, account)
+            if not set(sessions) <= set(state["selectedSessions"]):
                 raise ValueError("session not selected")
-            try:
-                with closing(sqlite3.connect(path, timeout=15)) as conn:
-                    conn.execute("BEGIN IMMEDIATE")
-                    state = self._state(conn, account)
-                    if not set(sessions) <= set(state["selectedSessions"]):
-                        raise ValueError("session not selected")
-                    conn.executemany("DELETE FROM conversation_selection_v1 WHERE account=? AND session=?",
-                                     [(account, session) for session in sessions])
-                    state = self._state(conn, account)
-                    conn.commit()
-                    return state
-            except sqlite3.DatabaseError as exc:
-                raise SelectionCorrupt("conversation selection cannot be saved") from exc
+            conn.executemany("DELETE FROM conversation_selection_v1 WHERE account=? AND session=?",
+                             [(account, session) for session in sessions])
+
+        # `_write` would create the database; removing from an account that has no file must
+        # stay a rejection, not a side effect.
+        if not self._path(account).is_file():
+            raise ValueError("session not selected")
+        return self._write(account, body)

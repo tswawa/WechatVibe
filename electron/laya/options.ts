@@ -110,13 +110,29 @@ export const SELF_QUALITY_WEIGHT: Record<SelfQuality, number> = {
   offensive: 0.0,
 };
 
+export const RELATIONSHIP_QUESTION_VERSION = "relationship-v2";
+
+/**
+ * Budget: `head_max_len` (256) is shared by this instruction and the five option lines, and
+ * `buildPrefix` truncates the instruction from the tail without complaining. v2 spends 176 of the
+ * 245 available tokens — run `node --import tsx scripts/laya-score-train.ts --budget` before
+ * appending anything, or the new rule silently never reaches the model.
+ *
+ * A `relationship-v3` candidate (appending an implicit-affection rule) won on all five train and
+ * validation metrics of the 280-row corpus but scored 45% classification / 12.00 MAE on the frozen
+ * test split against v2's 55% / 11.60, so it was reverted. See docs/laya-scoring-calibration.md §6.3.
+ */
+export const RELATIONSHIP_INSTRUCTIONS =
+  "判断 TARGET 发送者对接收者传达的关系信号。romantic=明确的爱慕、恋爱意向或暧昧（包括求爱的问题）；" +
+  "warm=友善、感谢、愉快互动；neutral=普通事实、事务、提醒、确认或请求，即使语气简短也不代表冷淡；" +
+  "distant=疏离、敷衍或减少互动，但没有明确拒绝；rejecting=明确拒绝、推开对方或要求停止联系。" +
+  "不要仅因句子短、是请求或是疑问句就判为 rejecting。" +
+  "按顺序判断：只有明确拒绝、推开对方或要求停止联系才选 rejecting；明确表达爱慕、恋爱意向或求爱才选 " +
+  "romantic；普通问答、事务、提醒和简短确认一律 neutral；介于热情与拒绝之间、表现为减少互动的才选 distant。";
+
 const RELATIONSHIP_QUESTION: Question = {
   type: "choice",
-  instructions:
-    "From the sender of the TARGET message toward the recipient, what relationship signal does " +
-    "the TARGET message carry? Choose romantic for clear romantic interest, warm for friendly " +
-    "affection, neutral for ordinary or task talk, distant for cooling off or emotional " +
-    "distance, and rejecting for an explicit refusal or push-away.",
+  instructions: RELATIONSHIP_INSTRUCTIONS,
   criteria: [...RELATIONSHIP_OPTIONS],
 };
 

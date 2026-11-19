@@ -6,7 +6,7 @@
 npm run start:test
 ```
 
-入口 `scripts/start-test-client.py` 从当前工作树的公开发布白名单准备 `.local/test-client/client`。使用项目原始 `scripts/desktop-main.cjs`，不增加浮层、预设助手或功能屏蔽。多模型档案、手选分析、单条重算、API 并发、沟通建议、账号选择、多实例协调和分析结果加密均采用实际整合实现。
+入口 `scripts/start-test-client.py` 从当前工作树的公开发布白名单准备 `.local/test-client/client`。使用项目原始 `scripts/desktop-main.cjs`，不增加浮层、预设助手或功能屏蔽。多模型档案、手选分析、单条重算、API 并发、沟通建议、账号选择、多实例协调、分析结果加密、助手执行步骤与等待转圈、助手单独切换模型档案均采用实际整合实现。
 
 MBTI v4 允许有依据的上下文偏好、独立判断四轴，有有效分数即显示比例；人格字母仍保留证据门槛。已有 v3 画像需要重新更新，不能因重启而自动获得新分数。离线检查验证机制，模型判断质量由实际合成会话验收。
 

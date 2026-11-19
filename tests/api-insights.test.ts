@@ -186,6 +186,28 @@ it("accepts a specific reschedule even when the model omits some affect views", 
     affect: { feeling: "郑重" }, intents: ["改期"] });
 });
 
+it("bounds the provider call inside the host's own wait budget", async () => {
+  // The Python bridge gives up after 180s. Without a connector timeout the request kept
+  // running in the Electron process after that, and a retry started a second one.
+  let request: GenerationRequest | undefined;
+  await analyzeApiInsights(config, input, fake(JSON.stringify({ items: [ok("b"), ok("d")] }),
+    value => { request = value; }));
+  assert.ok(request!.timeoutMs, "the insight call needs a connector timeout");
+  assert.ok(request!.timeoutMs! <= 180_000);
+});
+
+it("keeps a usable affect label that follows an empty one", async () => {
+  // "无" is an empty label, not a reading. The search must continue to the next axis
+  // instead of ending with no affect at all.
+  const result = await analyzeApiInsights(config, {
+    messages: [{ id: "m", sender: "OTHER", text: "随便聊聊" }], targetIds: ["m"],
+  }, fake(JSON.stringify({ items: [
+    { id: "m", status: "ok", affect: { tone: "无", interaction: "亲密" }, intents: [] },
+  ] })));
+  assert.deepEqual(result.insights[0], { id: "m", status: "ok",
+    affect: { feeling: "亲密" }, intents: [] });
+});
+
 it("ignores extra top-level fields without exposing them as message labels", async () => {
   for (const extra of [
     { question: "下一步是什么？" }, { options: ["继续"] }, { best: "继续" },

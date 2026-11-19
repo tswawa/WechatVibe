@@ -19,9 +19,14 @@ function roleLabel(side: ContextMessage["side"]): string {
   return side === "self" ? "me" : "them";
 }
 
-/** Normalize line endings, collapse runs of blank lines, trim. Keeps the original wording. */
+/** Normalize only the *form* of line endings (CRLF/CR -> LF).
+ *
+ * Every line break, blank line, leading/trailing newline and indent is part of the original
+ * text and is kept verbatim: collapsing or trimming here used to flatten whole paragraphs
+ * before the model ever saw them.
+ */
 export function sanitizeContextText(text: string): string {
-  return text.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return text.replace(/\r\n?/g, "\n");
 }
 
 /** Match Laya's object-state serialization for a message without conversation context. */

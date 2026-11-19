@@ -401,6 +401,26 @@ class PayloadCryptoTests(unittest.TestCase):
         with self.assertRaises(PayloadUnreadable):
             recover(self.root, path.name, apply=True, unprotect=synthetic_unprotect, gate=gate)
 
+    def test_failed_restore_keeps_the_current_key(self):
+        # The key used to be replaced before the database copy. When that copy failed the
+        # old ciphertext stayed behind with the wrong key, so every encrypted column became
+        # unreadable — the exact state this command exists to repair.
+        path, gate = self.recovery_fixture()
+        key_before = self.key_path.read_bytes()
+        real_connect = sqlite3.connect
+
+        def guarded(target, *args, **kwargs):
+            if str(target) == str(path):
+                raise sqlite3.OperationalError("synthetic restore failure")
+            return real_connect(target, *args, **kwargs)
+
+        with patch("payload_recovery.sqlite3.connect", side_effect=guarded):
+            with self.assertRaises(PayloadUnreadable):
+                recover(self.root, path.name, apply=True, unprotect=synthetic_unprotect, gate=gate)
+        self.assertEqual(self.key_path.read_bytes(), key_before, "a failed restore must not swap the key")
+        current = ResultStore(path, cipher=cipher(self.key_path))
+        self.assertEqual(current.progress("acct", "friend", "v1")["context"], [{"text": "new"}])
+
     def test_recovery_refuses_active_installation_before_writing(self):
         path, gate = self.recovery_fixture()
         before = path.read_bytes()

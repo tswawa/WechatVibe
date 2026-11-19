@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import sqlite3
 import sys
 import threading
 import time
@@ -35,6 +36,26 @@ SERVICE_ACCOUNT_IDS = frozenset({
 })
 SERVICE_ACCOUNT_SUFFIXES = frozenset({"placeholder_foldgroup", "weclaw", "kefu.openim"})
 ADVISOR_IDENTITY_LEASE_SECONDS = 2.0
+# Contacts are a whole-table read on every message/session/history request. Four snapshots
+# (current + a few just-replaced ones) cover normal use without pinning stale data.
+CONTACTS_CACHE_LIMIT = 4
+# Name2Id is a whole-table read per message shard, once per history page. Shards are
+# append-only, so the mapping only changes when the shard file itself does.
+SENDER_INDEX_CACHE_LIMIT = 8
+
+
+def _contact_snapshot_stamp(db, rel):
+    """Identity of the decrypted snapshot that a contact read would use.
+
+    Keyed on the snapshot copy, never the live source: a pending refresh must not publish
+    new rows under the old snapshot's cache entry.
+    """
+    try:
+        from snapshot_cache import _destination
+        info = _destination(db, rel).stat()
+    except (OSError, RuntimeError, AttributeError, TypeError):
+        return None
+    return (info.st_mtime_ns, info.st_size)
 
 
 def is_service_account(user):
@@ -154,6 +175,8 @@ class WeChatSource:
         self._self_username = None
         self.issued_images = OrderedDict()
         self.window_images = {}
+        self.contacts_cache = OrderedDict()
+        self.sender_index_cache = OrderedDict()
         self.profile_metadata_cache = OrderedDict()
         self.profile_overview_counts_cache = OrderedDict()
         self.media_reason = threading.local()
@@ -164,8 +187,12 @@ class WeChatSource:
         self._account_dir = None
         self._active_checked_at = 0.0
         self._self_username = None
+        # A released reader invalidates the request-scoped identity answer as well.
+        self._request_context.identity = None
         self.issued_images.clear()
         self.window_images.clear()
+        self.contacts_cache.clear()
+        self.sender_index_cache.clear()
         self.profile_metadata_cache.clear()
 
     def _hold_account(self, account):
@@ -196,9 +223,12 @@ class WeChatSource:
         previous = (getattr(context, "active", False), getattr(context, "reader", None))
         if not previous[0]:
             context.active, context.reader = True, None
+            context.identity = None
         try:
             yield
         finally:
+            if not previous[0]:
+                context.identity = None
             context.active, context.reader = previous
 
     def _observe_source_origin(self, origin):
@@ -299,6 +329,9 @@ class WeChatSource:
             for key in list(self.profile_overview_counts_cache):
                 if key[0] == account:
                     del self.profile_overview_counts_cache[key]
+            for key in list(self.contacts_cache):
+                if key[0] == account:
+                    del self.contacts_cache[key]
             if self.db is not None and str(self.db.account) == account:
                 for name in ("_keys", "_volatile_keys"):
                     value = getattr(self.db, name, None)
@@ -467,6 +500,17 @@ class WeChatSource:
         return self.verified_identity()
 
     def verified_identity(self, *, messages=False):
+        # One strong check per HTTP request: the identity guard is intentionally fresh on
+        # every call, so repeated calls inside a single request reuse the answer instead of
+        # paying another Restart Manager + page-verification round trip.
+        context = self._request_context
+        in_request = bool(getattr(context, "active", False))
+        if in_request:
+            cached = getattr(context, "identity", None)
+            if cached is not None and cached[3] == self._source_generation:
+                if messages and not cached[2]:
+                    raise MessagesUnavailableError()
+                return cached[0], cached[1]
         with self.lock:
             try:
                 db = self._db(fresh=True)
@@ -481,6 +525,8 @@ class WeChatSource:
                 self.invalidate_advisor_identity()
                 raise
             self._remember_advisor_binding(db, account, workdir, ready)
+            if in_request:
+                context.identity = (account, workdir, ready, self._source_generation)
             return account, workdir
 
     def _remember_advisor_binding(self, db, account, workdir, ready):
@@ -544,12 +590,51 @@ class WeChatSource:
                 raise AccountChangedError()
             return self._self_username
 
+    def _sender_index(self, db, conn, path=None):
+        """`Name2Id` rowid → username for one shard, cached by the snapshot file identity.
+
+        History paging re-reads this table once per page; shards are append-only, so the
+        mapping is stable until the snapshot file is replaced.
+        """
+        if path is None:
+            try:
+                path = conn.execute("PRAGMA database_list").fetchone()[2]
+            except (sqlite3.Error, TypeError, IndexError, AttributeError):
+                path = None
+        key = None
+        if path:
+            try:
+                info = os.stat(path)
+                key = (str(db.account), os.path.normcase(os.path.realpath(path)),
+                       info.st_mtime_ns, info.st_size)
+            except OSError:
+                key = None
+        if key is not None:
+            cached = self.sender_index_cache.get(key)
+            if cached is not None:
+                self.sender_index_cache.move_to_end(key)
+                return cached
+        index = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
+        if key is not None:
+            self.sender_index_cache[key] = index
+            self.sender_index_cache.move_to_end(key)
+            while len(self.sender_index_cache) > SENDER_INDEX_CACHE_LIMIT:
+                self.sender_index_cache.popitem(last=False)
+        return index
+
     def _contacts(self, db):
         for rel, path, _ in db._db_files:
             if self.live_account and rel != db.anchor_rels["contact"]:
                 continue
             if not self.live_account and Path(path).name != "contact.db":
                 continue
+            stamp = _contact_snapshot_stamp(db, rel)
+            key = (str(db.account), rel, stamp)
+            if stamp is not None:
+                cached = self.contacts_cache.get(key)
+                if cached is not None:
+                    self.contacts_cache.move_to_end(key)
+                    return cached
             conn = db._open(rel)
             try:
                 columns = {row[1] for row in conn.execute("PRAGMA table_info(contact)")}
@@ -565,9 +650,14 @@ class WeChatSource:
                         contacts[str(user)] = {"name": name,
                                                "avatar": candidates[0] if candidates else "",
                                                "avatarCandidates": candidates}
-                return contacts
             finally:
                 conn.close()
+            if stamp is not None:
+                self.contacts_cache[key] = contacts
+                self.contacts_cache.move_to_end(key)
+                while len(self.contacts_cache) > CONTACTS_CACHE_LIMIT:
+                    self.contacts_cache.popitem(last=False)
+            return contacts
         raise RuntimeError("contact.db unavailable")
 
     def sessions(self):
@@ -635,7 +725,7 @@ class WeChatSource:
                 shard = Path(source_path).name
                 if not shard.startswith("message__message_") or not shard.endswith(".db"):
                     raise RuntimeError("unidentified message shard")
-                sender_index = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
+                sender_index = self._sender_index(db, conn, source_path)
                 records = conn.execute(
                     f"SELECT local_id,local_type,real_sender_id,create_time,message_content,compress_content,server_id,sort_seq FROM {table} "
                     "ORDER BY sort_seq DESC,local_id DESC LIMIT ?", (limit + offset,))
@@ -685,8 +775,12 @@ class WeChatSource:
             kind_name, content or f"[{kind_name}]")
         return kind_name, kind, text
 
-    def _analyzable_counts(self, db, conn, table, sender_ids=None):
-        """Count exactly the rendered text that portrait scanning can consume."""
+    def _analyzable_counts(self, db, conn, table, sender_ids=None, after_sort=None):
+        """Count exactly the rendered text that portrait scanning can consume.
+
+        `after_sort` bounds the scan to rows appended since a previous snapshot, so a new
+        message no longer forces a full re-decode of the conversation.
+        """
         where = "local_type IN (?,?)"
         args = [1, QUOTED_REPLY_TYPE]
         if sender_ids is not None:
@@ -694,6 +788,9 @@ class WeChatSource:
                 return {}
             where += " AND real_sender_id IN (" + ",".join("?" for _ in sender_ids) + ")"
             args.extend(sender_ids)
+        if after_sort is not None:
+            where += " AND sort_seq>?"
+            args.append(int(after_sort))
         counts = {}
         for sender_id, local_type, content, compressed in conn.execute(
                 f"SELECT real_sender_id,local_type,message_content,compress_content FROM {table} WHERE {where}", args):
@@ -765,14 +862,15 @@ class WeChatSource:
             for rel in db._message_dbs():
                 conn = db._open(rel)
                 try:
-                    shard = Path(conn.execute("PRAGMA database_list").fetchone()[2]).name
+                    source_path = conn.execute("PRAGMA database_list").fetchone()[2]
+                    shard = Path(source_path).name
                     if not re.fullmatch(r"message__message_\d+\.db", shard):
                         raise RuntimeError("unidentified message shard")
                     available = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                     found = [(user, table) for user, table in tables.items() if table in available]
                     if not found:
                         continue
-                    senders = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
+                    senders = self._sender_index(db, conn, source_path)
                     for user, table in found:
                         records = conn.execute(
                             f"SELECT local_id,local_type,real_sender_id,create_time,message_content,"
@@ -999,7 +1097,7 @@ class WeChatSource:
                             params.append(after_seq)
                     sql = (f"SELECT local_id,local_type,real_sender_id,create_time,message_content,compress_content,server_id,sort_seq "
                            f"FROM {table} WHERE {' AND '.join(clauses)} ORDER BY sort_seq ASC,local_id ASC LIMIT ?")
-                    senders = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
+                    senders = self._sender_index(db, conn)
                     rows.extend((record, shard, senders) for record in conn.execute(sql, (*params, page_size)))
             finally:
                 for conn in {id(conn): conn for conn, _ in found}.values():
@@ -1123,8 +1221,7 @@ class WeChatSource:
                            "compress_content,server_id,sort_seq "
                            f"FROM {table} WHERE {' AND '.join(clauses)} "
                            "ORDER BY sort_seq ASC,local_id ASC LIMIT ?")
-                    senders = {int(row[0]): row[1] for row in conn.execute(
-                        "SELECT rowid,user_name FROM Name2Id")}
+                    senders = self._sender_index(db, conn)
                     rows.extend((record, shard, senders) for record in conn.execute(
                         sql, (*params, page_size)))
             finally:
@@ -1156,8 +1253,7 @@ class WeChatSource:
                     if not re.fullmatch(r"message__message_\d+\.db", shard):
                         raise RuntimeError("unidentified message shard")
                     cursor = None
-                    senders = {int(row[0]): row[1] for row in conn.execute(
-                        "SELECT rowid,user_name FROM Name2Id")}
+                    senders = self._sender_index(db, conn)
                     found_here = 0
                     while found_here < limit:
                         clauses = ["local_type IN (?,?)"]
@@ -1209,7 +1305,7 @@ class WeChatSource:
             members = set()
             try:
                 for conn, table in found:
-                    sender_index = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
+                    sender_index = self._sender_index(db, conn)
                     selected_ids = [sender_id for sender_id, username in sender_index.items() if username == member] if member else []
                     if member and not selected_ids:
                         amount = 0
@@ -1250,8 +1346,7 @@ class WeChatSource:
                     for conn, table in found:
                         if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
                             raise RuntimeError("invalid message table")
-                        senders = {int(row[0]): row[1] for row in
-                                   conn.execute("SELECT rowid,user_name FROM Name2Id")}
+                        senders = self._sender_index(db, conn)
                         ids = [sender_id for sender_id, name in senders.items()
                                if name and name != own]
                         if not ids:
@@ -1267,6 +1362,75 @@ class WeChatSource:
                 totals[user] = total
             return totals
 
+
+    @staticmethod
+    def _shard_marks(conn, table):
+        row = conn.execute(f"SELECT COUNT(*),MAX(sort_seq) FROM {table}").fetchone()
+        return (int(row[0] or 0), int(row[1] or 0))
+
+    def _metadata_counts_full(self, db, found):
+        """Full per-shard scan; the fallback whenever an append-only delta is not provable."""
+        counts, count, text_count, marks = {}, 0, 0, {}
+        for conn, table in found:
+            if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
+                raise RuntimeError("invalid message table")
+            name = Path(conn.execute("PRAGMA database_list").fetchone()[2]).name
+            senders = self._sender_index(db, conn)
+            for sender_id, amount in conn.execute(
+                    f"SELECT real_sender_id,COUNT(*) FROM {table} GROUP BY real_sender_id"):
+                count += amount
+                sender = senders.get(int(sender_id or 0))
+                if sender:
+                    previous = counts.get(sender, (0, 0))
+                    counts[sender] = (previous[0] + amount, previous[1])
+            for sender_id, analyzed in self._analyzable_counts(db, conn, table).items():
+                text_count += analyzed
+                sender = senders.get(int(sender_id or 0))
+                if sender:
+                    previous = counts.get(sender, (0, 0))
+                    counts[sender] = (previous[0], previous[1] + analyzed)
+            marks[name] = self._shard_marks(conn, table)
+        return counts, count, text_count, marks
+
+    def _metadata_counts_delta(self, db, found, counts, count, text_count, marks):
+        """Add only rows appended since `marks`; None when a full rescan is required.
+
+        A new message used to invalidate the snapshot signature and re-decode the whole
+        conversation. Shards are append-only, so `sort_seq >` the previous maximum is an
+        exact delta as long as no rows disappeared.
+        """
+        counts = {sender: tuple(values) for sender, values in counts.items()}
+        marks = dict(marks)
+        for conn, table in found:
+            if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
+                raise RuntimeError("invalid message table")
+            name = Path(conn.execute("PRAGMA database_list").fetchone()[2]).name
+            previous = marks.get(name)
+            if previous is None:
+                return None
+            rows, newest = self._shard_marks(conn, table)
+            if rows < previous[0] or newest < previous[1]:
+                # Deletions or a rebuilt shard: only a full scan is trustworthy.
+                return None
+            if newest > previous[1]:
+                senders = self._sender_index(db, conn)
+                for sender_id, amount in conn.execute(
+                        f"SELECT real_sender_id,COUNT(*) FROM {table} WHERE sort_seq>? "
+                        "GROUP BY real_sender_id", (previous[1],)):
+                    count += amount
+                    sender = senders.get(int(sender_id or 0))
+                    if sender:
+                        prior = counts.get(sender, (0, 0))
+                        counts[sender] = (prior[0] + amount, prior[1])
+                for sender_id, analyzed in self._analyzable_counts(
+                        db, conn, table, after_sort=previous[1]).items():
+                    text_count += analyzed
+                    sender = senders.get(int(sender_id or 0))
+                    if sender:
+                        prior = counts.get(sender, (0, 0))
+                        counts[sender] = (prior[0], prior[1] + analyzed)
+            marks[name] = (rows, newest)
+        return counts, count, text_count, marks
 
     def profile_metadata(self, user, member=None):
         """Read metadata once per snapshot revision; Backend brackets the account scope."""
@@ -1286,28 +1450,15 @@ class WeChatSource:
                 key = (str(db.account), user)
                 cached = self.profile_metadata_cache.get(key)
                 if cached and cached[0] == signature:
-                    counts, count, text_count = cached[1:]
+                    counts, count, text_count = cached[1], cached[2], cached[3]
                     self.profile_metadata_cache.move_to_end(key)
                 else:
-                    counts, count, text_count = {}, 0, 0
-                    for conn, table in found:
-                        if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
-                            raise RuntimeError("invalid message table")
-                        senders = {int(row[0]): row[1] for row in conn.execute("SELECT rowid,user_name FROM Name2Id")}
-                        for sender_id, amount in conn.execute(
-                                f"SELECT real_sender_id,COUNT(*) FROM {table} GROUP BY real_sender_id"):
-                            count += amount
-                            sender = senders.get(int(sender_id or 0))
-                            if sender:
-                                previous = counts.get(sender, (0, 0))
-                                counts[sender] = (previous[0] + amount, previous[1])
-                        for sender_id, analyzed in self._analyzable_counts(db, conn, table).items():
-                            text_count += analyzed
-                            sender = senders.get(int(sender_id or 0))
-                            if sender:
-                                previous = counts.get(sender, (0, 0))
-                                counts[sender] = (previous[0], previous[1] + analyzed)
-                    self.profile_metadata_cache[key] = (signature, counts, count, text_count)
+                    updated = (self._metadata_counts_delta(db, found, *cached[1:])
+                               if cached is not None else None)
+                    if updated is None:
+                        updated = self._metadata_counts_full(db, found)
+                    counts, count, text_count, marks = updated
+                    self.profile_metadata_cache[key] = (signature, counts, count, text_count, marks)
                     self.profile_metadata_cache.move_to_end(key)
                     if len(self.profile_metadata_cache) > PROFILE_METADATA_CACHE_LIMIT:
                         self.profile_metadata_cache.popitem(last=False)
@@ -1355,8 +1506,7 @@ class WeChatSource:
                     for conn, table in found:
                         if not re.fullmatch(r"Msg_[0-9a-fA-F]{32}", table):
                             raise RuntimeError("invalid message table")
-                        senders = {int(row[0]): row[1] for row in
-                                   conn.execute("SELECT rowid,user_name FROM Name2Id")}
+                        senders = self._sender_index(db, conn)
                         for sender_id, amount in conn.execute(
                                 f"SELECT real_sender_id,COUNT(*) FROM {table} GROUP BY real_sender_id"):
                             total += amount

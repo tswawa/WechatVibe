@@ -38,9 +38,9 @@ class StubAnalyzer:
 
 class StubStore:
     def analysis_progress_rows(self, account, version):
-        return [("wxid_a", "wxid_a", True, json.dumps({"count": 7})),
-                ("wxid_b", "wxid_b", False, json.dumps({"count": 3})),
-                ("wxid_group@chatroom", "", True, json.dumps({"count": 5}))]
+        return [("wxid_a", "wxid_a", True, 7),
+                ("wxid_b", "wxid_b", False, 3),
+                ("wxid_group@chatroom", "", True, 5)]
 
 
 class AnalysisOverviewTests(unittest.TestCase):

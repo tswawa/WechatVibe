@@ -101,6 +101,31 @@ class ControlTests(unittest.TestCase):
             server.shutdown()
             thread.join(2)
 
+    def test_static_assets_revalidate_with_etag_while_api_stays_no_store(self):
+        server, _thread = self.server(None)
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        try:
+            connection.request("GET", "/app.js")
+            first = connection.getresponse()
+            first.read()
+            etag = first.getheader("ETag")
+            self.assertEqual(first.status, 200)
+            self.assertEqual(first.getheader("Cache-Control"), "no-cache")
+            self.assertTrue(etag)
+
+            connection.request("GET", "/app.js", headers={"If-None-Match": etag})
+            second = connection.getresponse()
+            self.assertEqual(second.status, 304)
+            self.assertEqual(second.read(), b"")
+            self.assertEqual(second.getheader("ETag"), etag)
+
+            connection.request("GET", "/api/health")
+            health = connection.getresponse()
+            health.read()
+            self.assertEqual(health.getheader("Cache-Control"), "no-store")
+        finally:
+            connection.close()
+
 
 class ProfileModelSourceTests(unittest.TestCase):
     """One shared model-selection file means whichever instance saves last reverts the other."""

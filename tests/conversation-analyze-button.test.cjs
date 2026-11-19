@@ -41,8 +41,13 @@ it("keeps the analyse request list separate from the added-conversation list", (
   );
 });
 
-it("puts a per-card analyse button left of the contact name", () => {
-  assert.match(renderSessions, /top\.append\(analyseBtn, element\("span", "session-name"\)/u);
+it("puts the analyse toggle on the session avatar instead of the name row", () => {
+  // The control moved from a text button left of the name onto the avatar frame itself.
+  assert.match(renderSessions, /element\("button", "session-avatar-action"\)/u);
+  assert.match(renderSessions, /avatarWrap\.appendChild\(analyseBtn\)/u);
+  assert.match(renderSessions, /top\.append\(element\("span", "session-name"\)/u);
+  assert.doesNotMatch(renderSessions, /top\.append\(analyseBtn/u);
+  assert.doesNotMatch(renderSessions, /session-analyze-btn/u);
   assert.match(renderSessions,
     /analyseBtn\.addEventListener\("click", \(event\) => \{\s*\n\s*event\.stopPropagation\(\);/u);
   // A click asks for analysis; it must not also switch conversations.
@@ -51,11 +56,37 @@ it("puts a per-card analyse button left of the contact name", () => {
   assert.doesNotMatch(click, /switchSession/u);
 });
 
-it("gives the button two distinguishable states", () => {
+it("draws the requested state on the avatar and keeps both states announced", () => {
   assert.match(renderSessions, /const requested = chatState\.requestedConversations\.has\(session\.username\)/u);
-  assert.match(renderSessions, /requested \? "已加入分析" : "开始分析"/u);
-  assert.match(renderSessions, /analyseBtn\.classList\.toggle\("requested", requested\)/u);
+  // The ring is drawn on the wrap, which is where the avatar box is; the button has no text.
+  assert.match(renderSessions, /avatarWrap\.classList\.toggle\("requested", requested\)/u);
   assert.match(renderSessions, /analyseBtn\.ariaPressed = String\(requested\)/u);
+  assert.match(renderSessions, /analyseBtn\.ariaLabel = requested \? "已加入分析" : "开始分析"/u);
+  assert.doesNotMatch(renderSessions, /analyseBtn\.textContent = label/u);
+});
+
+it("styles the requested ring without touching the row geometry", () => {
+  const css = readFileSync(path.join(__dirname, "..", "chatui", "style.css"), "utf8").replace(/\r/gu, "");
+  // The ring is drawn by a pseudo element inside the avatar box: a border would add 2px per side
+  // and shift every neighbour, and an outside ring would sit on the card background, which the
+  // open conversation already colours.
+  const requested = css.slice(css.indexOf(".session-avatar-wrap.requested::after"));
+  const rule = requested.slice(0, requested.indexOf("}"));
+  assert.match(rule, /box-shadow: inset 0 0 0 2px var\(--color-green\)/u);
+  assert.doesNotMatch(rule, /border:/u);
+  // The hit area covers whatever size the wrap is given, instead of a fixed pixel box.
+  const action = css.slice(css.indexOf(".session-avatar-action"), css.indexOf(".session-avatar-action") + 260);
+  assert.match(action, /inset: 0/u);
+  assert.match(action, /position: absolute/u);
+  // The hint ring is thinner than the requested one, so the two states stay distinguishable.
+  const hint = css.slice(css.indexOf(".session-avatar-wrap:hover::after"),
+    css.indexOf(".session-avatar-wrap:hover::after") + 220);
+  assert.match(hint, /inset 0 0 0 1px var\(--color-green\)/u);
+  // The unread badge shares the corner with the ring; it has to paint above it, and its click
+  // must reach the card (open the conversation) instead of the analyse toggle underneath.
+  const dot = css.slice(css.indexOf(".session-unread-dot {"), css.indexOf(".session-unread-dot {") + 420);
+  assert.match(dot, /z-index: 3/u);
+  assert.doesNotMatch(dot, /pointer-events: none/u);
 });
 
 it("refuses every analysis path for a conversation nobody requested", () => {
@@ -76,7 +107,9 @@ it("refuses every analysis path for a conversation nobody requested", () => {
 it("explains the refusal instead of failing silently", () => {
   assert.match(gate, /尚未加入会话分析/u);
   assert.match(gate, /setStripStatus\(hint\)/u);
-  assert.match(gate, /if \(conversationAnalysisRequested\(user\)\) return false;/u);
+  // The gate opens for the sidebar grant and for the header scope, which only authorizes
+  // the loaded window; everything else is still refused with the hint above.
+  assert.match(gate, /if \(conversationAnalysisRequested\(user\) \|\| currentIntentRequestScope\(\)\) return false;/u);
 });
 
 it("analyses the clicked conversation immediately, not only via the background switch", () => {
@@ -86,6 +119,28 @@ it("analyses the clicked conversation immediately, not only via the background s
   assert.match(request, /username === chatState\.currentUser\) retryAnalysis\(\)/u);
   // The button is the request; the switch only governs the sweep that walks the list later.
   assert.doesNotMatch(request, /backgroundAnalyze/u);
+});
+
+it("stops the backend job when the conversation is toggled off", () => {
+  // Persisting a shorter list only suppresses *future* passes. The job that is already
+  // queued or decoding has to be stopped explicitly, or the contact keeps being analysed.
+  assert.match(request, /\/api\/analysis-cancel/u);
+  assert.ok(
+    request.indexOf("/api/conversation-selection") < request.indexOf("/api/analysis-cancel"),
+    "the stop request must come after the list is persisted",
+  );
+});
+
+it("marks sweep passes so the background switch can stop exactly those", () => {
+  // A sweep pass and a hand click both reach /api/analyze. Marking the sweep is the only way
+  // the switch can stop background work without killing an explicit request.
+  assert.match(analyseMany, /background: true/u);
+  const toggle = app.slice(app.indexOf('btnToggleBackgroundAnalyze").addEventListener'),
+    app.indexOf('btnToggleBackgroundAnalyze").addEventListener') + 380);
+  assert.match(toggle, /stopBackgroundAnalysis\(\)/u);
+  const stop = body("async function stopBackgroundAnalysis(");
+  assert.match(stop, /allBackground: true/u);
+  assert.match(stop, /\/api\/analysis-cancel/u);
 });
 
 it("sweeps only the conversations that were requested", () => {

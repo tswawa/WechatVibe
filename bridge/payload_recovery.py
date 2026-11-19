@@ -120,13 +120,29 @@ def recover(root, database, *, apply=False, unprotect=None, gate=None):
             os.link(temporary, undo_manifest)
         finally:
             temporary.unlink(missing_ok=True)
-        _copy_file(key_backup, key, replace=True)
-        # SQLite's backup transaction handles journal/WAL state; no sidecar is
-        # deleted and no file is replaced beneath an open SQLite connection.
-        with closing(_read_only(backup)) as origin, closing(sqlite3.connect(path)) as destination:
-            origin.backup(destination)
-        with path.open("r+b") as stream:
-            os.fsync(stream.fileno())
+        # Stage the key instead of installing it: the database copy below can still fail
+        # (readonly file, full disk, a handle another process holds), and replacing the key
+        # first left the old ciphertext with the wrong key — every encrypted column
+        # unreadable, which is exactly what this recovery exists to undo.
+        staged_key = key.with_name(key.name + "." + uuid.uuid4().hex + ".tmp")
+        _copy_file(key_backup, staged_key)
+        try:
+            # SQLite's backup transaction handles journal/WAL state; no sidecar is
+            # deleted and no file is replaced beneath an open SQLite connection.
+            with closing(_read_only(backup)) as origin, closing(sqlite3.connect(path)) as destination:
+                origin.backup(destination)
+            with path.open("r+b") as stream:
+                os.fsync(stream.fileno())
+            try:
+                os.replace(staged_key, key)
+            except OSError:
+                # The database now holds the backup, so put the previous one back before
+                # failing: the live key still belongs to it.
+                with closing(_read_only(undo)) as origin, closing(sqlite3.connect(path)) as destination:
+                    origin.backup(destination)
+                raise
+        finally:
+            staged_key.unlink(missing_ok=True)
         result["applied"] = True
         return result
     except (OSError, sqlite3.Error, ValueError, TypeError) as exc:

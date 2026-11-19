@@ -14,6 +14,8 @@ from message_contracts import (API_INSIGHT_REVISION, FINE_LABEL_SCHEMA, api_insi
 from portrait_contracts import API_PORTRAIT_REVISION, api_portrait_scope
 
 LOCAL_SOURCE_ID = "local:laya"
+AFFINITY_HALF_LIFE = 8
+AFFINITY_DECAY = .5 ** (1 / AFFINITY_HALF_LIFE)
 
 
 class ModelSourceUnavailable(RuntimeError):
@@ -341,14 +343,12 @@ def mbti_from_totals(eligible, supported_messages, axis_totals, version):
 
 
 def affinity(scores):
-    """The linear-recency aggregate in electron/native/aggregate.ts, oldest first."""
+    """Exponential-recency aggregate over raw scores, oldest first (confidence = 1)."""
     count = len(scores)
     if not count:
         return None
-    if count == 1:
-        weighted = scores[0]
-    else:
-        weighted = (.5 * sum(scores) + .5 * sum(index * score for index, score in enumerate(scores)) / (count - 1)) / (.75 * count)
+    weights = [AFFINITY_DECAY ** (count - 1 - index) for index in range(count)]
+    weighted = sum(score * weight for score, weight in zip(scores, weights)) / sum(weights)
     return int(50 + 50 * max(-1, min(1, weighted)) + .5)
 
 
@@ -356,9 +356,14 @@ def affinity_from_progress(progress):
     count = progress["scoreCount"]
     if not count:
         return None
-    weighted = (progress["scoreSum"] if count == 1 else
-                (.5 * progress["scoreSum"] + .5 * progress["scoreWeighted"] / (count - 1)) /
-                (.75 * count))
+    if "scoreExp" in progress and "confidenceExp" in progress:
+        mass = progress["confidenceExp"]
+        weighted = progress["scoreExp"] / mass if mass > 0 else 0.0
+    else:
+        # Legacy checkpoints cannot be upgraded exactly without their per-message history.
+        weighted = (progress["scoreSum"] if count == 1 else
+                    (.5 * progress["scoreSum"] + .5 * progress["scoreWeighted"] / (count - 1)) /
+                    (.75 * count))
     return int(50 + 50 * max(-1, min(1, weighted)) + .5)
 
 

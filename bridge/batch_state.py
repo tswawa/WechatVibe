@@ -14,8 +14,10 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from payload_crypto import default_cipher
 from profile_signals import STYLE_LABELS
-from profile_state import empty_state, add_result as add_profile_result, covers_tail_emotions
+from profile_state import (add_exp_score, add_result as add_profile_result, covers_tail_emotions,
+                           empty_state, relationship_confidence)
 from profile_signals import keyword_counts
 
 
@@ -44,7 +46,11 @@ def _scope(account, session, version, subject):
 
 def _state(value):
     result = json.loads(json.dumps(value if value is not None else empty_state(), ensure_ascii=False))
-    if not isinstance(result, dict) or not set(empty_state()) <= set(result):
+    if not isinstance(result, dict):
+        raise ValueError("incompatible profile state")
+    legacy_affinity = "scoreExp" not in result and "confidenceExp" not in result
+    required = set(empty_state()) - {"scoreExp", "confidenceExp"}
+    if not required <= set(result) or not legacy_affinity and not set(empty_state()) <= set(result):
         raise ValueError("incompatible profile state")
     result.setdefault("batchCount", 0)
     return result
@@ -102,7 +108,7 @@ def _segments(records, cursor, char_offset):
 
 
 def _merge(state, result, targets, latest, words, is_group, subject,
-           tail_scores=(), tail_emotions=()):
+           tail_scores=(), tail_emotions=(), tail_confidences=()):
     if not targets:
         return
     if not covers_tail_emotions(state, tail_emotions):
@@ -128,6 +134,8 @@ def _merge(state, result, targets, latest, words, is_group, subject,
         state["scoreSum"] += targets * score
         state["scoreWeighted"] += (targets * rank + targets * (targets - 1) / 2) * score
         state["scoreWeighted"] += sum(tail_scores) * targets
+        add_exp_score(state, score, relationship_confidence(result), targets=targets,
+                      tail_scores=tail_scores, tail_confidences=tail_confidences)
         state["scoreCount"] += targets
     emotion = _scores(result, "emotion")
     if emotion:
@@ -190,7 +198,9 @@ def _combined_result(fragments):
     if total <= 0:
         return None
     combined = {}
-    for field in ("emotion", "intent", "intentBroad"):
+    for field in ("emotion", "intent", "intentBroad", "relationship"):
+        if field == "relationship" and not any("relationship" in result for _length, result in fragments):
+            continue
         totals = {}
         for length, result in fragments:
             for entry in _scores(result, field):
@@ -229,12 +239,16 @@ def _tail_evidence(conn, scope, legacy_max, subject, minimum):
     tails = []
     for seq, shard, local, score, raw in conn.execute(
             "SELECT sort_seq,shard,local_id,score,result FROM results_v2 WHERE " + legacy_where, args):
-        tails.append(((seq, shard, local), score, json.loads(raw).get("emotion") or []))
-    for seq, shard, local, score, raw in conn.execute(
-            "SELECT sort_seq,shard,local_id,score,mood_json FROM batch_coverage_v1 "
+        result = json.loads(raw)
+        tails.append(((seq, shard, local), score, result.get("emotion") or [],
+                      relationship_confidence(result)))
+    for seq, shard, local, score, raw, confidence in conn.execute(
+            "SELECT sort_seq,shard,local_id,score,mood_json,confidence FROM batch_coverage_v1 "
             "WHERE account=? AND session=? AND base_version=? AND subject=? AND batch_version=? "
             "AND counted=1 AND (sort_seq,shard,local_id)>(?,?,?)", (*scope, *minimum)):
-        tails.append(((seq, shard, local), score, json.loads(raw) if raw else []))
+        tails.append(((seq, shard, local), score, json.loads(raw) if raw else [],
+                      confidence if confidence is not None else 1.0))
+    tails.sort(key=lambda item: item[0])
     return tails
 
 
@@ -251,12 +265,26 @@ class BatchStateStore:
                          "cursor_shard TEXT,cursor_local INTEGER,char_offset INTEGER NOT NULL,"
                          "context_json TEXT NOT NULL,state_json TEXT NOT NULL,"
                          "complete INTEGER NOT NULL DEFAULT 0,legacy_max_rowid INTEGER NOT NULL DEFAULT 0,"
+                         "count INTEGER NOT NULL DEFAULT 0,"
                          "PRIMARY KEY(account,session,base_version,subject,batch_version))")
             columns = {row[1] for row in conn.execute("PRAGMA table_info(batch_progress_v1)")}
             if "complete" not in columns:
                 conn.execute("ALTER TABLE batch_progress_v1 ADD COLUMN complete INTEGER NOT NULL DEFAULT 0")
             if "legacy_max_rowid" not in columns:
                 conn.execute("ALTER TABLE batch_progress_v1 ADD COLUMN legacy_max_rowid INTEGER NOT NULL DEFAULT 0")
+            if "count" not in columns:
+                # The overview only needs this number; keeping it in a column avoids decoding
+                # every conversation's full state_json (docs/performance-analysis.md §3.7).
+                conn.execute("ALTER TABLE batch_progress_v1 ADD COLUMN count INTEGER NOT NULL DEFAULT 0")
+                try:
+                    conn.execute("UPDATE batch_progress_v1 SET count=COALESCE(json_extract(state_json,'$.count'),0)")
+                except sqlite3.OperationalError:
+                    for rowid, raw in conn.execute("SELECT rowid,state_json FROM batch_progress_v1").fetchall():
+                        try:
+                            value = int(json.loads(raw).get("count") or 0)
+                        except (TypeError, ValueError, AttributeError):
+                            value = 0
+                        conn.execute("UPDATE batch_progress_v1 SET count=? WHERE rowid=?", (value, rowid))
             conn.execute("CREATE TABLE IF NOT EXISTS batch_runs_v1 ("
                          "account TEXT NOT NULL,session TEXT NOT NULL,base_version TEXT NOT NULL,"
                          "subject TEXT NOT NULL,batch_version TEXT NOT NULL,batch_id TEXT NOT NULL,"
@@ -268,13 +296,15 @@ class BatchStateStore:
                          "account TEXT NOT NULL,session TEXT NOT NULL,base_version TEXT NOT NULL,"
                          "subject TEXT NOT NULL,batch_version TEXT NOT NULL,message_id TEXT NOT NULL,"
                          "batch_id TEXT NOT NULL,counted INTEGER NOT NULL,sort_seq INTEGER NOT NULL,"
-                         "shard TEXT NOT NULL,local_id INTEGER NOT NULL,score REAL,mood_json TEXT,"
+                         "shard TEXT NOT NULL,local_id INTEGER NOT NULL,score REAL,mood_json TEXT,confidence REAL,"
                          "PRIMARY KEY(account,session,base_version,subject,batch_version,message_id))")
             coverage_columns = {row[1] for row in conn.execute("PRAGMA table_info(batch_coverage_v1)")}
             if "score" not in coverage_columns:
                 conn.execute("ALTER TABLE batch_coverage_v1 ADD COLUMN score REAL")
             if "mood_json" not in coverage_columns:
                 conn.execute("ALTER TABLE batch_coverage_v1 ADD COLUMN mood_json TEXT")
+            if "confidence" not in coverage_columns:
+                conn.execute("ALTER TABLE batch_coverage_v1 ADD COLUMN confidence REAL")
             conn.execute("CREATE INDEX IF NOT EXISTS batch_coverage_recent_v1 ON batch_coverage_v1 "
                          "(account,session,base_version,subject,batch_version,sort_seq DESC,shard DESC,local_id DESC)")
             conn.execute("CREATE TABLE IF NOT EXISTS batch_fragments_v1 ("
@@ -430,8 +460,10 @@ class BatchStateStore:
         if row is None:
             return None
         seq, shard, local, offset, context, state, complete = row
+        # Up to three full messages are stored verbatim in context_json.
+        context = self.cipher.loads(context)
         return {"cursor": (seq, shard, local) if seq is not None else None,
-                "charOffset": offset, "context": self.cipher.loads(context), "state": json.loads(state),
+                "charOffset": offset, "context": context, "state": json.loads(state),
                 "complete": bool(complete)}
 
     def legacy_known(self, account, session, base_version, subject, ids):
@@ -596,10 +628,10 @@ class BatchStateStore:
                     snapshot, position, previous = recovered, None, []
             conn.execute("INSERT OR IGNORE INTO batch_progress_v1 (account,session,base_version,subject,"
                          "batch_version,cursor_seq,cursor_shard,cursor_local,char_offset,context_json,state_json,"
-                         "legacy_max_rowid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                         "legacy_max_rowid,count) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                          (*scope, *(position or (None, None, None)), 0,
                           self.cipher.dumps(previous), json.dumps(snapshot, ensure_ascii=False),
-                          legacy_max))
+                          legacy_max, int(snapshot.get("count") or 0)))
         return self.load(account, session, base_version, subject)
 
     def commit(self, account, session, base_version, subject, *, batch_id, consumed,
@@ -721,7 +753,8 @@ class BatchStateStore:
             candidates = [item for item in targets if item["id"] not in existing and item["id"] not in legacy]
             tails = (_tail_evidence(conn, scope, legacy_max, subject,
                                     _position(candidates[0]["position"])) if candidates else [])
-            if not covers_tail_emotions(state, [emotion for _position_value, _score, emotion in tails if emotion]):
+            if not covers_tail_emotions(state, [
+                    emotion for _position_value, _score, emotion, _confidence in tails if emotion]):
                 recovered = self._recover_state(conn, scope)
                 if recovered is None:
                     raise ValueError("batch statistics cannot be recovered from stored evidence")
@@ -737,7 +770,7 @@ class BatchStateStore:
                 last_position = _position(candidates[-1]["position"])
                 fast_batch = not any(first_position < tail_position < last_position and
                                      (score is not None or emotion)
-                                     for tail_position, score, emotion in tails)
+                                     for tail_position, score, emotion, _confidence in tails)
             fast_result = _combined_result([(1, result)]) if fast_batch else None
             new_targets = 0
             anchor_item = None
@@ -764,23 +797,26 @@ class BatchStateStore:
                         latest = (*item["position"], stable_id)
                         if not fast_batch:
                             target_position = _position(item["position"])
-                            tail_scores = [score for tail_position, score, _emotion in tails
-                                           if tail_position > target_position and score is not None]
-                            tail_emotions = [emotion for tail_position, _score, emotion in tails
-                                             if tail_position > target_position and emotion]
+                            selected_tails = [tail for tail in tails
+                                              if tail[0] > target_position and tail[1] is not None]
+                            tail_scores = [tail[1] for tail in selected_tails]
+                            tail_confidences = [tail[3] for tail in selected_tails]
+                            tail_emotions = [tail[2] for tail in tails
+                                             if tail[0] > target_position and tail[2]]
                             _merge(state, effective, 1, latest, words.get(stable_id, {}), is_group, subject,
-                                   tail_scores, tail_emotions)
+                                   tail_scores, tail_emotions, tail_confidences)
                         counted = True
                         new_targets += 1
                         anchor_item = item
                 elif stable_id not in legacy and is_group and not subject and item["side"] == "self":
                     state["count"] += 1
                     counted = True
-                conn.execute("INSERT INTO batch_coverage_v1 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                conn.execute("INSERT INTO batch_coverage_v1 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                              (*scope, stable_id, batch_id, int(counted), *item["position"],
                               effective.get("score") if counted and effective else None,
                               json.dumps(effective.get("emotion") or [], ensure_ascii=False)
-                              if counted and effective else None))
+                              if counted and effective else None,
+                              relationship_confidence(effective) if counted and effective else None))
                 if counted and effective is not None:
                     conn.execute("INSERT OR IGNORE INTO profile_tokens_v1 VALUES (?,?,?,?,?)",
                                  (account, session, base_version, stable_id,
@@ -790,13 +826,15 @@ class BatchStateStore:
                 for item in candidates:
                     for word, count in words.get(item["id"], {}).items():
                         batch_words[word] = batch_words.get(word, 0) + count
-                tail_scores = [score for tail_position, score, _emotion in tails
-                               if tail_position > last_position and score is not None]
-                tail_emotions = [emotion for tail_position, _score, emotion in tails
-                                 if tail_position > last_position and emotion]
+                selected_tails = [tail for tail in tails
+                                  if tail[0] > last_position and tail[1] is not None]
+                tail_scores = [tail[1] for tail in selected_tails]
+                tail_confidences = [tail[3] for tail in selected_tails]
+                tail_emotions = [tail[2] for tail in tails
+                                 if tail[0] > last_position and tail[2]]
                 _merge(state, fast_result, len(candidates),
                        (*candidates[-1]["position"], candidates[-1]["id"]), batch_words,
-                       is_group, subject, tail_scores, tail_emotions)
+                       is_group, subject, tail_scores, tail_emotions, tail_confidences)
             anchor_position = _position(anchor_item["position"]) if anchor_item else None
             if requested_anchor is not None and requested_anchor != anchor_position:
                 raise ValueError("batch anchor must be the last newly analyzed target")
@@ -808,14 +846,14 @@ class BatchStateStore:
                           *scope, batch_id))
             if advance:
                 conn.execute("UPDATE batch_progress_v1 SET cursor_seq=?,cursor_shard=?,cursor_local=?,"
-                             "char_offset=?,context_json=?,state_json=? WHERE account=? AND session=? "
+                             "char_offset=?,context_json=?,state_json=?,count=? WHERE account=? AND session=? "
                              "AND base_version=? AND subject=? AND batch_version=?",
                              (*position, char_offset, self.cipher.dumps(context),
-                              json.dumps(state, ensure_ascii=False), *scope))
+                              json.dumps(state, ensure_ascii=False), int(state.get("count") or 0), *scope))
             else:
-                conn.execute("UPDATE batch_progress_v1 SET state_json=? WHERE account=? AND session=? "
+                conn.execute("UPDATE batch_progress_v1 SET state_json=?,count=? WHERE account=? AND session=? "
                              "AND base_version=? AND subject=? AND batch_version=?",
-                             (json.dumps(state, ensure_ascii=False), *scope))
+                             (json.dumps(state, ensure_ascii=False), int(state.get("count") or 0), *scope))
             conn.commit()
             return {"applied": True, "cursor": position, "charOffset": char_offset,
                     "context": context, "state": state, "newTargets": new_targets,

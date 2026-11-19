@@ -46,10 +46,11 @@ it("sends an unchanged bounded per-message request through the facade and busine
   ]);
   assert.deepEqual(viaFacade.usage, { inputTokens: 3, outputTokens: 4 });
   for (const request of requests) {
-    assert.deepEqual(Object.keys(request).sort(), ["jsonMode", "prompt", "stream", "system"]);
+    assert.deepEqual(Object.keys(request).sort(), ["jsonMode", "prompt", "stream", "system", "timeoutMs"]);
     assert.equal(request.jsonMode, false);
     assert.equal(request.stream, true);
     assert.equal(request.maxOutputTokens, undefined);
+    assert.equal(request.timeoutMs, 150_000);
     assert.match(request.prompt, /^CHAT_BATCH_JSON:\n/u);
   }
 });

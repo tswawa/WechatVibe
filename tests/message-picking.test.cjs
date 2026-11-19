@@ -92,6 +92,11 @@ function harness(messages = [], seed = {}) {
     setStripStatus(message) { context.stripStatus = message; },
     toast(value) { context.toastMessage = value; },
     hasIntentContent: value => String(value || "").trim().length > 0,
+    // Mirrors chatui/app.js: links and bare placeholders leave nothing to read.
+    hasAnalyzableText: value => {
+      const text = String(value ?? "").trim();
+      return text.length > 0 && !/^https?:\/\/\S+$/u.test(text);
+    },
     isIncompleteFragment: () => false,
     usingApiInsights: () => context.settingsState.modelSourceResolved &&
       context.settingsState.modelSourceSnapshot.mode === "api",
@@ -129,6 +134,18 @@ it("offers a checkbox only for messages the active source can analyse", () => {
   // The API path additionally drops messages without intent content.
   context.settingsState.modelSourceSnapshot = { mode: "api", api: null, sourceId: "api-a" };
   assert.equal(context.picks.pickableMessage(message("m1", "other", "嗯")), true);
+});
+
+it("never offers a message the backend would reject for the whole batch", () => {
+  // A link-only line carries nothing to read: `has_analysis_content` refuses it, and the
+  // selected-targets endpoint fails the entire batch when one id is ineligible.
+  const { picks, nodes, context } = harness([message("m1", "other", "https://example.com/a")]);
+  assert.equal(picks.pickableMessage(message("m1", "other", "https://example.com/a")), false);
+  assert.equal(nodes[0].classList.contains("pickable"), false);
+  assert.equal(picks.pickableMessage(message("m2", "other", "链接 https://example.com/a")), true);
+  // Local and API mode agree: the local worker validates with the same rule.
+  context.settingsState.modelSourceSnapshot = { mode: "api", api: null, sourceId: "api-a" };
+  assert.equal(picks.pickableMessage(message("m1", "other", "https://example.com/a")), false);
 });
 
 it("sends exactly the picked ids inside the tail window the backend resolves", () => {

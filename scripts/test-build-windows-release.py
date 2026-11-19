@@ -236,6 +236,10 @@ class BuildReleaseTests(unittest.TestCase):
             os.symlink(target, link)
         except (OSError, NotImplementedError):
             self.skipTest("symlinks are unavailable on this host")
+        # A filtered volume can accept the call and keep nothing, which would assert
+        # against a missing file instead of the release guard.
+        if not os.path.lexists(link):
+            self.skipTest("symlinks are unavailable on this host")
         with self.assertRaisesRegex(ValueError, "symlink or reparse"):
             builder.build_release(self.source, self.root / "out", "1.0.2")
 

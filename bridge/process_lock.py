@@ -3,12 +3,34 @@ from __future__ import annotations
 
 import os
 import stat
+import threading
 import time
 from pathlib import Path
 
 
 class LockBusy(RuntimeError):
     pass
+
+
+_OPEN_LOCKS: dict[str, threading.Lock] = {}
+_OPEN_LOCKS_GUARD = threading.Lock()
+
+
+def sqlite_open_lock(path):
+    """One lock per database file, held only while a connection is opened.
+
+    `sqlite3.connect` creates a missing database itself. Two threads opening the same new
+    file at the same instant leave one of them holding a handle SQLite then reports as
+    readonly ("attempt to write a readonly database") or refuses outright, and that happens
+    before any transaction of ours could serialize them. Serializing only the open closes
+    that window without serializing the queries that follow it.
+    """
+    key = os.path.normcase(os.path.abspath(str(path)))
+    with _OPEN_LOCKS_GUARD:
+        lock = _OPEN_LOCKS.get(key)
+        if lock is None:
+            lock = _OPEN_LOCKS[key] = threading.Lock()
+        return lock
 
 
 def checked_path(path):

@@ -5,6 +5,10 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { it } = require("node:test");
 
+// 直接 `node --test tests/*.test.cjs` 时没有 tsx 加载器，这里补上，让下面
+// require .ts 源码可解析；标准套件已带 `--import tsx`，重复注册无副作用。
+require("tsx/cjs");
+
 const app = fs.readFileSync(path.join(__dirname, "../chatui/app.js"), "utf8").replace(/\r/g, "");
 function body(signature) {
   const start = app.indexOf(signature), end = app.indexOf("\n}\n", start);
@@ -13,10 +17,10 @@ function body(signature) {
 }
 const maps = app.slice(app.indexOf("const GENERIC_INTENT_LABELS"), app.indexOf("settingsState.settings = undefined"));
 const constants = app.split("\n").filter(line => ["const PLAIN_ACK_TEXT", "const PLAIN_STATUS_TEXT", "const PLAIN_ACTION_LABELS",
-  "const LOW_SIGNAL_INTENT_LABELS", "const SALIENT_INTENT_CUE", "const PLAIN_TURN"].some(prefix => line.startsWith(prefix))).join("\n");
+  "const PLAIN_TURN"].some(prefix => line.startsWith(prefix))).join("\n");
 const context = vm.createContext({});
 vm.runInContext(maps + "\n" + constants + "\n" + ["function hasIntentContent(", "function isIncompleteFragment(",
-  "function plainAcknowledgementOnly(", "function lowSignalIntentOnly(", "function localIntentTextGuard(", "function displayedIntent("].map(body).join("\n"), context);
+  "function plainAcknowledgementOnly(", "function localIntentTextGuard(", "function displayedIntent("].map(body).join("\n"), context);
 const shown = (result, text) => JSON.parse(JSON.stringify(context.displayedIntent(result, text)));
 
 for (const [text, label, kind, display] of [
@@ -37,7 +41,23 @@ it("ordinary acknowledgements and ungrounded low scores still stay blank", () =>
   for (const text of ["好", "收到", "嗯嗯"])
     assert.deepEqual(shown({intent:[{rawLabel:"agree",probability:0.9}],
       groundedIntent:{label:"agree",evidenceKind:"explicit_acceptance"}},text), []);
-  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.49}],groundedIntent:null},"明天的安排还没决定。"), []);
+  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.34}],groundedIntent:null},"明天的安排还没决定。"), []);
+});
+
+it("keeps a confident everyday label that used to be suppressed as low signal", () => {
+  // 本机真实结果里 top1 几乎都是闲聊 / 分享 / 同意这类，旧规则把它们整类隐藏，
+  // 整行只剩 9% 可见。只要首选够高、明显领先次选，就该显示出来。
+  for (const [raw, label] of [["share_news", "分享"], ["small_talk", "闲聊"], ["inform", "告知事实"],
+    ["share_feeling", "表达感受"]])
+    assert.deepEqual(shown({intent:[{rawLabel:raw,probability:0.62},{rawLabel:"agree",probability:0.18}],
+      groundedIntent:null},"今天路上看到一只特别胖的猫，蹲在车顶上不肯走。"), [{label,probability:0.62}]);
+});
+
+it("still hides a high score that does not lead the second candidate", () => {
+  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.42},
+    {rawLabel:"agree",probability:0.38}],groundedIntent:null},"明天可能去看电影。"), []);
+  assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.45},
+    {rawLabel:"agree",probability:0.20}],groundedIntent:null},"明天可能去看电影。"), [{label:"计划",probability:0.45}]);
 });
 
 it("a mismatched evidence kind cannot grant an action label", () => {
@@ -46,8 +66,8 @@ it("a mismatched evidence kind cannot grant an action label", () => {
     assert.deepEqual(shown({intent:[{rawLabel:"plan",probability:0.1}],groundedIntent:grounded},"合成消息。"), []);
 });
 
-it("frontend guards agree with the model-side interpretation of reported acts and statements", async () => {
-  const { isUnattributableIntentTarget, isEmbeddedQuestionStatement } = await import("../electron/laya/grounded-intent.ts");
+it("frontend guards agree with the model-side interpretation of reported acts and statements", () => {
+  const { isUnattributableIntentTarget, isEmbeddedQuestionStatement } = require("../electron/laya/grounded-intent.ts");
   for (const text of ["小王问我，能不能帮我检查文档。", "我说的不是请你帮我修。", "他说我先休息一下，明天再聊。",
     "我的想法是：我在意实际能不能完成。", "我已经知道怎么备份。", "你知道怎么备份吗？",
     "我想知道怎么备份。", "有点多，可以帮我分担吗？", "下午不方便，我们改到周六吧。", "“请你帮我修。”"])

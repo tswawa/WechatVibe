@@ -53,6 +53,13 @@ function portrait(summary) {
     traits: { socialEnergy: 60, humor: 45, composure: 70, initiative: 75, care: 65, affection: 55 },
   };
 }
+// The card only shows a verdict for an axis the classifier actually backed: `validAxis`
+// requires a positive per-axis `evidenceCount`, and that count now comes from this basis
+// instead of the old hardcoded 1.
+function mbtiBasis(evidenceCount = 2) {
+  return Object.fromEntries(["EI", "SN", "TF", "JP"].map(axis =>
+    [axis, { status: "supported", kind: "pattern", reason: `${axis} 合成依据`, evidenceCount }]));
+}
 function payload(sourceId, summary, identity = { username: "friend", name: "合成联系人",
   avatar: "", avatarCandidates: [], isGroup: false, members: [] }) {
   return { account: "acct", sourceId, subject: identity.username, identity,
@@ -158,7 +165,8 @@ function navigationHarness(apiImpl, storage) {
     markSessionAsRead() {}, cacheCurrentSession() {}, cancelApiInsightWork() {},
     clearInlineIntentPending() {}, cancelHistoryRequest() {}, resetHistorySearch() {},
     clearReplyPrediction() {}, setIntentActionState() {}, renderSessions() {},
-    renderMessages() {}, updateHistoryNavigation() {}, scrollToLatest() {},
+    renderMessages() {}, renderPickBar() {}, syncPickControls() {},
+    updateHistoryNavigation() {}, scrollToLatest() {},
     loadMessages() {}, sessionWindowReady: () => false, canAnalyzeLocal: () => false,
     usingLocalFine: () => false, visibleResults: value => value,
     status: (target, value) => { target.textContent = value; },

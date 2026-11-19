@@ -60,6 +60,24 @@ function stopOwnedBridge(callback) {
   }
 }
 
+// The reason-code dialog alone cannot explain a failed launch, so launcher failures also
+// append what the launcher printed into logs/desktop-launch.log.
+function recordLaunchFailure(reason) {
+  const text = String(reason || "").trim();
+  if (!text) return "";
+  try {
+    const directory = path.join(root, "logs");
+    fs.mkdirSync(directory, { recursive: true });
+    const stamp = new Date().toISOString();
+    fs.appendFileSync(path.join(directory, "desktop-launch.log"),
+                      `[${stamp}] ${text}\n`, "utf8");
+  } catch (_) {
+    // A read-only install still deserves the dialog, just without the log line.
+  }
+  const lines = text.split(/\r?\n/).filter(line => line.trim());
+  return lines.length ? lines[lines.length - 1].slice(0, 300) : "";
+}
+
 const failureMessages = Object.freeze({
   profile_invalid: "实例配置无效。",
   runtime_missing: "运行文件缺失，请重新完整解压程序。",
@@ -120,9 +138,10 @@ app.whenReady().then(() => {
   delete environment.CHATUI_PORT;
   execFile(python, [launcher, "--no-open", "--json"], {
     cwd: root, env: environment, windowsHide: true, timeout: 45000, maxBuffer: 65536,
-  }, (error, stdout) => {
+  }, (error, stdout, stderr) => {
     if (error) {
       // The launcher stops a bridge it started before failing, so do not stop one here.
+      recordLaunchFailure(["launcher failed:", error.message, stderr, stdout].filter(Boolean).join("\n"));
       let code = error.killed ? "launcher_timeout" : "launcher_failed";
       try {
         const reported = JSON.parse(stdout).startupFailure;
@@ -143,16 +162,21 @@ app.whenReady().then(() => {
         WECHATVIBE_BRIDGE_CREATED: bridgeCreated ? "1" : "0",
       });
       delete process.env.WECHATVIBE_SHELL_PID;
-    } catch (_) {
+    } catch (invalid) {
       if (!bridgeCreated) bridgeCreated = /"created"\s*:\s*true/.test(String(stdout || ""));
+      recordLaunchFailure(["invalid launcher result:", invalid.message, stderr, stdout].filter(Boolean).join("\n"));
       failAfterCleanup("launcher_result");
       return;
     }
     process.argv.push("--client-url", `${result.url}/`);
     try {
       require("./real-client-shell.cjs");
-    } catch (_) {
+    } catch (shellError) {
+      recordLaunchFailure(["shell failed:", shellError && shellError.stack || String(shellError)].join("\n"));
       failAfterCleanup("shell_failed");
     }
   });
-}).catch(() => fail("desktop_failed"));
+}).catch(error => {
+  recordLaunchFailure(["startup failed:", error && error.stack || String(error)].join("\n"));
+  fail("desktop_failed");
+});

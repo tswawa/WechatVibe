@@ -1,0 +1,399 @@
+{
+  "version": "relationship-linear-v3-17bc5623",
+  "corpusSha256": "f8f39002099c6180928f0c311198d5ac44b1a4659bd2bdea21d9a4ff0008d88c",
+  "rows": {
+    "train": 495,
+    "validation": 136,
+    "test": 350
+  },
+  "features": "boundary-unicode-char-ngram-1-4-binary+structural-v3",
+  "crossValidation": {
+    "0.0001": 0.8828282828282829,
+    "0.0003": 0.8828282828282829,
+    "0.001": 0.8848484848484848
+  },
+  "selectedL2": 0.001,
+  "epochs": 1200,
+  "pruneThreshold": 0.02,
+  "selectedTemperature": 0.35,
+  "calibration": {
+    "0.2": {
+      "nll": 0.14513307532333372,
+      "brier": 0.05389618959138722
+    },
+    "0.25": {
+      "nll": 0.13087249660799258,
+      "brier": 0.05422671908312355
+    },
+    "0.3": {
+      "nll": 0.12412663244191151,
+      "brier": 0.0551361984255077
+    },
+    "0.35": {
+      "nll": 0.12175841690807869,
+      "brier": 0.05643648899786276
+    },
+    "0.5": {
+      "nll": 0.12894434721287312,
+      "brier": 0.061915860117198886
+    },
+    "0.75": {
+      "nll": 0.16650734278551815,
+      "brier": 0.07539779838678463
+    },
+    "1.0": {
+      "nll": 0.22322056766815776,
+      "brier": 0.09481067914740665
+    },
+    "1.5": {
+      "nll": 0.3625883633457929,
+      "brier": 0.1503742917077697
+    },
+    "2.0": {
+      "nll": 0.503544773458995,
+      "brier": 0.21739379783292392
+    },
+    "3.0": {
+      "nll": 0.7350783548686667,
+      "brier": 0.34363676284689443
+    },
+    "5.0": {
+      "nll": 1.0137453403412078,
+      "brier": 0.5053151609273601
+    },
+    "8.0": {
+      "nll": 1.2127628060451783,
+      "brier": 0.6153625229021801
+    },
+    "12.0": {
+      "nll": 1.336378406050909,
+      "brier": 0.6784050739747172
+    },
+    "20.0": {
+      "nll": 1.4416383141585625,
+      "brier": 0.7282263630415761
+    }
+  },
+  "vocabSize": 12504,
+  "exportedGrams": 10488,
+  "validation": {
+    "rows": 136,
+    "correct": 132,
+    "accuracy": 0.9705882352941176,
+    "macroRecall": 0.9708333333333334,
+    "perClass": {
+      "rejecting": {
+        "correct": 24,
+        "total": 24
+      },
+      "distant": {
+        "correct": 22,
+        "total": 24
+      },
+      "neutral": {
+        "correct": 24,
+        "total": 24
+      },
+      "warm": {
+        "correct": 32,
+        "total": 32
+      },
+      "romantic": {
+        "correct": 30,
+        "total": 32
+      }
+    },
+    "confusion": {
+      "rejecting": {
+        "rejecting": 24
+      },
+      "distant": {
+        "distant": 22,
+        "warm": 1,
+        "rejecting": 1
+      },
+      "neutral": {
+        "neutral": 24
+      },
+      "warm": {
+        "warm": 32
+      },
+      "romantic": {
+        "romantic": 30,
+        "warm": 1,
+        "rejecting": 1
+      }
+    },
+    "nll": 0.12175841690807869,
+    "brier": 0.05643648899786276
+  },
+  "test": {
+    "rows": 350,
+    "correct": 317,
+    "accuracy": 0.9057142857142857,
+    "macroRecall": 0.9057142857142857,
+    "perClass": {
+      "rejecting": {
+        "correct": 65,
+        "total": 70
+      },
+      "distant": {
+        "correct": 61,
+        "total": 70
+      },
+      "neutral": {
+        "correct": 63,
+        "total": 70
+      },
+      "warm": {
+        "correct": 65,
+        "total": 70
+      },
+      "romantic": {
+        "correct": 63,
+        "total": 70
+      }
+    },
+    "confusion": {
+      "rejecting": {
+        "rejecting": 65,
+        "distant": 3,
+        "neutral": 1,
+        "romantic": 1
+      },
+      "distant": {
+        "distant": 61,
+        "rejecting": 7,
+        "romantic": 1,
+        "warm": 1
+      },
+      "neutral": {
+        "neutral": 63,
+        "warm": 1,
+        "rejecting": 3,
+        "distant": 3
+      },
+      "warm": {
+        "distant": 1,
+        "warm": 65,
+        "rejecting": 2,
+        "neutral": 1,
+        "romantic": 1
+      },
+      "romantic": {
+        "romantic": 63,
+        "distant": 2,
+        "rejecting": 2,
+        "warm": 3
+      }
+    },
+    "byBatch": {
+      "priorBatches": {
+        "rows": 200,
+        "correct": 181,
+        "accuracy": 0.905,
+        "macroRecall": 0.905,
+        "perClass": {
+          "rejecting": {
+            "correct": 37,
+            "total": 40
+          },
+          "distant": {
+            "correct": 34,
+            "total": 40
+          },
+          "neutral": {
+            "correct": 36,
+            "total": 40
+          },
+          "warm": {
+            "correct": 36,
+            "total": 40
+          },
+          "romantic": {
+            "correct": 38,
+            "total": 40
+          }
+        },
+        "confusion": {
+          "rejecting": {
+            "rejecting": 37,
+            "distant": 3
+          },
+          "distant": {
+            "distant": 34,
+            "rejecting": 5,
+            "romantic": 1
+          },
+          "neutral": {
+            "neutral": 36,
+            "warm": 1,
+            "rejecting": 3
+          },
+          "warm": {
+            "distant": 1,
+            "warm": 36,
+            "rejecting": 1,
+            "neutral": 1,
+            "romantic": 1
+          },
+          "romantic": {
+            "romantic": 38,
+            "distant": 1,
+            "rejecting": 1
+          }
+        }
+      },
+      "devR7": {
+        "rows": 50,
+        "correct": 46,
+        "accuracy": 0.92,
+        "macroRecall": 0.9199999999999999,
+        "perClass": {
+          "rejecting": {
+            "correct": 10,
+            "total": 10
+          },
+          "distant": {
+            "correct": 9,
+            "total": 10
+          },
+          "neutral": {
+            "correct": 9,
+            "total": 10
+          },
+          "warm": {
+            "correct": 10,
+            "total": 10
+          },
+          "romantic": {
+            "correct": 8,
+            "total": 10
+          }
+        },
+        "confusion": {
+          "rejecting": {
+            "rejecting": 10
+          },
+          "distant": {
+            "distant": 9,
+            "rejecting": 1
+          },
+          "neutral": {
+            "neutral": 9,
+            "distant": 1
+          },
+          "warm": {
+            "warm": 10
+          },
+          "romantic": {
+            "romantic": 8,
+            "warm": 1,
+            "rejecting": 1
+          }
+        }
+      },
+      "blindR8": {
+        "rows": 50,
+        "correct": 44,
+        "accuracy": 0.88,
+        "macroRecall": 0.8800000000000001,
+        "perClass": {
+          "rejecting": {
+            "correct": 9,
+            "total": 10
+          },
+          "distant": {
+            "correct": 9,
+            "total": 10
+          },
+          "neutral": {
+            "correct": 8,
+            "total": 10
+          },
+          "warm": {
+            "correct": 10,
+            "total": 10
+          },
+          "romantic": {
+            "correct": 8,
+            "total": 10
+          }
+        },
+        "confusion": {
+          "rejecting": {
+            "rejecting": 9,
+            "neutral": 1
+          },
+          "distant": {
+            "distant": 9,
+            "rejecting": 1
+          },
+          "neutral": {
+            "neutral": 8,
+            "distant": 2
+          },
+          "warm": {
+            "warm": 10
+          },
+          "romantic": {
+            "romantic": 8,
+            "distant": 1,
+            "warm": 1
+          }
+        }
+      },
+      "blindR9": {
+        "rows": 50,
+        "correct": 46,
+        "accuracy": 0.92,
+        "macroRecall": 0.9199999999999999,
+        "perClass": {
+          "rejecting": {
+            "correct": 9,
+            "total": 10
+          },
+          "distant": {
+            "correct": 9,
+            "total": 10
+          },
+          "neutral": {
+            "correct": 10,
+            "total": 10
+          },
+          "warm": {
+            "correct": 9,
+            "total": 10
+          },
+          "romantic": {
+            "correct": 9,
+            "total": 10
+          }
+        },
+        "confusion": {
+          "rejecting": {
+            "rejecting": 9,
+            "romantic": 1
+          },
+          "distant": {
+            "distant": 9,
+            "warm": 1
+          },
+          "neutral": {
+            "neutral": 10
+          },
+          "warm": {
+            "warm": 9,
+            "rejecting": 1
+          },
+          "romantic": {
+            "romantic": 9,
+            "warm": 1
+          }
+        }
+      }
+    }
+  },
+  "target": 0.9,
+  "passed": true
+}

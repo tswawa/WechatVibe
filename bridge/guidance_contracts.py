@@ -34,6 +34,22 @@ RESULT_OPTIONAL_FIELDS = {"usage", "responseId"}
 MAX_SUBTEXTS = 12
 # One guidance turn reasons over a bounded window, not the whole history.
 GUIDANCE_WINDOW_MESSAGES = 160
+#: Reply generation only uploads recent chat. The window is a user setting; the message
+#: ceiling above stays a hard cap so a wide window cannot balloon one request.
+GUIDANCE_WINDOW_MIN = 60
+GUIDANCE_WINDOW_MAX = 43200  # thirty days
+GUIDANCE_WINDOW_DEFAULT = 1440
+#: Quick presets offered by the UI; the field itself accepts any value in the range.
+GUIDANCE_WINDOW_CHOICES = (60, 120, 1440, 4320, 10080)
+
+
+def guidance_window_minutes(value=None):
+    """Clamp the requested window into [1 hour, 30 days]; unknown input uses one day."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return GUIDANCE_WINDOW_DEFAULT
+    if value != value:  # NaN
+        return GUIDANCE_WINDOW_DEFAULT
+    return max(GUIDANCE_WINDOW_MIN, min(GUIDANCE_WINDOW_MAX, int(value)))
 GUIDANCE_CONTEXT_CHARACTERS = 24_000
 GUIDANCE_FEEDBACK_MAX = 400
 GUIDANCE_DRAFT_MAX = 2000
@@ -255,3 +271,63 @@ def normalize_guidance(value):
             },
         },
     }
+
+
+# --- Fork addition (b63fd99): render one stored result as assistant reference material.
+
+_STATUS_LABELS = {"uncertain": "不确定", "insufficient": "信息不足"}
+_POLARITY_LABELS = {"positive": "偏正面", "neutral": "中性", "negative": "偏负面", "mixed": "好坏参半"}
+_SCENARIO_LABELS = {"auto": "自动识别", "general": "普通联系人", "leader": "与领导／上级"}
+
+GUIDANCE_MISSING_NOTE = (
+    "本次会话还没有保存过「潜台词与沟通建议」的分析结果；如果用户需要这类解读或建议，"
+    "请按你选用的技能直接分析当前会话资料后给出。"
+)
+
+
+def guidance_material(saved):
+    """Render one stored guidance row as reference material for the assistant, or "".
+
+    Empty output means "nothing to cite", so callers can append unconditionally. The text
+    carries the same reading the persona page used to show, without its presentation: the
+    assistant reads it as evidence, not as a UI payload.
+    """
+    guidance = (saved or {}).get("guidance")
+    if not valid_guidance(guidance):
+        return ""
+    subject = saved.get("subject")
+    lines = ["本次会话已保存的「潜台词与沟通建议」（此前分析得到，可直接引用，不必重新分析）：",
+             "场景：" + _SCENARIO_LABELS.get(saved.get("scenario"), "普通联系人") +
+             "；解读对象：" + (subject if isinstance(subject, str) and subject else "当前会话"),
+             "潜台词："]
+    for index, item in enumerate(guidance["subtexts"], start=1):
+        if item["status"] != "ok":
+            lines.append("%d. %s" % (index, _STATUS_LABELS.get(item["status"], "无法解读")))
+            continue
+        parts = []
+        if item.get("surface"):
+            parts.append("表面「" + item["surface"] + "」")
+        if item.get("implied"):
+            parts.append("可能「" + item["implied"] + "」")
+        if item.get("tactic"):
+            parts.append("手法：" + item["tactic"])
+        sentiment = item.get("sentiment") or {}
+        if sentiment.get("polarity"):
+            parts.append("倾向：" + _POLARITY_LABELS.get(sentiment["polarity"], sentiment["polarity"]))
+        if sentiment.get("label"):
+            parts.append("情绪：" + sentiment["label"])
+        lines.append("%d. %s" % (index, "；".join(parts)))
+    others = guidance["advice"]["forOthers"]
+    lines.append("局势：" + others["reading"])
+    lines.append("建议：")
+    lines.extend("- " + strategy for strategy in others["strategies"])
+    lines.append("可直接使用的回复：")
+    for reply in others["replies"]:
+        tone = "（语气：" + reply["tone"] + "）" if reply.get("tone") else ""
+        lines.append("- 「" + reply["text"] + "」" + tone)
+    advice_self = guidance["advice"]["forSelf"]
+    if isinstance(advice_self, dict):
+        lines.append("针对自己：" + advice_self["summary"])
+        lines.append("做得好的：" + "；".join(advice_self["strengths"]))
+        lines.append("可以改进：" + "；".join(advice_self["improvements"]))
+    return "\n".join(lines)

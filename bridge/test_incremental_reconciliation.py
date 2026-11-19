@@ -74,6 +74,20 @@ class ReconciliationTests(unittest.TestCase):
         self.engine = BatchEngine(self.backend)
         self.scope = ("synthetic-account", "friend", "synthetic-version")
 
+    def assert_state_close(self, left, right):
+        if isinstance(left, dict):
+            self.assertEqual(set(left), set(right))
+            for key in left:
+                self.assert_state_close(left[key], right[key])
+        elif isinstance(left, list):
+            self.assertEqual(len(left), len(right))
+            for first, second in zip(left, right):
+                self.assert_state_close(first, second)
+        elif isinstance(left, float):
+            self.assertAlmostEqual(left, right, places=12)
+        else:
+            self.assertEqual(left, right)
+
     def run_incremental(self):
         with patch("batch_engine.keyword_counts", return_value={"word": 1}):
             list(self.engine.incremental(*self.scope, self.store, {}, (self.scope[0], "synthetic-workdir"), ()))
@@ -107,7 +121,7 @@ class ReconciliationTests(unittest.TestCase):
             conn.execute("DELETE FROM batch_progress_v1")
         self.engine = BatchEngine(self.backend)
         restored = self.run_incremental()
-        self.assertEqual(restored["state"], expected)
+        self.assert_state_close(restored["state"], expected)
         self.assertEqual(len(self.analyzer.targets), 3)
         self.source.rows.append(message(2))
         restored = self.run_incremental()

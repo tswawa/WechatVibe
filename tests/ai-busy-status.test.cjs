@@ -7,6 +7,11 @@ const vm = require("node:vm");
 const { seed } = require("./helpers/view-state-harness.cjs");
 const { dom } = require("./helpers/synthetic-dom.cjs");
 
+// Windows editors save these files with CRLF while Git stores LF, so source patterns below are
+// matched against a normalised copy: the assertions describe the code, not the line endings.
+const read = (...parts) => readFileSync(path.join(__dirname, "..", ...parts), "utf8").replace(/\r\n/g, "\n");
+const css = read("chatui", "style.css");
+
 const source = readFileSync(path.join(__dirname, "../chatui/app.js"), "utf8");
 function section(start, end) {
   const first = source.indexOf(start), last = source.indexOf(end, first);
@@ -95,4 +100,10 @@ it("reply generation keeps its spinner through the final action sync and clears 
   run.actions.renderGuidance({ guidance: null, job: { status: "running" } });
   run.context.settingsState.modelSourceSnapshot.mode = "local"; run.actions.syncGuidanceMode();
   assert.equal(run.busy("guidanceStatus"), false);
+});
+
+it("the spinner is a css animation that respects reduced motion", () => {
+  assert.match(css, /\.ai-busy::before \{[^}]*border-right-color: transparent[^}]*animation: ai-busy-spin \.8s linear infinite/);
+  assert.match(css, /@keyframes ai-busy-spin \{ to \{ transform: rotate\(360deg\); \} \}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[^}]*\.ai-busy::before \{ animation: none;/);
 });

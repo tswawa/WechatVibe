@@ -339,14 +339,23 @@ async function handleTargets(id: unknown, req: Record<string, unknown>): Promise
     targetIds.push(t);
   }
   const portraitContext = req.portraitContext;
+  // One saved portrait describes the counterpart, so every batched target must be OTHER.
   if (portraitContext !== undefined && (typeof portraitContext !== "string" ||
-      targetIds.length !== 1 || messages.find(message => message.id === targetIds[0])?.side !== "other")) {
+      targetIds.length === 0 ||
+      messages.find(message => message.id === targetIds[0]) === undefined ||
+      targetIds.some(id => messages.find(message => message.id === id)?.side !== "other"))) {
     emit({ id, error: "bad-request:portraitContext" });
     return;
   }
   const messageLabelsOnly = req.messageLabelsOnly;
   if (messageLabelsOnly !== undefined && typeof messageLabelsOnly !== "boolean") {
     emit({ id, error: "bad-request:messageLabelsOnly" });
+    return;
+  }
+  const contextWindow = req.contextWindow;
+  if (contextWindow !== undefined && (typeof contextWindow !== "number" ||
+      !Number.isInteger(contextWindow) || contextWindow < 1 || contextWindow > 32)) {
+    emit({ id, error: "bad-request:contextWindow" });
     return;
   }
   const sessionId = req.sessionId;
@@ -360,7 +369,7 @@ async function handleTargets(id: unknown, req: Record<string, unknown>): Promise
   }
 
   const r = await analyzeMessageTargets({ sessionId, messages, targetIds, previousAffinity,
-    portraitContext, messageLabelsOnly });
+    portraitContext, messageLabelsOnly, contextWindow });
   const resultVersion = (r as typeof r & { analysisVersion?: unknown }).analysisVersion;
   if (resultVersion !== undefined && resultVersion !== ANALYSIS_VERSION) {
     emit({ id, error: "analysis-version-mismatch" });

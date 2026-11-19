@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from api_portrait_statistics import (append_batch, empty_statistics,
+from api_portrait_statistics import (API_PORTRAIT_STATISTICS_VERSION, append_batch, empty_statistics,
                                      profile_from_statistics, valid_statistics, validate_batch_signal)
 from backend_contracts import (affinity_from_progress, empty_api_portrait,
                                mbti_from_totals, mood_from_progress)
@@ -74,6 +74,17 @@ class ApiPortraitStatisticsTests(unittest.TestCase):
         return self.batches.commit(*identity, batch_id=batch_id, consumed=consumed,
             cursor=last["position"], char_offset=0 if last["complete"] else last["endOffset"],
             context=[], result=result, word_counts=words, is_group=is_group)["state"]
+
+    def test_relationship_confidence_uses_the_same_weight_as_local_storage(self):
+        identity = ("account", "friend", "local-rules", "friend")
+        judgment = {**signal(score=.55), "scoreConfidence": .75,
+                    "relationship": [{"label": "warm", "probability": .8},
+                                     {"label": "neutral", "probability": .2}]}
+        stats = append_batch(empty_statistics("local-rules"), judgment, [piece(1)], subject="friend")
+        self.assertAlmostEqual(stats["state"]["confidenceExp"], .75)
+        self.assertAlmostEqual(stats["state"]["scoreExp"], .55 * .75)
+        local = self.local_commit(identity, "one", [piece(1)], judgment)
+        self.assert_state_close(stats["state"], local)
 
     def test_same_batch_signals_match_actual_local_storage_and_derived_profile(self):
         identity = ("account", "friend", "local-rules", "friend")
@@ -241,11 +252,13 @@ class ApiPortraitStatisticsTests(unittest.TestCase):
 
     def test_saved_statistics_reject_nonfinite_or_incompatible_state(self):
         stats = append_batch(empty_statistics(), signal(), [piece(1)], subject="friend")
-        for key, bad in (("scoreSum", float("inf")), ("targetCount", True), ("styleCount", -1)):
+        for key, bad in (("scoreSum", float("inf")), ("targetCount", True), ("styleCount", -1),
+                         ("scoreExp", float("nan")), ("confidenceExp", -1)):
             candidate = deepcopy(stats)
             candidate["state"][key] = bad
             self.assertFalse(valid_statistics(candidate))
-        for bad in ({**stats, "version": 2}, {**stats, "extra": 1}, {**stats, "pending": {"text": "x"}}):
+        for bad in ({**stats, "version": API_PORTRAIT_STATISTICS_VERSION + 1},
+                    {**stats, "extra": 1}, {**stats, "pending": {"text": "x"}}):
             self.assertFalse(valid_statistics(bad))
 
     def test_classifier_version_is_required_and_keeps_old_statistics_out_of_new_rules(self):

@@ -138,6 +138,10 @@ class ApiAnalyzerPool:
             generation = self.generation
             self.waiters["shared"].append(ticket)
         index = None
+        #: `index` is chosen before the slot is marked busy; `leased` records that both the
+        #: entry flag and `active` were set. Releasing on `index` alone underflowed `active`
+        #: when `primary()` raised before the increment, and a negative count never recovers.
+        leased = False
         try:
             while index is None:
                 self._validate_waiter(cancelled, validate)
@@ -153,6 +157,7 @@ class ApiAnalyzerPool:
                         analyzer = self.primary() if index == 0 else self.entries[index][0]
                         self.entries[index] = (analyzer, True)
                         self.active += 1
+                        leased = True
                         self.waiters["shared"].remove(ticket)
                         self.condition.notify_all()
                         break
@@ -168,7 +173,7 @@ class ApiAnalyzerPool:
             with self.condition:
                 if ticket in self.waiters["shared"]:
                     self.waiters["shared"].remove(ticket)
-                if index is not None:
+                if leased:
                     self.entries[index] = (self.entries[index][0], False)
                     self.active -= 1
                     if self.closed and not self.active:

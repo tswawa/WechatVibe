@@ -13,7 +13,8 @@ from unittest.mock import patch
 from model_source import LOCAL_SOURCE_ID, ModelSourceStore
 from model_source import ModelSourceUnavailable
 from portrait_contracts import empty_portrait_evidence
-from api_portrait_statistics import append_batch, empty_statistics, valid_statistics
+from api_portrait_statistics import (API_PORTRAIT_STATISTICS_VERSION, append_batch,
+                                     empty_statistics, valid_statistics)
 from real_backend import (Backend, ResultStore, WeChatSource, api_portrait_scope, api_portrait_wire_chars,
                           api_portrait_resume_anchor, api_portrait_tail_hashes,
                           empty_api_portrait, empty_profile_state, valid_api_portrait)
@@ -372,6 +373,32 @@ class ApiInsightTests(unittest.TestCase):
         self.assertEqual(len(self.analyzer.calls), 1)
         self.analyzer.release.set()
         self.wait_done()
+
+    def test_a_message_that_is_only_a_link_is_not_a_target_or_sent(self):
+        self.source.rows = [
+            {"id": "o1", "side": "other", "kind": "text", "text": "https://example.com/share",
+             "senderId": "friend", "_sort": [1, "shard", 1]},
+            {"id": "o2", "side": "other", "kind": "text", "text": "看这个 https://example.com/a 挺好",
+             "senderId": "friend", "_sort": [2, "shard", 2]},
+        ]
+        self.activate()
+        self.backend.start_model_insights("account-a", "friend", 2)
+        done = self.wait_done()
+        self.assertEqual(set(done["results"]), {"o2"})
+        self.assertEqual(self.analyzer.calls[0][3], ("o2",))
+        sent = " ".join(item["text"] for item in self.analyzer.insight_payloads[-1])
+        self.assertNotIn("example.com", sent, "a link must never reach the model")
+        self.assertIn("看这个", sent)
+
+    def test_guidance_is_insufficient_when_the_window_only_holds_a_link(self):
+        self.source.rows = [
+            {"id": "o1", "side": "other", "kind": "text", "text": "https://example.com/share",
+             "senderId": "friend", "_sort": [1, "shard", 1]},
+        ]
+        self.activate()
+        started = self.backend.start_guidance("account-a", "friend")
+        self.assertEqual(started["job"]["status"], "insufficient")
+        self.assertEqual(self.analyzer.insight_payloads, [])
 
     def test_recent_other_is_not_skipped_by_newer_self_messages(self):
         self.source.rows.append({"id": "s2", "side": "self", "kind": "text",
@@ -844,7 +871,8 @@ class ApiInsightTests(unittest.TestCase):
                          [item["id"] for item in self.source.rows])
         saved = store.api_portrait_get(*identity)
         self.assertNotIn("portraitEvidence", saved["resume"])
-        self.assertEqual(saved["resume"]["portraitStatistics"]["version"], 1)
+        self.assertEqual(saved["resume"]["portraitStatistics"]["version"],
+                         API_PORTRAIT_STATISTICS_VERSION)
         self.assertEqual(rebuilt["portrait"]["mbtiAxes"], previous["mbtiAxes"], "old snapshot remains display-only")
         inference = rebuilt["nativeProfile"]["mbtiInference"]
         self.assertIsNone(inference["type"])
@@ -1839,8 +1867,10 @@ class ApiInsightTests(unittest.TestCase):
             conn.execute("INSERT INTO results_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                          (account, "friend", "local-id", 1, "shard", 1, "friend", "other",
                           "{}", 0.1, "synthetic"))
-            conn.execute("INSERT INTO summary_v1 VALUES (?,?,?,?,?,?,?,?)",
-                         (account, "friend", "synthetic", 1, 0.1, 0.0, 0, "{}"))
+            conn.execute("INSERT INTO summary_v1 (account,session,version,score_count,score_sum,"
+                         "score_weighted,mood_count,mood_json,score_exp,confidence_exp) "
+                         "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                         (account, "friend", "synthetic", 1, 0.1, 0.0, 0, "{}", 0.1, 1.0))
             conn.execute("INSERT INTO results_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                          ("account-b", "friend", "other-account-id", 1, "shard", 1,
                           "friend", "other", "{}", 0.1, "synthetic"))

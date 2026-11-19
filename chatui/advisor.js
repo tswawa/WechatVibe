@@ -14,6 +14,13 @@
   function stored(key, fallback) {
     try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
   }
+  // 沙箱窗口不加载主界面样式表，主题色要随握手/变更消息一起带过去。
+  const FRAME_ACCENTS = ["green", "blue", "yellow", "red"];
+  function frameThemePayload() {
+    const accent = document.body.dataset.themeAccent;
+    return { theme: document.body.classList.contains("theme-light") ? "light" : "dark",
+      accent: FRAME_ACCENTS.includes(accent) ? accent : "green" };
+  }
   function storedObject(key) {
     try { const value = JSON.parse(stored(key, "{}")); return object(value) ? value : {}; } catch { return {}; }
   }
@@ -29,7 +36,13 @@
       value.skills.every(skill => object(skill) && id(skill.id) && text(skill.name, 60)) &&
       ["available", "missing"].includes(value.engine?.state);
   }
-  function validThread(value, scope) {
+  function validThreadSummary(value) {
+  return object(value) && id(value.id) && text(value.title, 60) && text(value.preview, 60) &&
+    (value.previewRole === "" || value.previewRole === "user" || value.previewRole === "assistant" ||
+      value.previewRole === "status") && Number.isSafeInteger(value.messageCount) && value.messageCount >= 0 &&
+    Number.isSafeInteger(value.createdAtMs) && Number.isSafeInteger(value.updatedAtMs);
+}
+function validThread(value, scope) {
     return object(value) && id(value.id) && value.account === scope.account && value.user === scope.user &&
       value.agentId === scope.agentId && Array.isArray(value.messages) && value.messages.every(message =>
         object(message) && id(message.id) && ["user", "assistant", "status"].includes(message.role) && text(message.text, 2000000));
@@ -54,7 +67,8 @@
     frameReady: false, handshakeNonce: nonce("adv_"),
     catalog: { agents: [], skills: [], engine: { state: "missing" } },
     catalogReady: false, catalogError: "", catalogBusy: false,
-    modelProfiles: [], assistantProfileId: "", modelLoadSerial: 0, modelSelectionPending: false,
+    modelProfiles: [], assistantProfileId: "", analysisLabel: "", historySerial: 0,
+    modelLoadSerial: 0, modelSelectionPending: false,
     drafts: storedObject("advisor_drafts_v1"), threadCache: storedObject("advisor_threads_v1"),
     pendingRequests: storedObject("advisor_pending_v1"),
     pollAbortController: null, submitPending: false, stopPending: false,
@@ -205,13 +219,17 @@
       if (!validModelProfiles(data)) {
         this.problem(data, scope, "catalog"); return false;
       }
-      this.modelProfiles = data.profiles.map(profile => ({ id: profile.id, name: profile.name }));
+      this.modelProfiles = data.profiles.map(profile => ({ id: profile.id, name: profile.name,
+        model: profile.model || "", protocol: profile.protocol || "" }));
       this.assistantProfileId = data.assistantProfileId || "";
-      this.syncModelsToFrame(); return true;
+      this.syncModelsToFrame(scope); return true;
+    },
+    modelPayload() {
+      return { profiles: this.modelProfiles, assistantProfileId: this.assistantProfileId || null,
+        analysisLabel: this.analysisLabel, pending: this.modelSelectionPending };
     },
     syncModelsToFrame(scope = this.captureScope()) {
-      this.postToFrame("ADVISOR_SET_MODELS", { profiles: this.modelProfiles,
-        assistantProfileId: this.assistantProfileId || null, pending: this.modelSelectionPending }, scope);
+      this.postToFrame("ADVISOR_SET_MODELS", this.modelPayload(), scope);
     },
     async selectModelProfile(selectedId) {
       if (this.modelSelectionPending || this.submitPending || this.currentRunId ||
@@ -289,13 +307,14 @@
       }
       this.flushThreadCache(); return true;
     },
-    async loadThread(scope = this.captureScope()) {
+    async loadThread(scope = this.captureScope(), threadId = undefined) {
       if (!this.isCurrent(scope)) return;
       const serial = ++this.loadSerial;
       const projection = this.projectionForScope(scope);
       this.syncThreadToFrame(projection.thread, projection.run, scope);
       if (!scope.account || !scope.user || !scope.agentId || !this.catalogReady) return;
       const query = new URLSearchParams({ account: scope.account, user: scope.user, agentId: scope.agentId });
+      if (threadId) query.set("threadId", threadId);
       const data = await this.fetchJson(`/api/advisor/thread?${query}`);
       if (!this.isCurrent(scope) || serial !== this.loadSerial) return;
       if (!validThread(data?.thread, scope)) { this.problem(data, scope); return; }
@@ -482,12 +501,107 @@
       delete this.pendingRequests[this.scopeKey(scope.account, scope.user, scope.agentId)]; save("advisor_pending_v1", this.pendingRequests);
       this.setCachedThread(scope.account, scope.user, scope.agentId, result.thread); this.syncThreadToFrame(result.thread, result.run, next);
       this.flushThreadCache();
+      await this.loadThreads(next);
     },
     retryRun() {
       if (this.currentRunId) { void this.pollEvents(this.currentRunId); return; }
       const scope = this.captureScope(), pending = this.pendingRequests[this.scopeKey(scope.account, scope.user, scope.agentId)];
       const previous = this.getCachedThread(scope.account, scope.user, scope.agentId).messages.filter(item => item.role === "user").at(-1);
       return this.startRun(pending?.message || this.getDraft(scope.account, scope.user, scope.agentId) || previous?.text || "");
+    },
+    async openThread(threadId) {
+      const scope = this.captureScope();
+      if (!this.isCurrent(scope) || !scope.account || !scope.user || !id(scope.agentId) ||
+        !id(threadId) || this.submitPending) return;
+      if (this.getCachedThread(scope.account, scope.user, scope.agentId).id === threadId) return;
+      // Leaving a conversation that is still generating stops it, exactly like switching person.
+      this.generation++; this.abortCurrentPoll();
+      // The bump above invalidates the captured scope, so the load runs under a fresh one;
+      // reusing `scope` made every history switch stop the run and then load nothing.
+      const next = this.captureScope();
+      await this.loadThread(next, threadId);
+      if (!this.isCurrent(next)) return;
+      await this.loadThreads(next);
+    },
+    async deleteThread(threadId) {
+      const scope = this.captureScope();
+      if (!this.isCurrent(scope) || !scope.account || !scope.user || !id(scope.agentId) ||
+        !id(threadId) || this.submitPending) return;
+      const wasActive = this.getCachedThread(scope.account, scope.user, scope.agentId).id === threadId;
+      if (wasActive) {
+        // The conversation on screen is going away, so its run has to stop first.
+        this.generation++; this.abortCurrentPoll();
+      }
+      // The bump above invalidates `scope`; the refresh below has to run under the new one,
+      // exactly like `openThread`. Comparing with `scope` made every active delete skip it,
+      // leaving the deleted conversation on screen and in the cached thread list.
+      const next = this.captureScope();
+      const result = await this.fetchJson("/api/advisor/threads/delete", { method: "POST",
+        body: JSON.stringify({ account: scope.account, user: scope.user, agentId: scope.agentId, threadId }) });
+      if (!this.isCurrent(next) || next.account !== scope.account || next.user !== scope.user ||
+        next.agentId !== scope.agentId) return;
+      // `fetchJson` never throws: a failed delete arrives as `{error}`. Reporting it after
+      // the refresh keeps `loadThreads`' own `clearProblem("load")` from erasing it.
+      if (result?.error) {
+        if (wasActive) await this.loadThread(next);
+        await this.loadThreads(next);
+        if (this.isCurrent(next)) this.problem(result, next, "load");
+        return;
+      }
+      if (wasActive) await this.loadThread(next);
+      await this.loadThreads(next);
+    },
+    async loadThreads(scope = this.captureScope(), attempt = 0) {
+      if (!this.isCurrent(scope) || !scope.account || !scope.user || !scope.agentId || !this.catalogReady) return;
+      const serial = ++this.historySerial;
+      const query = new URLSearchParams({ account: scope.account, user: scope.user, agentId: scope.agentId });
+      // Reading the cached thread must not be able to abort the refresh: without this the
+      // frame stayed on「正在读取历史…」for ever and the menu looked broken.
+      let activeId = "";
+      try {
+        activeId = this.getCachedThread(scope.account, scope.user, scope.agentId).id || "";
+      } catch (_) {
+        activeId = "";
+      }
+      let data = null, failure = "";
+      try {
+        data = await this.fetchJson(`/api/advisor/threads?${query}`);
+      } catch (error) {
+        data = null;
+        // Keep the reason: "读取失败" alone cannot be acted on, and the console is the only
+        // other place it would show up.
+        failure = String(error?.code || error?.message || error || "").slice(0, 40);
+        console.warn("advisor history load failed", error);
+      }
+      if (!this.isCurrent(scope) || serial !== this.historySerial) return;
+      if (!data || !Array.isArray(data.threads) || !data.threads.every(validThreadSummary)) {
+        this.clearProblem("load", scope);
+        this.postToFrame("ADVISOR_SET_THREADS", {
+          threads: [],
+          error: (failure ? `历史读取失败：${failure}，点此重试` : "历史读取失败，点此重试").slice(0, 120),
+          activeThreadId: activeId,
+        }, scope);
+        // Switching contact or waking the data source can fail this request for a moment; one
+        // quiet retry fills the menu in afterwards. It is scheduled, never awaited: the switch
+        // and delete paths await `loadThreads`, and a delay inside that chain held their own
+        // refresh for 600ms. The failure is still reported now, so a real error stays visible.
+        if (attempt < 1) this.scheduleThreadRetry(scope, attempt + 1, serial);
+        return;
+      }
+      this.clearProblem("load", scope);
+      this.postToFrame("ADVISOR_SET_THREADS", {
+        threads: data.threads, activeThreadId: activeId,
+      }, scope);
+    },
+    // Scheduled instead of awaited: `loadThreads` is awaited by the switch and delete paths,
+    // and a delay inside that chain delayed their own refresh. The retry only fires while it
+    // is still the newest load: a manual retry takes a new serial, and this one must not bump
+    // `historySerial` and discard the result that request is about to deliver.
+    scheduleThreadRetry(scope, attempt, serial) {
+      setTimeout(() => {
+        if (this.historySerial !== serial || !this.isCurrent(scope)) return;
+        void this.loadThreads(scope, attempt);
+      }, 600);
     },
     onSessionChanged(account, user) {
       account = typeof account === "string" ? account : ""; user = typeof user === "string" ? user : "";
@@ -496,6 +610,7 @@
       void this.stopForScope(this.captureScope(), this.currentRunId);
       this.generation++; this.abortCurrentPoll(); this.submitPending = false;
       this.currentAccount = account; this.currentUser = user; void this.loadThread();
+      void this.loadThreads(this.captureScope());
     },
     onAccountCleared(account) {
       this.clearedAccounts.add(account);
@@ -557,14 +672,16 @@
         thread: projection.thread, run: projection.run,
         draft: this.getDraft(this.currentAccount, this.currentUser, this.activeAgentId), catalogReady: this.catalogReady,
         engineState: this.catalogReady ? this.catalog.engine.state : "unknown",
-        theme: document.body.classList.contains("theme-light") ? "light" : "dark" });
+        ...frameThemePayload() });
     },
     validFrameRequest(data) {
       if (!object(data) || data.envelope !== "advisor" || data.nonce !== this.handshakeNonce || !object(data.payload)) return false;
       if (Object.keys(data).some(key => !["envelope", "nonce", "type", "payload", "scope"].includes(key))) return false;
       const allowed = { ADVISOR_FRAME_READY: [], ADVISOR_SWITCH_TEMPLATE: ["agentId"], ADVISOR_SEND: ["text", "agentId"],
-        ADVISOR_STOP: [], ADVISOR_RETRY: ["retryKind"],
-        ADVISOR_DRAFT_UPDATE: ["draft", "agentId"], ADVISOR_COPY: ["text"], ADVISOR_SELECT_MODEL: ["profileId"] };
+        ADVISOR_STOP: [], ADVISOR_RETRY: ["retryKind"], ADVISOR_NEW_THREAD: [],
+        ADVISOR_DRAFT_UPDATE: ["draft", "agentId"], ADVISOR_COPY: ["text"], ADVISOR_SELECT_MODEL: ["profileId"],
+        ADVISOR_OPEN_THREAD: ["threadId"], ADVISOR_HISTORY_REQUEST: [],
+        ADVISOR_DELETE_THREAD: ["threadId"] };
       if (!allowed[data.type] || Object.keys(data.payload).some(key => !allowed[data.type].includes(key))) return false;
       if (data.type === "ADVISOR_FRAME_READY") return true;
       if (!object(data.scope) || !this.isCurrent(data.scope) ||
@@ -602,6 +719,10 @@
           save("advisor_active_agent", this.activeAgentId); this.syncTemplatesToFrame(); void this.loadThread();
         } else if (type === "ADVISOR_SEND") void this.startRun(payload.text, payload.agentId);
         else if (type === "ADVISOR_SELECT_MODEL") void this.selectModelProfile(payload.profileId);
+        else if (type === "ADVISOR_NEW_THREAD") void this.newThread();
+        else if (type === "ADVISOR_HISTORY_REQUEST") void this.loadThreads();
+        else if (type === "ADVISOR_DELETE_THREAD") void this.deleteThread(payload.threadId);
+        else if (type === "ADVISOR_OPEN_THREAD") void this.openThread(payload.threadId);
         else if (type === "ADVISOR_STOP") void this.stopRun();
         else if (type === "ADVISOR_DRAFT_UPDATE") this.setDraft(this.currentAccount, this.currentUser, this.activeAgentId, payload.draft);
         else if (type === "ADVISOR_RETRY") {
@@ -783,9 +904,8 @@
     init() {
       this.setupFrameCommunication(); void this.loadCatalog();
       if (typeof window.MutationObserver === "function") {
-        new window.MutationObserver(() => this.postToFrame("ADVISOR_THEME", {
-          theme: document.body.classList.contains("theme-light") ? "light" : "dark"
-        })).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+        new window.MutationObserver(() => this.postToFrame("ADVISOR_THEME", frameThemePayload()))
+          .observe(document.body, { attributes: true, attributeFilter: ["class", "data-theme-accent"] });
       }
     }
   };
@@ -819,6 +939,12 @@
   window.addEventListener("model-source-updated", () => {
     if (!Advisor.panelVisible || Advisor.modelSelectionPending) return;
     void Advisor.loadModelProfiles(); void Advisor.loadCatalog();
+  });
+  // Settings owns the saved profiles. The assistant panel keeps running behind that modal, so
+  // closing it is the moment the cached list can be stale — re-read instead of waiting for the
+  // next open.
+  window.addEventListener("model-source-settings-closed", () => {
+    if (Advisor.panelVisible) void Advisor.loadModelProfiles();
   });
   window.Advisor = Advisor;
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => Advisor.init()); else Advisor.init();

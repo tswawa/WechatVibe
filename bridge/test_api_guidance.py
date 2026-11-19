@@ -13,8 +13,9 @@ from unittest.mock import Mock
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from guidance_contracts import (GUIDANCE_REVISION, MAX_REPLIES, MAX_STRATEGIES,
-                                REPLY_OPTIONS_REVISION, guidance_scope, normalize_guidance,
-                                normalize_reply_options, valid_guidance, valid_reply_options)
+                                REPLY_OPTIONS_REVISION, guidance_material, guidance_scope,
+                                normalize_guidance, normalize_reply_options, valid_guidance,
+                                valid_reply_options)
 from result_store import ResultStore
 from node_analysis import NodeAnalysis
 
@@ -196,6 +197,94 @@ class GuidanceStoreTests(unittest.TestCase):
                                                       guidance_scope("api-a"), "friend"))
         self.assertIsNotNone(self.store.api_guidance_get("acct", "friend",
                                                          guidance_scope("api-b"), "friend"))
+
+
+class GuidanceLatestTests(unittest.TestCase):
+    """The assistant cites one stored result per conversation, whatever source produced it."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.store = ResultStore(os.path.join(self.directory.name, "latest.sqlite3"))
+
+    def save(self, user, source, subject, value=None):
+        self.store.api_guidance_save("acct", user, guidance_scope(source), subject,
+                                     normalize_guidance(value or guidance()))
+
+    def test_returns_the_newest_row_across_sources(self):
+        self.assertIsNone(self.store.api_guidance_latest("acct", "friend"))
+        self.save("friend", "api-a", "friend", guidance(scenario="general"))
+        self.save("friend", "api-b", "friend", guidance(scenario="leader"))
+        latest = self.store.api_guidance_latest("acct", "friend")
+        self.assertEqual(latest["scenario"], "leader")
+        self.assertEqual(latest["sourceId"], guidance_scope("api-b"))
+        self.assertEqual(latest["subject"], "friend")
+        self.assertGreater(latest["updatedAt"], 0)
+
+    def test_prefers_the_conversation_row_over_a_member_row(self):
+        # A group chat can hold one reading per member; the conversation-level one is the
+        # reading of the conversation the assistant is answering about.
+        self.save("room@g", "api-a", "room@g")
+        self.save("room@g", "api-a", "member-x", guidance(scenario="general"))
+        self.assertEqual(self.store.api_guidance_latest("acct", "room@g")["subject"], "room@g")
+        self.save("room@g", "api-a", "room@g", guidance(scenario="general"))
+        self.assertEqual(self.store.api_guidance_latest("acct", "room@g")["scenario"], "general")
+
+    def test_a_damaged_row_is_dropped_instead_of_cited(self):
+        self.save("friend", "api-a", "friend")
+        with self.store.connect() as conn:
+            conn.execute("UPDATE api_guidance_v1 SET payload_json='{\"version\":\"x\"}'")
+        self.assertIsNone(self.store.api_guidance_latest("acct", "friend"))
+        with self.store.connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM api_guidance_v1").fetchone()[0], 0)
+
+    def test_another_conversation_is_not_cited(self):
+        self.save("friend", "api-a", "friend")
+        self.assertIsNone(self.store.api_guidance_latest("acct", "other"))
+
+
+class GuidanceMaterialTests(unittest.TestCase):
+    """What the assistant reads as reference material, derived from the stored payload."""
+
+    def material(self, **overrides):
+        value = guidance(**overrides)
+        return guidance_material({"scenario": value["scenario"], "subject": "friend",
+                                  "guidance": value})
+
+    def test_renders_the_saved_reading_and_advice(self):
+        text = self.material()
+        self.assertIn("潜台词与沟通建议", text)
+        self.assertIn("场景：与领导／上级", text)
+        self.assertIn("解读对象：friend", text)
+        self.assertIn("表面「再看看」", text)
+        self.assertIn("可能「希望我先自查再交付」", text)
+        self.assertIn("手法：留台阶", text)
+        self.assertIn("倾向：偏负面", text)
+        self.assertIn("情绪：有点挑剔", text)
+        self.assertIn("局势：对方在确认自己的判断", text)
+        self.assertIn("- 先给结论", text)
+        self.assertIn("「收到，我改好后今天发您」（语气：稳妥）", text)
+        self.assertNotIn("针对自己", text)
+
+    def test_renders_the_self_branch_only_when_the_switch_was_on(self):
+        value = guidance(analyzeSelf=True)
+        value["advice"]["forSelf"] = {"summary": "回复偏短", "strengths": ["确认及时"],
+                                      "improvements": ["先给结论"]}
+        text = guidance_material({"scenario": "general", "guidance": value})
+        self.assertIn("针对自己：回复偏短", text)
+        self.assertIn("做得好的：确认及时", text)
+        self.assertIn("可以改进：先给结论", text)
+
+    def test_reports_a_terminal_reading_without_inventing_one(self):
+        text = self.material(subtexts=[{"id": "m2", "status": "uncertain"},
+                                       {"id": "m3", "status": "insufficient"}])
+        self.assertIn("1. 不确定", text)
+        self.assertIn("2. 信息不足", text)
+
+    def test_nothing_to_cite_renders_empty(self):
+        self.assertEqual(guidance_material(None), "")
+        self.assertEqual(guidance_material({}), "")
+        self.assertEqual(guidance_material({"guidance": {"version": GUIDANCE_REVISION}}), "")
 
 
 class GuidanceTransportTests(unittest.TestCase):

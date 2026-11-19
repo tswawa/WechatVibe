@@ -16,11 +16,12 @@ from profile_signals import (STYLE_LABELS, keyword_counts, keywords_from_counts,
                              summary_from_aggregate, validate_style_evidence)
 from profile_state import empty_state, traits_from_state
 
-API_PORTRAIT_STATISTICS_VERSION = 1
+API_PORTRAIT_STATISTICS_VERSION = 2
 MAX_COUNT = 9007199254740991
 MAX_PENDING_CHARS = 4_000_000
 SIGNAL_KEYS = frozenset({"emotion", "intent", "intentBroad", "score",
                          "styleEvidence", "personalityEvidence"})
+OPTIONAL_SIGNAL_KEYS = frozenset({"relationship", "scoreConfidence"})
 
 
 def empty_statistics(classifier_version="api-local-rules-v1"):
@@ -70,11 +71,20 @@ def _signal(value):
             raise ValueError("invalid API portrait probability mass")
     if not _number(value["score"], -1, 1):
         raise ValueError("invalid API relationship score")
+    if "scoreConfidence" in value and not _number(value["scoreConfidence"], 0, 1):
+        raise ValueError("invalid API relationship confidence")
+    if "relationship" in value:
+        entries = value["relationship"]
+        if (not isinstance(entries, list) or not entries or
+                any(not isinstance(entry, dict) or not _text(entry.get("label"), 120) or
+                    not _number(entry.get("probability"), 0, 1) for entry in entries) or
+                not 0 < sum(entry["probability"] for entry in entries) <= 1.01):
+            raise ValueError("invalid API relationship distribution")
     if value["styleEvidence"] is None:
         raise ValueError("missing API portrait classification")
     validate_style_evidence(value["styleEvidence"])
     validate_personality_evidence(value["personalityEvidence"])
-    return {key: deepcopy(value[key]) for key in SIGNAL_KEYS}
+    return {key: deepcopy(value[key]) for key in SIGNAL_KEYS | OPTIONAL_SIGNAL_KEYS if key in value}
 
 
 def validate_batch_signal(result, pieces):
@@ -116,7 +126,9 @@ def valid_statistics(value, classifier_version=None, *, allow_historical_pending
     rank_mass = score_count * max(0, score_count - 1) / 2
     tolerance = max(1e-9, score_count * 1e-9)
     if (not _number(state["scoreSum"], -score_count-tolerance, score_count+tolerance) or
-            not _number(state["scoreWeighted"], -rank_mass-tolerance, rank_mass+tolerance)):
+            not _number(state["scoreWeighted"], -rank_mass-tolerance, rank_mass+tolerance) or
+            not _number(state["scoreExp"], -score_count-tolerance, score_count+tolerance) or
+            not _number(state["confidenceExp"], 0, score_count+tolerance)):
         return False
     for field in ("emotion", "intent", "broad", "words"):
         entries = state[field]

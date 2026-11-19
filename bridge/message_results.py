@@ -92,11 +92,29 @@ def _check_distributions(response):
     return broad, expression, playful_intent
 
 
+def _check_relationship(response):
+    """Optional for old responses, but when present it must be a usable distribution."""
+    if "relationship" not in response:
+        return None
+    relationship = response["relationship"]
+    if relationship is None:
+        relationship = []
+    if (not isinstance(relationship, list) or
+            any(not isinstance(entry, dict) or not isinstance(entry.get("label"), str) or
+                not isinstance(entry.get("probability"), (int, float)) or
+                isinstance(entry.get("probability"), bool) or
+                not math.isfinite(entry["probability"]) or not 0 <= entry["probability"] <= 1
+                for entry in relationship)):
+        raise RuntimeError("invalid relationship distribution")
+    return relationship
+
+
 def _build_result(response, version, side, fine):
     _check_version(response, version)
     label_schema = _check_schema(response, fine)
     grounded_intent = _check_grounded(response, fine)
     broad, expression, playful_intent = _check_distributions(response)
+    relationship = _check_relationship(response)
     result = {field: response[field] for field in
               ("emotion", "intent", "emotionLabel", "intentLabel", "emotionP", "intentP", "analysisVersion")}
     result["intentBroad"] = broad
@@ -108,6 +126,8 @@ def _build_result(response, version, side, fine):
     result["playfulIntent"] = playful_intent
     result["styleEvidence"] = validate_style_evidence(response.get("styleEvidence"))
     result["personalityEvidence"] = validate_personality_evidence(response.get("personalityEvidence"))
+    if relationship is not None:
+        result["relationship"] = relationship
     # Legacy fine results still require a bounded relationship score for OTHER
     # targets. This is preserved verbatim; the semantics batch will revisit it.
     score = response.get("score")

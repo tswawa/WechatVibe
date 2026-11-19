@@ -115,6 +115,26 @@ class PoolLifecycleTests(unittest.TestCase):
         with open(pool.settings_path, encoding="utf-8") as stream:
             self.assertEqual(json.load(stream), {"workers": 2})
 
+    def test_primary_failure_does_not_leave_a_negative_active_count(self):
+        # The slot is chosen before `primary()` resolves it. Releasing on `index` alone
+        # decremented a counter that had never been incremented, and a negative `active`
+        # kept `close_extras` from ever resetting the pool.
+        pool, primary, _created, _temporary = make_pool(1)
+        self.addCleanup(pool.close_extras)
+        def broken():
+            raise RuntimeError("primary unavailable")
+        pool.primary = broken
+        with self.assertRaisesRegex(RuntimeError, "primary unavailable"):
+            with pool.lease():
+                self.fail("provider must not run")
+        self.assertEqual(pool.status()["active"], 0)
+        self.assertEqual(pool.status()["totalActive"], 0)
+        # The slot is still usable once the primary resolves again.
+        pool.primary = lambda: primary
+        with pool.lease() as analyzer:
+            self.assertIs(analyzer, primary)
+        self.assertEqual(pool.status()["active"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

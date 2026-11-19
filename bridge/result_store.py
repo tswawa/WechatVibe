@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import message_input
 import os
 import re
 import sqlite3
@@ -23,11 +24,23 @@ from portrait_contracts import (empty_portrait_evidence, portrait_synthesis_fing
                                 valid_mbti_basis, valid_portrait_evidence, valid_synthesis_fingerprint)
 from profile_signals import keyword_counts
 from profile_state import (empty_state as empty_profile_state, add_result as add_profile_result,
-                           covers_tail_emotions)
+                           add_exp_score, covers_tail_emotions, relationship_confidence)
 from api_portrait_statistics import empty_statistics, valid_statistics
 from payload_crypto import PayloadCipher, PayloadUnreadable, default_cipher
-from process_lock import ProcessLock, checked_path
+from process_lock import ProcessLock, checked_path, sqlite_open_lock
 from guidance_contracts import valid_guidance_payload
+
+
+def _valid_source_id(source_id):
+    """A local scope, or a stored API source id (hex32 with an optional stream suffix)."""
+    return (isinstance(source_id, str) and bool(source_id) and
+            (source_id == LOCAL_SOURCE_ID or
+             re.fullmatch(r"[0-9a-f]{32}(?::[^\s]+)?", source_id) is not None))
+
+
+def _source_scope(source_id):
+    """Match a source and its per-stream variants (`<id>` or `<id>:<stream>`)."""
+    return ("source_id=?", source_id) if ":" in source_id else ("source_id LIKE ?", source_id + ":%")
 
 
 def project_result_store(account, _workdir):
@@ -44,6 +57,14 @@ def _file_digest(path):
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _state_count(raw):
+    """Best-effort `count` for a legacy row that predates the count column."""
+    try:
+        return int(json.loads(raw or "{}").get("count") or 0)
+    except (TypeError, ValueError, AttributeError):
+        return 0
 
 
 class _BackedPayloadCipher:
@@ -119,6 +140,14 @@ class ResultStore:
                          "session TEXT NOT NULL, subject TEXT NOT NULL, highwater_json TEXT, "
                          "fingerprint TEXT NOT NULL, available_json TEXT NOT NULL, "
                          "PRIMARY KEY(account,session,subject))")
+            # One deep-semantic reading plus its scenario advice per conversation and
+            # subject. The revision is part of the scope so a prompt change never
+            # reuses an older result, and the row is replaced wholesale on recompute.
+            conn.execute("CREATE TABLE IF NOT EXISTS api_guidance_v1 (account TEXT NOT NULL, "
+                         "session TEXT NOT NULL, source_id TEXT NOT NULL, subject TEXT NOT NULL, "
+                         "revision TEXT NOT NULL, scenario TEXT NOT NULL, analyze_self INTEGER NOT NULL, "
+                         "payload_json TEXT NOT NULL, updated_at INTEGER NOT NULL, "
+                         "PRIMARY KEY(account,session,source_id,subject))")
             conn.execute("CREATE TABLE IF NOT EXISTS api_source_meta_v1 (account TEXT NOT NULL, "
                          "source_id TEXT NOT NULL, protocol TEXT NOT NULL, model TEXT NOT NULL, "
                          "PRIMARY KEY(account,source_id))")
@@ -139,7 +168,13 @@ class ResultStore:
             conn.execute("CREATE TABLE IF NOT EXISTS summary_v1 (account TEXT NOT NULL, session TEXT NOT NULL, "
                          "version TEXT NOT NULL, score_count INTEGER NOT NULL, score_sum REAL NOT NULL, "
                          "score_weighted REAL NOT NULL, mood_count INTEGER NOT NULL, mood_json TEXT NOT NULL, "
+                         "score_exp REAL, confidence_exp REAL, "
                          "PRIMARY KEY(account,session,version))")
+            summary_columns = {row[1] for row in conn.execute("PRAGMA table_info(summary_v1)")}
+            if "score_exp" not in summary_columns:
+                conn.execute("ALTER TABLE summary_v1 ADD COLUMN score_exp REAL")
+            if "confidence_exp" not in summary_columns:
+                conn.execute("ALTER TABLE summary_v1 ADD COLUMN confidence_exp REAL")
             conn.execute("CREATE INDEX IF NOT EXISTS results_order_v1 ON results_v2 "
                          "(account,session,version,sort_seq,shard,local_id,id)")
             conn.execute("CREATE INDEX IF NOT EXISTS results_scored_order_v1 ON results_v2 "
@@ -212,16 +247,23 @@ class ResultStore:
     def analysis_progress_rows(self, account, version):
         """Per-conversation scan state for the whole-account progress read.
 
-        Returns (session, subject, complete, state_json) rows: one per analysed subject,
-        where a group's overall row carries an empty subject.
+        Returns (session, subject, complete, count) rows: one per analysed subject,
+        where a group's overall row carries an empty subject. `count` is stored beside the
+        state so the overview never has to decode every conversation's state_json.
         """
         with self.connect() as conn:
             tables = {row[0] for row in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'")}
             if "batch_progress_v1" in tables:
-                return conn.execute(
-                    "SELECT session,subject,complete,state_json FROM batch_progress_v1 "
-                    "WHERE account=? AND base_version=?", (account, version)).fetchall()
+                columns = {row[1] for row in conn.execute("PRAGMA table_info(batch_progress_v1)")}
+                if "count" in columns:
+                    return conn.execute(
+                        "SELECT session,subject,complete,count FROM batch_progress_v1 "
+                        "WHERE account=? AND base_version=?", (account, version)).fetchall()
+                # A store the batch engine has not opened yet may predate the count column.
+                return [(session, subject, complete, _state_count(state)) for session, subject, complete, state
+                        in conn.execute("SELECT session,subject,complete,state_json FROM batch_progress_v1 "
+                                        "WHERE account=? AND base_version=?", (account, version))]
             return [(row[0], row[0], row[1], None) for row in conn.execute(
                 "SELECT session,complete FROM progress_v1 WHERE account=? AND version=?",
                 (account, version))]
@@ -229,7 +271,10 @@ class ResultStore:
 
     @contextmanager
     def connect(self):
-        conn = sqlite3.connect(self.path, timeout=15)
+        # The lock covers the open only: see `sqlite_open_lock` for the concurrent-creation
+        # failure it closes.
+        with sqlite_open_lock(self.path):
+            conn = sqlite3.connect(self.path, timeout=15)
         try:
             yield conn
             conn.commit()
@@ -393,7 +438,8 @@ class ResultStore:
                     (cursor == prior and not complete)):
                 return
             eligible = row[3]
-            if item is not None and item["kind"] == "text" and item["text"].strip():
+            if (item is not None and item["kind"] == "text" and
+                    message_input.has_analysis_content(item["text"])):
                 eligible += 1
             seq, shard, local_id = cursor if cursor is not None else (None, None, None)
             conn.execute("UPDATE progress_v1 SET cursor_seq=?,cursor_shard=?,cursor_local=?,complete=?,"
@@ -473,6 +519,38 @@ class ResultStore:
             conn.execute("DELETE FROM fine_skips_v1 WHERE account=? AND session=? AND id=? AND version=?",
                          (account, user, message["id"], version))
 
+    def save_fine_many(self, account, user, version, rows):
+        """Persist one visible window's labels in a single transaction.
+
+        The per-row `save_fine` pays a FULL-sync commit (~8 ms on Windows) for every message;
+        a window of forty OTHER messages therefore spent ~350 ms holding the source lock. One
+        transaction amortises that to ~0.14 ms/row. See docs/performance-analysis.md §3.4.
+        """
+        if not rows:
+            return
+        with self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.executemany(
+                "INSERT INTO fine_results_v1 VALUES (?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(account,session,id,version) DO UPDATE SET result=excluded.result",
+                [(account, user, message["id"], version, *message["_sort"],
+                  message["senderId"], json.dumps(result, ensure_ascii=False))
+                 for message, result in rows])
+            conn.executemany(
+                "DELETE FROM fine_skips_v1 WHERE account=? AND session=? AND id=? AND version=?",
+                [(account, user, message["id"], version) for message, _result in rows])
+
+    def skip_fine_many(self, account, user, version, rows):
+        """Record several terminal skips in one transaction (same batching as `save_fine_many`)."""
+        if not rows:
+            return
+        with self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.executemany(
+                "INSERT OR IGNORE INTO fine_skips_v1 VALUES (?,?,?,?,?,?,?,?)",
+                [(account, user, message["id"], version, *message["_sort"], reason)
+                 for message, reason in rows])
+
     def api_insight_known(self, account, user, source_id, ids):
         if not ids:
             return set()
@@ -516,6 +594,8 @@ class ResultStore:
                          (account, source_id, protocol, model))
 
     def api_guidance_get(self, account, user, source_id, subject):
+        """Saved guidance for one conversation/subject, or None. A damaged row is
+        dropped rather than surfaced: the caller then reports "not analysed yet"."""
         with self.connect() as conn:
             row = conn.execute("SELECT revision,scenario,analyze_self,payload_json,updated_at "
                                "FROM api_guidance_v1 WHERE account=? AND session=? AND "
@@ -532,6 +612,36 @@ class ResultStore:
             return None
         return {"revision": row[0], "scenario": row[1], "analyzeSelf": bool(row[2]),
                 "guidance": guidance, "updatedAt": row[4]}
+
+    def api_guidance_latest(self, account, user):
+        """Newest saved guidance for one conversation, whatever source produced it, or None.
+
+        The assistant reads this as reference material, so it is deliberately not scoped to
+        the active model source: an analysis the user already paid for stays citable after a
+        source switch. A conversation-level row (subject is the session itself) wins over a
+        member's row, and a row that fails the contract or cannot be decrypted here is dropped
+        instead of being handed to the model.
+        """
+        with self.connect() as conn:
+            row = conn.execute("SELECT source_id,subject,revision,scenario,analyze_self,payload_json,updated_at "
+                               "FROM api_guidance_v1 WHERE account=? AND session=? "
+                               "ORDER BY (subject=?) DESC, updated_at DESC, rowid DESC LIMIT 1",
+                               (account, user, user)).fetchone()
+        if row is None:
+            return None
+        try:
+            guidance = self.cipher.loads(row[5])
+        except (PayloadUnreadable, ValueError, TypeError):
+            guidance = None
+        saved = {"sourceId": row[0], "subject": row[1], "revision": row[2], "scenario": row[3],
+                 "analyzeSelf": bool(row[4]), "guidance": guidance, "updatedAt": row[6]}
+        if not valid_guidance_payload(saved["guidance"]):
+            with self.connect() as conn:
+                conn.execute("DELETE FROM api_guidance_v1 WHERE account=? AND session=? AND "
+                             "source_id=? AND subject=? AND payload_json=?",
+                             (account, user, row[0], row[1], row[5]))
+            return None
+        return saved
 
     def api_guidance_save(self, account, user, source_id, subject, guidance):
         if not valid_guidance_payload(guidance):
@@ -587,6 +697,7 @@ class ResultStore:
                                (account, user, source_id, subject)).fetchone()
         if row is None:
             return None
+        # portrait_json is model-written text, resume_json carries verbatim evidence quotes.
         portrait = self.cipher.loads(row[9])
         if not valid_api_portrait(portrait):
             raise RuntimeError("invalid saved API portrait")
@@ -603,11 +714,14 @@ class ResultStore:
                 resume["synthesisFingerprint"]):
             resume.pop("synthesisFingerprint", None)
         available = json.loads(row[3])
-        # Legacy MBTI is gated by observed target texts, not classified texts.
-        # Read only after validation: a rejected or absent ledger must count as zero.
+        # The MBTI gate in api-portrait.ts counts the observation ledger, not analysed texts.
+        # Without this the UI can only see `targetTextCount` (2126 on a stalled run) and would
+        # report the card as unlocked while every axis is withheld, leaving a blank verdict
+        # with no explanation. Read after the validity pops: a rejected ledger must count as 0.
         available["mbtiEvidenceCount"] = (
-            resume["portraitEvidence"]["targetCount"]
+            int(resume["portraitEvidence"]["targetCount"])
             if isinstance(resume, dict) and isinstance(resume.get("portraitEvidence"), dict)
+            and type(resume["portraitEvidence"].get("targetCount")) is int
             else 0)
         return {"highwater": tuple(json.loads(row[0])) if row[0] else None,
                 "after": tuple(json.loads(row[1])) if row[1] else None,
@@ -854,7 +968,7 @@ class ResultStore:
         """Clear one stopped analysis scope; preserve source databases and Advisor state."""
         if not all(isinstance(value, str) and value for value in (account, user, source_id)):
             raise ValueError("invalid analysis scope")
-        if source_id != LOCAL_SOURCE_ID and not re.fullmatch(r"[0-9a-f]{32}(?::[^\s]+)?", source_id):
+        if not _valid_source_id(source_id):
             raise ValueError("invalid analysis source")
         if subject is not None:
             if not isinstance(subject, str) or not user.endswith("@chatroom") and subject != user:
@@ -891,8 +1005,7 @@ class ResultStore:
                 else:
                     conn.execute("INSERT OR IGNORE INTO portrait_resets_v1 VALUES (?,?,?)", (account, user, subject))
             else:
-                source_query = "source_id=?" if ":" in source_id else "source_id LIKE ?"
-                source_value = source_id if ":" in source_id else source_id + ":%"
+                source_query, source_value = _source_scope(source_id)
                 args = (account, user, source_value)
                 if subject is None:
                     counts["messageRows"] = conn.execute(
@@ -905,6 +1018,33 @@ class ResultStore:
                 conn.execute(query.replace("api_portrait_v1", "api_guidance_v1"), args)
                 from api_portrait_ledger import clear_ledger
                 clear_ledger(conn, account=account, user=user, source_id=source_id, subject=subject)
+        return counts
+
+    def clear_message(self, account, user, source_id, message_id):
+        """Forget one message's saved analysis so the next run computes it again.
+
+        The message itself, the conversation and every other row stay untouched, and no
+        job is cancelled: the caller re-submits this single id (``target_ids``) once the
+        row is gone. Local scopes drop the fine and the legacy row for every version plus
+        their skip marks, so a message whose stored outcome was a skip is re-judged too.
+        """
+        if not all(isinstance(value, str) and value for value in (account, user, source_id, message_id)):
+            raise ValueError("invalid analysis target")
+        if not _valid_source_id(source_id):
+            raise ValueError("invalid analysis source")
+        counts = {"messageRows": 0}
+        with self.profile_lock, self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if source_id == LOCAL_SOURCE_ID:
+                for table in ("results_v2", "analysis_skips", "fine_results_v1", "fine_skips_v1"):
+                    counts["messageRows"] += conn.execute(
+                        f"DELETE FROM {table} WHERE account=? AND session=? AND id=?",
+                        (account, user, message_id)).rowcount
+            else:
+                source_query, source_value = _source_scope(source_id)
+                counts["messageRows"] = conn.execute(
+                    "DELETE FROM api_insights_v1 WHERE account=? AND session=? AND id=? AND " + source_query,
+                    (account, user, message_id, source_value)).rowcount
         return counts
 
     def skip_fine(self, account, user, version, message, reason):
@@ -944,13 +1084,21 @@ class ResultStore:
         if rebuild:
             conn.execute("DELETE FROM summary_v1 WHERE account=? AND session=? AND version=?",
                          (account, user, version))
-        row = conn.execute("SELECT score_count,score_sum,score_weighted,mood_count,mood_json "
-                           "FROM summary_v1 WHERE account=? AND session=? AND version=?",
+        row = conn.execute("SELECT score_count,score_sum,score_weighted,mood_count,mood_json,"
+                           "score_exp,confidence_exp FROM summary_v1 "
+                           "WHERE account=? AND session=? AND version=?",
                            (account, user, version)).fetchone()
-        if row is not None:
+        if row is not None and row[5] is not None and row[6] is not None:
             return {"scoreCount": row[0], "scoreSum": row[1], "scoreWeighted": row[2],
-                    "moodCount": row[3], "mood": json.loads(row[4])}
+                    "moodCount": row[3], "mood": json.loads(row[4]),
+                    "scoreExp": row[5], "confidenceExp": row[6]}
+        # A pre-v2 summary has no exponential terms. Re-read the stored relationship
+        # distributions once so the new head does not inherit an approximate old total.
+        if row is not None:
+            conn.execute("DELETE FROM summary_v1 WHERE account=? AND session=? AND version=?",
+                         (account, user, version))
         summary = {"scoreCount": 0, "scoreSum": 0.0, "scoreWeighted": 0.0,
+                   "scoreExp": 0.0, "confidenceExp": 0.0,
                    "moodCount": 0, "mood": {}}
         # Existing installations have results but no summary. This ordered pass happens once
         # for this account/session/version; subsequent reads use only summary_v1.
@@ -959,16 +1107,21 @@ class ResultStore:
                 "ORDER BY sort_seq,shard,local_id,id", (account, user, version)):
             if side != "other":
                 continue
+            parsed = json.loads(result_json)
             if score is not None:
                 summary["scoreWeighted"] += summary["scoreCount"] * score
+                add_exp_score(summary, score, relationship_confidence(parsed))
                 summary["scoreSum"] += score
                 summary["scoreCount"] += 1
-            emotion = json.loads(result_json).get("emotion") or []
+            emotion = parsed.get("emotion") or []
             self._add_emotion(summary, emotion, summary["moodCount"])
-        conn.execute("INSERT INTO summary_v1 VALUES (?,?,?,?,?,?,?,?)",
+        conn.execute("INSERT INTO summary_v1 (account,session,version,score_count,score_sum,"
+                     "score_weighted,mood_count,mood_json,score_exp,confidence_exp) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?)",
                      (account, user, version, summary["scoreCount"], summary["scoreSum"],
                       summary["scoreWeighted"], summary["moodCount"],
-                      json.dumps(summary["mood"], ensure_ascii=False)))
+                      json.dumps(summary["mood"], ensure_ascii=False),
+                      summary["scoreExp"], summary["confidenceExp"]))
         return summary
 
     def summary(self, account, user, version):
@@ -987,6 +1140,7 @@ class ResultStore:
             score = result.get("score") if message["side"] == "other" else None
             mood = (result.get("emotion") or []) if message["side"] == "other" else []
             rank = tail_score = 0
+            tail_results = []
             mood_rank = summary["moodCount"]
             tail_mood = {}
             if score is not None:
@@ -1007,11 +1161,13 @@ class ResultStore:
                     ).fetchone()[0]
                     tails = conn.execute(
                         "SELECT result,score FROM results_v2 WHERE account=? AND session=? AND version=? "
-                        "AND side='other' AND score IS NOT NULL AND (sort_seq,shard,local_id,id)>(?,?,?,?)",
+                        "AND side='other' AND score IS NOT NULL AND (sort_seq,shard,local_id,id)>(?,?,?,?) "
+                        "ORDER BY sort_seq,shard,local_id,id",
                         (*prefix, *position),
                     )
                     for tail_json, tail_score_value in tails:
                         tail_score += tail_score_value
+                        tail_results.append((json.loads(tail_json), tail_score_value))
             if mood:
                 tail_count = 0
                 for (tail_json,) in conn.execute(
@@ -1035,12 +1191,16 @@ class ResultStore:
                          (account, user, version, message["id"], json.dumps(words, ensure_ascii=False)))
             if score is not None:
                 summary["scoreWeighted"] += rank * score + tail_score
+                add_exp_score(summary, score, relationship_confidence(result),
+                              tail_scores=[value for _tail, value in tail_results],
+                              tail_confidences=[relationship_confidence(item) for item, _value in tail_results])
                 summary["scoreSum"] += score
                 summary["scoreCount"] += 1
             if mood:
                 self._add_emotion(summary, mood, mood_rank, tail_mood)
-            conn.execute("UPDATE summary_v1 SET score_count=?,score_sum=?,score_weighted=?,mood_count=?,mood_json=? "
+            conn.execute("UPDATE summary_v1 SET score_count=?,score_sum=?,score_weighted=?,mood_count=?,"
+                         "mood_json=?,score_exp=?,confidence_exp=? "
                          "WHERE account=? AND session=? AND version=?",
                          (summary["scoreCount"], summary["scoreSum"], summary["scoreWeighted"],
                           summary["moodCount"], json.dumps(summary["mood"], ensure_ascii=False),
-                          account, user, version))
+                          summary["scoreExp"], summary["confidenceExp"], account, user, version))

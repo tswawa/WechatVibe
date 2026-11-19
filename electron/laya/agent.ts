@@ -130,6 +130,57 @@ export class LayaAgent {
       usage: { input_tokens: inputTokens, output_tokens: 0 },
     };
   }
+
+  /**
+   * One forward pass per chunk across several states.
+   *
+   * The per-state question sets may differ (fine labels build a per-message intent
+   * question), so rows are prepared per entry and then packed up to `batchSize`. Rows are
+   * independent — the graph has no cross-row attention — so mixing messages in one batch
+   * changes nothing but the amount of work per call. Answers are returned per entry.
+   */
+  async predictBatch(
+    entries: { state: State; questions: Record<string, Question> }[],
+  ): Promise<PredictResult[]> {
+    const prepared = entries.map((entry) => ({
+      questionIds: Object.keys(entry.questions),
+      ...this.prepare(entry.state, entry.questions),
+    }));
+    const rows: { item: PreparedItem; internal: InternalQuestion; qid: string; owner: number }[] = [];
+    prepared.forEach((entry, owner) => {
+      entry.items.forEach((item, index) => {
+        rows.push({ item, internal: entry.internal[index]!, qid: entry.questionIds[index]!, owner });
+      });
+    });
+    const answers = entries.map(() => ({} as Record<string, Answer>));
+    for (let start = 0; start < rows.length; start += this.batchSize) {
+      const chunk = rows.slice(start, start + this.batchSize);
+      let output: RunnerOutput;
+      try {
+        output = await this.runner.run(collate(chunk.map((row) => row.item), this.tokenizer.padTokenId));
+      } catch (error) {
+        throw new Error(`Laya inference failed for a ${chunk.length}-row batch`, { cause: error });
+      }
+      chunk.forEach((row, offset) => {
+        const result = formatAnswers({
+          config: this.config,
+          questionIds: ["row"],
+          internal: [row.internal],
+          items: [row.item],
+          logits: output.logits.subarray(offset * output.markers, (offset + 1) * output.markers),
+          actLogits: output.actLogits.subarray(offset * output.actions, (offset + 1) * output.actions),
+          markers: output.markers,
+          actions: output.actions,
+        });
+        answers[row.owner]![row.qid] = result.answers.row!;
+      });
+    }
+    return answers.map((answer) => ({
+      model: "laya-rl-agent",
+      answers: answer,
+      usage: { input_tokens: 0, output_tokens: 0 },
+    }));
+  }
 }
 
 /**

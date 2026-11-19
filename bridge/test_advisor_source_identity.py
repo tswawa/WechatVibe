@@ -104,6 +104,26 @@ class AdvisorSourceIdentityTests(unittest.TestCase):
         source.identity()
         self.assertEqual(calls, [True, True, True])
 
+    def test_request_scope_reuses_one_strong_check_and_never_leaks_across_requests(self):
+        source, reader, calls = self.source()
+        with source.request_scope():
+            first = source.verified_identity(messages=True)
+            self.assertEqual(source.verified_identity(), first)
+            self.assertEqual(source.identity(), first)
+        self.assertEqual(calls, [True])
+        # A second request must verify again, never inherit the previous answer.
+        with source.request_scope():
+            source.verified_identity(messages=True)
+        self.assertEqual(calls, [True, True])
+
+    def test_request_scope_drops_the_answer_when_the_binding_is_invalidated(self):
+        source, reader, calls = self.source()
+        with source.request_scope():
+            source.verified_identity(messages=True)
+            source.invalidate_binding()
+            source.verified_identity(messages=True)
+        self.assertEqual(calls, [True, True])
+
     def test_release_forget_and_close_block_stale_advisor_bindings(self):
         for operation in ("release", "forget", "close"):
             with self.subTest(operation=operation):

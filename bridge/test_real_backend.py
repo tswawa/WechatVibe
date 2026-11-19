@@ -147,6 +147,27 @@ class BackendTests(unittest.TestCase):
             self.backend.start("friend", "recent", 1, expected_account="other-account")
         self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
 
+    def test_a_message_that_is_only_a_link_is_not_analysed(self):
+        self.source.add("friend", 3, text="synthetic")
+        rows = self.source.rows["friend"]
+        rows[0]["text"] = "https://example.com/share"
+        rows[1]["text"] = "看这个 https://example.com/a 挺好"
+        seen = []
+        original = self.analyzer.analyze
+
+        def spy(session, messages, target, **kwargs):
+            seen.append([item["text"] for item in messages])
+            return original(session, messages, target, **kwargs)
+
+        self.analyzer.analyze = spy
+        job = self.run_job("friend", "recent", 3)
+        self.assertEqual(sorted(target for _session, target, _context in self.analyzer.calls),
+                         sorted([rows[1]["id"], rows[2]["id"]]))
+        self.assertEqual(job["total"], 2)
+        sent = " ".join(text for call in seen for text in call)
+        self.assertNotIn("example.com", sent, "a link must never reach the model")
+        self.assertIn("看这个", sent)
+
     def test_selected_targets_analyse_only_the_picked_ids(self):
         self.source.add("friend", 30)
         rows = self.source.rows["friend"]
@@ -1301,7 +1322,7 @@ class BackendTests(unittest.TestCase):
         self.assertIs(labelled_pin_status(status, object()), status)
 
     def test_affinity_reference_and_stable_identity(self):
-        self.assertEqual(affinity([1, -1]), 33)
+        self.assertEqual(affinity([1, -1]), 48)
         row = {"local_id": 1, "sort_seq": 5, "server_id": 9}
         self.assertNotEqual(message_id("a", "user", "shard0", row), message_id("b", "user", "shard0", row))
         self.assertNotEqual(message_id("a", "user", "shard0", row), message_id("a", "room", "shard0", row))
@@ -2053,6 +2074,32 @@ class FineLabelRevisionTests(unittest.TestCase):
     def run_job(self, user, limit):
         self.backend.start(user, "recent", limit)
         self.backend.tasks.join()
+
+    def test_visible_window_uses_one_batched_worker_call(self):
+        """A whole visible window is one worker request; see docs/performance-analysis.md §3.4."""
+        self.source.add("friend", 6)
+        calls = []
+        original = self.analyzer.analyze
+
+        def analyze_targets(session, messages, targets, **kwargs):
+            calls.append({"targets": list(targets),
+                          "context": [item["id"] for item in messages],
+                          "contextWindow": kwargs.get("contextWindow")})
+            return [{**original(session, messages, target), "labelSchema": FINE_LABEL_SCHEMA,
+                     "groundedIntent": None} for target in targets]
+
+        self.analyzer.analyze_targets = analyze_targets
+        account, workdir, store = self.backend._scoped_identity()
+        version = self.analyzer.analysis_version()
+        list(self.backend._run_fine_recent(account, "friend", version, store,
+                                           {"total": 0, "processed": 0}, (account, workdir), 6))
+
+        self.assertEqual(len(calls), 1, "the window must not fall back to one call per message")
+        self.assertEqual(calls[0]["contextWindow"], 3)
+        self.assertEqual(len(calls[0]["targets"]), 6)
+        self.assertEqual(len(calls[0]["context"]), 6)
+        saved = store.fine_view(account, "friend", version)
+        self.assertEqual(len(saved), 6, "every batched result is durably saved")
 
     def test_unmarked_fine_response_keeps_previous_label(self):
         self.source.add("friend", 1)

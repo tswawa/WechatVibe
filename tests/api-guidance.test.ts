@@ -287,6 +287,22 @@ it("requires exactly one reading per target and never reassigns an unknown one",
   })), fails("invalid-request"));
 });
 
+it("refuses a numeric id that names two different messages", async () => {
+  // "2" is both the real id of the first message and the suffix of the second one's alias
+  // (g2). The old lookup only consulted the alias map, so this silently answered for m2.
+  const ambiguous = input({
+    messages: [
+      { id: "2", sender: "OTHER", text: "第一条，id 是数字 2" },
+      { id: "m2", sender: "OTHER", text: "第二条，别名是 g2" },
+    ],
+    targetIds: ["m2"],
+  });
+  await assert.rejects(() => analyzeApiGuidance(config, ambiguous, reply({
+    subtexts: [{ id: "2", status: "ok", implied: "说不清是哪一条" }],
+    advice: { forOthers: okOthers, forSelf: null },
+  })), fails("invalid-output"), "an id with two owners must not be assigned to either message");
+});
+
 it("reports a terminal reading without smuggling in an interpretation", async () => {
   const result = await analyzeApiGuidance(config, input(), reply({
     subtexts: [{ id: "g2", status: "uncertain" }],
@@ -299,16 +315,33 @@ it("reports a terminal reading without smuggling in an interpretation", async ()
   })), fails("invalid-output"));
 });
 
-it("normalizes every control character and rejects retired statuses before Python storage", async () => {
+it("keeps line breaks and blank lines and rejects retired statuses before Python storage", async () => {
   const result = await analyzeApiGuidance(config, input(), reply({
     subtexts: [{ id: "g2", status: "ok", implied: "先\n确认\t再\r回复" }],
     advice: { forOthers: okOthers, forSelf: null },
   }));
-  assert.equal(result.subtexts[0]?.implied, "先 确认 再 回复");
+  assert.equal(result.subtexts[0]?.implied, "先\n确认\t再\r回复");
+  const otherControl = await analyzeApiGuidance(config, input(), reply({
+    subtexts: [{ id: "g2", status: "ok", implied: "先\u0001确认" }],
+    advice: { forOthers: okOthers, forSelf: null },
+  }));
+  assert.equal(otherControl.subtexts[0]?.implied, "先 确认");
   await assert.rejects(() => analyzeApiGuidance(config, input(), reply({
     subtexts: [{ id: "g2", status: "routine" }],
     advice: { forOthers: okOthers, forSelf: null },
   })), fails("invalid-output"));
+});
+
+it("preserves line breaks and blank lines in advice text", async () => {
+  const multiline = "第一行\n\n第三行";
+  const result = await analyzeApiGuidance(config, input(), reply({
+    subtexts: [{ id: "m2", status: "ok", implied: "再看看" }],
+    advice: { forOthers: { ...okOthers, reading: multiline,
+      strategies: [multiline], replies: [{ text: multiline }] }, forSelf: null },
+  }));
+  assert.equal(result.advice.forOthers.reading, multiline);
+  assert.deepEqual(result.advice.forOthers.strategies, [multiline]);
+  assert.equal(result.advice.forOthers.replies[0]?.text, multiline);
 });
 
 it("refuses advice that cannot be acted on", async () => {

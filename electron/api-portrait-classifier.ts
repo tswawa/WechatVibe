@@ -6,17 +6,17 @@ import { emotionLabel, intentLabel } from "../src/lib/labels";
 import { charCount, inputError, outputError } from "./api-analysis-json";
 import { portraitJson, type ApiPortraitMessage } from "./api-portrait-evidence";
 import { generateStructured, ModelConnectorError, type ModelConfig, type ModelUsage } from "./model-connectors";
-import { ANALYSIS_QUESTIONS } from "./laya/options";
+import { ANALYSIS_QUESTIONS, RELATIONSHIP_QUESTION_VERSION } from "./laya/options";
 import { CATALOG_VERSION, EMOTION_BUCKETS, INTENT_FAMILIES, INTENT_GROUPS,
   emotionDetailQuestion, groupQuestion, leafQuestion, routeEmotion, routeIntent } from "./laya/catalog";
 import { MBTI_QUESTION_VERSION, PERSONALITY_QUESTIONS, personalityEvidenceFromAnswers,
   type PersonalityEvidence } from "./laya/personality";
 import { STYLE_QUESTIONS, styleEvidenceFromAnswers } from "./laya/style";
-import { messageScore } from "./laya/scoring";
+import { messageScore, relationshipConfidence } from "./laya/scoring";
 import { toInternal } from "./laya/questions";
 import type { Answer, ChoiceAnswer, Question } from "./laya/types";
 
-export const API_PORTRAIT_CLASSIFIER_VERSION = `api-laya-portrait-v1+${CATALOG_VERSION}+${MBTI_QUESTION_VERSION}+style-v1`;
+export const API_PORTRAIT_CLASSIFIER_VERSION = `api-laya-portrait-v1+${CATALOG_VERSION}+${MBTI_QUESTION_VERSION}+style-v1+${RELATIONSHIP_QUESTION_VERSION}`;
 // The classification call sends no output cap. The model scores every supplied
 // question, and a thinking model spends 13K-24K tokens reasoning first (measured
 // on DeepSeek V4.1 Flash). A 2048 or 8192 cap cut that reasoning before any JSON
@@ -89,6 +89,7 @@ export interface ApiPortraitClassifierSignal {
   intentBroad: ApiPortraitWireScore[];
   relationship: LabelScore[];
   score: number | null;
+  scoreConfidence: number;
   styleEvidence: StyleEvidence | null;
   personalityEvidence: PersonalityEvidence | null;
   expression: LabelScore[];
@@ -243,6 +244,7 @@ export async function classifyApiPortraitBatch(config: ModelConfig, request: Api
     emotion: displayScores(emotion, emotionLabel), intent: displayScores(intent.scores, intentLabel),
     intentBroad: displayScores(scores(answerFor("intent")!), intentLabel),
     relationship: scores(relationship), score: messageScore({ relationship: relationship.probabilities }),
+    scoreConfidence: relationshipConfidence(relationship.probabilities),
     styleEvidence: styleEvidenceFromAnswers(answers),
     personalityEvidence: request.subjectKind === "group" ? null : personalityEvidenceFromAnswers(answers),
     expression: [], playfulIntent: [], emotionLabel: emotionLabel(emotion[0]!.label),

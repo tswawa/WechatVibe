@@ -458,6 +458,37 @@ class NodeAnalysis:
         return {**response["messages"][0], "analysisVersion": version,
                 "_modelMs": response.get("durationMs")}
 
+    def analyze_targets(self, session, messages, targets, portraitContext=None,
+                        messageLabelsOnly=True, contextWindow=None):
+        """One request for several targets so the worker can share forward passes.
+
+        Returns one dict per target id, in `targets` order. The worker reports messages in
+        conversation order, so the response is re-keyed by messageId.
+        """
+        if not targets:
+            return []
+        if portraitContext is not None and not isinstance(portraitContext, str):
+            raise ValueError("invalid portraitContext")
+        if type(messageLabelsOnly) is not bool:
+            raise ValueError("invalid messageLabelsOnly")
+        payload = {"cmd": "targets", "sessionId": session,
+                   "messages": self._wire_messages(messages), "targetIds": list(targets)}
+        if portraitContext and portraitContext.strip():
+            payload["portraitContext"] = portraitContext
+        if messageLabelsOnly:
+            payload["messageLabelsOnly"] = True
+        if contextWindow is not None:
+            if type(contextWindow) is not int or not 1 <= contextWindow <= 32:
+                raise ValueError("invalid contextWindow")
+            payload["contextWindow"] = contextWindow
+        response, version = self._request(payload)
+        returned = response.get("messages", [])
+        by_id = {item.get("messageId"): item for item in returned if isinstance(item, dict)}
+        if len(by_id) != len(targets) or set(by_id) != set(targets):
+            raise RuntimeError("invalid model response")
+        return [{**by_id[target], "analysisVersion": version,
+                 "_modelMs": response.get("durationMs")} for target in targets]
+
     def analyze_batch(self, session, messages, context=None):
         """One model judgment for a contiguous new-text window, never per-message calls."""
         payload = [{"id": item["id"], "text": item["text"], "side": item["side"],

@@ -10,7 +10,8 @@ export const REPLY_OPTIONS_VERSION = "api-reply-options-v2";
 const MIN_RESPONSE_TOKENS = 768;
 const MAX_ANTHROPIC_OUTPUT_TOKENS = 32768;
 const MAX_REPLY_CHARACTERS = 90;
-const CONTROL = /[\u0000-\u001f\u007f]/u;
+const CONTROL = /[\u0000-\u001f\u007f]/u;  // display names stay single-line
+const TEXT_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;  // replies keep \t \n \r
 
 export interface ReplyOptionsInput {
   messages: GuidanceMessage[];
@@ -143,10 +144,10 @@ export async function generateReplyOptions(
     if (!reply || typeof reply !== "object" || Array.isArray(reply) ||
         Object.keys(reply).length !== 1 || !("text" in reply)) outputError();
     const rawText = (reply as { text: unknown }).text;
-    if (typeof rawText !== "string" || CONTROL.test(rawText) ||
+    if (typeof rawText !== "string" || !rawText.trim() || TEXT_CONTROL.test(rawText) ||
         charCount(rawText) > MAX_REPLY_CHARACTERS) outputError();
-    const text = rawText.trim();
-    if (!text || seen.has(text)) outputError();
+    const text = rawText;
+    if (seen.has(text)) outputError();
     seen.add(text);
     return { text };
   }) as ReplyOptionsResult["replies"];

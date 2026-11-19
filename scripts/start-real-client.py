@@ -153,7 +153,11 @@ def selected_port(config, *, allow_fallback):
     probe = Config(config.root, config.python_exe, preferred, config.timeout)
     # Leave matching, foreign and unhealthy live services to ensure_service's
     # existing identity/ownership checks. Never hop around a live owned process.
-    if health(probe) != "unavailable" or port_occupied(preferred) or previous_live_bridge(probe):
+    # Cheap checks first: with nothing listening and no live record, health() can only answer
+    # "unavailable", so a cold start skips its live-account survey (~0.6 s on this machine).
+    if port_occupied(preferred) or previous_live_bridge(probe):
+        return preferred
+    if health(probe) != "unavailable":
         return preferred
     if port_bindable(preferred):
         return preferred

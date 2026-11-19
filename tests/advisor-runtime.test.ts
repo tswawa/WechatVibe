@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
@@ -17,7 +18,12 @@ const request: AdvisorRuntimeRequest = { account: "synthetic-account", user: "sy
   contextRevision: 1, skills: [{ id: "empathy", content: "Listen before proposing a reply." }] };
 
 async function fixture(t: TestContext) {
-  const parent = path.resolve(".local", "advisor-build", "runtime-tests");
+  // The runtime nests `.local/advisor-data/<64 hex>/runtime/workspace/contexts/<64 hex>/…`
+  // under this root, which reached 268 characters when the fixture lived in the repository
+  // (`.local/advisor-build/runtime-tests`). Past the Windows path limit with long paths
+  // disabled, cleanup could not delete the tree and the shell kept asking to delete it
+  // permanently. A short system temp root keeps the whole tree well under the limit.
+  const parent = path.join(tmpdir(), "wv-advisor-runtime");
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, "case-"));
   const engineDir = path.join(root, ".local", "advisor-engine");

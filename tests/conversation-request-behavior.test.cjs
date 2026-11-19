@@ -19,6 +19,7 @@ function harness(api) {
     conversationAnalysisRequested: username => context.chatState.requestedConversations.has(username),
     setStripStatus: text => effects.push(text), renderSessions: () => effects.push("render"),
     retryAnalysis: () => effects.push("current"), analyzeConversations: ids => effects.push([...ids]),
+    loadAnalysisOverview: () => effects.push("overview"),
   });
   vm.runInContext(section("function validConversationSelection(", "function applyRequestedConversations(") +
     section("async function requestConversationAnalysis(", "/**\n *"), context);
@@ -30,6 +31,7 @@ it("persists first, immediately analyzes exactly one requested conversation, and
   const run = harness(async (url, options) => {
     const body = JSON.parse(options.body);
     posts.push({ url, body });
+    if (url === "/api/analysis-cancel") return { cancelled: 1 };
     return selection(body.requested ? [body.session] : []);
   });
   await run.request("friend");
@@ -38,8 +40,23 @@ it("persists first, immediately analyzes exactly one requested conversation, and
   await run.request("friend");
   assert.equal(run.context.chatState.requestedConversations.size, 0);
   assert.equal(run.effects.filter(item => item === "current").length, 1);
+  // Taking the contact off the list must also stop the job that is already running;
+  // persisting the shorter list alone leaves the backend decoding that conversation.
+  assert.deepEqual(posts.at(-1), { url: "/api/analysis-cancel", body: { account: "acct", user: "friend" } });
   await run.request("other");
   assert.deepEqual(run.effects.at(-1), ["other"]);
+});
+it("does not re-add a cancelled conversation when the stop request fails", async () => {
+  const run = harness(async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (url === "/api/analysis-cancel") throw new Error("bridge busy");
+    return selection(body.requested ? [body.session] : []);
+  });
+  await run.request("friend");
+  await run.request("friend");
+  assert.equal(run.context.chatState.requestedConversations.size, 0);
+  assert.equal(run.context.chatState.conversationSelectionBusy, false);
+  assert.match(run.effects.at(-1), /取消分析失败：bridge busy/);
 });
 it("failed or malformed persistence never starts analysis", async () => {
   for (const response of [() => { throw new Error("synthetic"); }, () => selection(["unselected"])]) {

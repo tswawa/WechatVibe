@@ -32,20 +32,23 @@ import { LayaAgent } from "./laya/agent";
 import { classifyPackedBatch, MESSAGE_BATCH_VERSION,
   type BatchConsumed, type MessageBatchRequest } from "./laya/message-batch";
 import type { NodeOnnxRunner } from "./laya/runner";
-import { ANALYSIS_QUESTIONS, DISPLAY_QUESTIONS, SELF_QUALITY_QUESTIONS } from "./laya/options";
+import { DISPLAY_QUESTIONS, RELATIONSHIP_QUESTION_VERSION, SELF_QUALITY_QUESTIONS } from "./laya/options";
 import { buildIsolatedTargetState, buildTargetState, DEFAULT_CONTEXT_WINDOW, fitTargetStateToBudget, sanitizeContextText } from "./laya/context";
 import { buildPrefix, serializeState } from "./laya/prompt";
 import { toInternal } from "./laya/questions";
 import { renderOptions } from "./laya/questions";
 import { CATALOG_VERSION, routeEmotion, routeIntent } from "./laya/catalog";
 import { GENERAL_LABEL_SCHEMA, generalIntentQuestion, generalIntentScores } from "./laya/general-intent";
-import { generateFineMessageInsight } from "./local-message-insights";
+import { fineMessageInsight, fineMessageQuestions, generateFineMessageInsight } from "./local-message-insights";
 import { groundedIntentWithContext, type GroundedIntent } from "./laya/grounded-intent";
 import { classifyNextReply, REPLY_FORECAST_QUESTION, type ReplyForecastCandidate, type ForecastBudget } from "./laya/forecast";
-import { MBTI_QUESTION_VERSION, PERSONALITY_QUESTIONS, personalityEvidenceFromAnswers, type PersonalityEvidence } from "./laya/personality";
+import { MBTI_LINEAR_VERSION, mbtiEvidenceForText } from "./laya/mbti-linear";
+import { MBTI_QUESTION_VERSION, type PersonalityEvidence } from "./laya/personality";
+import { RELATIONSHIP_LINEAR_VERSION, relationshipTextProbabilities } from "./laya/relationship-linear";
 import { STYLE_QUESTIONS, styleEvidenceFromAnswers } from "./laya/style";
 import {
-  affinityFromScores,
+  AFFINITY_CALIBRATION,
+  affinityFromSignals,
   argmaxLabel,
   gradeFor,
   meanDistribution,
@@ -89,7 +92,13 @@ const MAX_PORTRAIT_CONTEXT_TOKENS = 40;
 const MAX_CACHE_ENTRIES = 5000;
 // This value keys saved portrait progress. Keep it stable for the generic-v4 label rollout;
 // per-message labelSchema selects which fine results need an individual refresh.
-export const ANALYSIS_VERSION = `${CATALOG_VERSION}+routing-v4-style-v1+${MBTI_QUESTION_VERSION}+message-state-v2+expression-route-v2+social-intent-route-v2`;
+/**
+ * Bumped whenever the local question set changes shape (dropping `relationship` and the four
+ * MBTI axes from the Laya portrait set, for example). It is part of `ANALYSIS_VERSION` so saved
+ * progress and cached results are rebuilt instead of being merged across two question shapes.
+ */
+export const LOCAL_QUESTION_SET_VERSION = "local-questions-v2";
+export const ANALYSIS_VERSION = `${CATALOG_VERSION}+routing-v4-style-v1+${MBTI_QUESTION_VERSION}+message-state-v2+expression-route-v2+social-intent-route-v2+${RELATIONSHIP_QUESTION_VERSION}+${RELATIONSHIP_LINEAR_VERSION}+${MBTI_LINEAR_VERSION}+${AFFINITY_CALIBRATION.version}+${LOCAL_QUESTION_SET_VERSION}`;
 
 const clamp = (value: number, min: number, max: number): number =>
   value < min ? min : value > max ? max : value;
@@ -152,6 +161,13 @@ export interface EntertainmentAnalysisResult extends AnalysisResult {
 /** Minimal engine surface, so tests can inject a fake runner without the ONNX model. */
 export interface AnalysisEngine {
   predict(state: State, questions: Record<string, Question>): Promise<PredictResult>;
+  /**
+   * Optional: pack several messages' questions into one forward pass. Test doubles may omit
+   * it; callers then fall back to one `predict` per target.
+   */
+  predictBatch?(
+    entries: { state: State; questions: Record<string, Question> }[],
+  ): Promise<PredictResult[]>;
 }
 
 /** Click-triggered future-reply classification. Never writes the per-message analysis cache. */
@@ -295,7 +311,8 @@ function inspectModelFiles(dir: string): FilesInspection {
 }
 
 function readyStatus(): ModelStatus {
-  const runtime = loaded?.runner.provider === "webgpu" ? "WebGPU" : "CPU，4 线程";
+  const runtime = loaded?.runner.provider === "webgpu"
+    ? "WebGPU" : `CPU，${loaded?.runner.intraOpThreads ?? 4} 线程`;
   return {
     state: "ready",
     progress: 1,
@@ -360,6 +377,8 @@ async function ensureModel(): Promise<LoadedModel> {
       loadProgress = 0.1;
       const runner = await NodeOnnxRunner.create(path.join(dir, MODEL_FILES.model), {
         executionProvider: requestedRuntimeProvider === "cpu" ? "cpu" : "auto",
+        // Benchmark CPU intra-op thread counts once per model/runtime, then reuse the winner.
+        adaptiveThreads: true,
       });
       if (myGeneration !== generation) {
         await runner.dispose().catch(() => {});
@@ -507,8 +526,9 @@ function analysisKey(
   index: number,
   portraitContext?: string,
   messageLabelsOnly = false,
+  contextWindow = DEFAULT_CONTEXT_WINDOW,
 ): string {
-  const start = Math.max(0, index - DEFAULT_CONTEXT_WINDOW);
+  const start = Math.max(0, index - contextWindow);
   const parts = [ANALYSIS_VERSION, sessionId, messages[index]!.id, messages[index]!.side, messages[index]!.text];
   for (let j = start; j < index; j++) parts.push(messages[j]!.side, messages[j]!.text);
   if (portraitContext) parts.push("portrait", portraitContext);
@@ -530,12 +550,26 @@ function toLabelScores(answer: Answer | undefined): LabelScore[] {
     .sort((a, b) => b.probability - a.probability);
 }
 
-async function predictChecked(
-  engine: AnalysisEngine,
+/**
+ * The local relationship signal comes from the trained char-ngram classifier. Test doubles keep
+ * their injected Laya answer so existing engine-contract tests stay deterministic.
+ */
+function relationshipScoresForText(text: string, fallback: LabelScore[] = []): LabelScore[] {
+  if (engineForTest) return fallback;
+  try {
+    return Object.entries(relationshipTextProbabilities(text))
+      .map(([label, probability]) => ({ label, probability }))
+      .sort((a, b) => b.probability - a.probability);
+  } catch {
+    return fallback;
+  }
+}
+
+function fitStateForQuestions(
   state: State,
   questions: Record<string, Question>,
   hasPortrait = false,
-): Promise<PredictResult> {
+): State {
   let fittedState = state;
   if (loaded && !engineForTest) {
     const { tokenizer, config } = loaded.agent;
@@ -561,7 +595,16 @@ async function predictChecked(
       }
     }
   }
-  return engine.predict(fittedState, questions);
+  return fittedState;
+}
+
+async function predictChecked(
+  engine: AnalysisEngine,
+  state: State,
+  questions: Record<string, Question>,
+  hasPortrait = false,
+): Promise<PredictResult> {
+  return engine.predict(fitStateForQuestions(state, questions, hasPortrait), questions);
 }
 
 /** Bounded preceding-message slice for fine candidate retrieval; never scans history. */
@@ -575,6 +618,18 @@ function fineContextHint(messages: readonly Message[], index: number): string {
   }
   return Array.from(parts.join("\n")).slice(-FINE_HINT_CODEPOINTS).join("");
 }
+
+/**
+ * What the local portrait path actually asks Laya for an OTHER-side message.
+ *
+ * `relationship` and the four MBTI axes used to be in this set and their answers were always
+ * thrown away: `relationshipScoresForText` (char-ngram classifier) and `mbtiEvidenceForText`
+ * (trained linear heads) own those signals. Dropping them removes five heads per message;
+ * `LOCAL_QUESTION_SET_VERSION` is part of `ANALYSIS_VERSION`, so old caches are re-analysed.
+ */
+export const LOCAL_PORTRAIT_QUESTIONS: Record<string, Question> = {
+  ...DISPLAY_QUESTIONS, ...STYLE_QUESTIONS,
+};
 
 async function classifyMessage(engine: AnalysisEngine, state: State, side: Message["side"], targetText: string,
   _batchIndependentExpression = false, hasPortrait = false, messageLabelsOnly = false,
@@ -594,13 +649,12 @@ async function classifyMessage(engine: AnalysisEngine, state: State, side: Messa
       expression: [],
       playfulIntent: [],
       styleEvidence: null,
-      relationship: fine.relationship,
+      relationship: side === "other"
+        ? relationshipScoresForText(targetText, fine.relationship) : [],
       personalityEvidence: null,
     };
   }
-  const questions = side === "other"
-    ? { ...ANALYSIS_QUESTIONS, ...PERSONALITY_QUESTIONS, ...STYLE_QUESTIONS }
-    : { ...DISPLAY_QUESTIONS };
+  const questions = side === "other" ? LOCAL_PORTRAIT_QUESTIONS : DISPLAY_QUESTIONS;
   const prediction = await predictForState(questions);
   // Portrait state is already persisted under this analysis version. Preserve its 40-emotion /
   // 547-intent dimensions so new portrait batches merge with old ones without mixing schemas.
@@ -615,8 +669,28 @@ async function classifyMessage(engine: AnalysisEngine, state: State, side: Messa
     expression: [],
     playfulIntent: [],
     styleEvidence: side === "other" ? styleEvidenceFromAnswers(prediction.answers) : null,
-    relationship: side === "other" ? toLabelScores(prediction.answers.relationship) : [],
-    personalityEvidence: side === "other" ? personalityEvidenceFromAnswers(prediction.answers) : null,
+    relationship: side === "other"
+      ? relationshipScoresForText(targetText, toLabelScores(prediction.answers.relationship)) : [],
+    personalityEvidence: side === "other" ? mbtiEvidenceForText(targetText) : null,
+  };
+}
+
+/** The DTO `classifyMessage` builds on the fine path, from answers computed elsewhere. */
+function cachedFineInsight(
+  answers: Record<string, Answer>,
+  side: "self" | "other",
+  text: string,
+): CachedMessageAnalysis {
+  const fine = fineMessageInsight(answers, side);
+  return {
+    emotion: fine.emotion,
+    intent: fine.intent,
+    intentBroad: fine.intentBroad,
+    expression: [],
+    playfulIntent: [],
+    styleEvidence: null,
+    relationship: side === "other" ? relationshipScoresForText(text, fine.relationship) : [],
+    personalityEvidence: null,
   };
 }
 
@@ -780,13 +854,12 @@ function buildOutcome(
   const otherSignals: MessageSignal[] = entries
     .filter((entry) => entry.side === "other")
     .map((entry) => ({ relationship: toProbabilityMap(entry.result.relationship) }));
-  const scores = otherSignals.map((signal) => messageScore(signal));
   const affinity =
-    scores.length === 0
+    otherSignals.length === 0
       ? previousAffinity !== undefined
         ? Math.round(clamp(previousAffinity, 0, 100))
         : 50
-      : affinityFromScores(scores).affinity;
+      : affinityFromSignals(otherSignals).affinity;
   const delta =
     previousAffinity === undefined ? 0 : affinity - Math.round(clamp(previousAffinity, 0, 100));
 
@@ -887,7 +960,21 @@ export type TargetAnalysisRequest = AnalysisRequest & {
   portraitContext?: string;
   /** Fine chat labels only; the separate batch portrait already owns style and MBTI evidence. */
   messageLabelsOnly?: boolean;
+  /**
+   * Preceding messages folded into each target's state. A batched window sends the whole
+   * conversation tail, so it must pin the same window the per-message path used.
+   */
+  contextWindow?: number;
 };
+
+function targetContextWindow(request: TargetAnalysisRequest): number {
+  const value = request.contextWindow;
+  if (value === undefined) return DEFAULT_CONTEXT_WINDOW;
+  if (!Number.isInteger(value) || value < 1 || value > 32) {
+    throw new Error("Invalid contextWindow");
+  }
+  return value;
+}
 
 function assertTargetIds(request: TargetAnalysisRequest): Set<string> {
   const targetIds = request.targetIds;
@@ -953,8 +1040,10 @@ export async function analyzeMessageTargets(
     if (typeof request.portraitContext !== "string") throw new Error("Invalid portraitContext");
     const clean = sanitizeContextText(request.portraitContext);
     if (clean) {
-      if (targetIndices.length !== 1 || messages[targetIndices[0]!]!.side !== "other") {
-        throw new Error("portraitContext requires one OTHER target");
+      // A visible window shares one saved portrait; every batched target must still be OTHER
+      // because the portrait only describes the counterpart.
+      if (targetIndices.length === 0 || targetIndices.some((index) => messages[index]!.side !== "other")) {
+        throw new Error("portraitContext requires OTHER targets");
       }
       if (Array.from(clean).length <= MAX_PORTRAIT_CONTEXT_CODEPOINTS) portraitContext = clean;
     }
@@ -974,34 +1063,90 @@ export async function analyzeMessageTargets(
   }
   const sessionId = request.sessionId;
   const epoch = cacheEpoch;
+  const contextWindow = targetContextWindow(request);
 
   const entries: OutcomeEntry[] = [];
-  for (const index of targetIndices) {
-    const message = messages[index]!;
-    const key = analysisKey(sessionId, messages, index, portraitContext, messageLabelsOnly);
-    let cached = messageCache.get(key);
-    if (!cached) {
-      const state = buildTargetState(messages, index, DEFAULT_CONTEXT_WINDOW, portraitContext);
-      const contextHint = messageLabelsOnly ? fineContextHint(messages, index) : "";
-      cached = await classifyMessage(engine, state, message.side, message.text,
-        false, !!portraitContext, messageLabelsOnly, contextHint);
-      if (epoch === cacheEpoch) messageCache.set(key, cached);
+  if (messageLabelsOnly && targetIndices.length > 1 && typeof engine.predictBatch === "function") {
+    // Fine labels are independent per message, so a whole visible window can share forward
+    // passes: the previous path paid one `session.run` (rows=3) per message.
+    const pending: { index: number; key: string; state: State; questions: Record<string, Question> }[] = [];
+    const resolved = new Map<number, CachedMessageAnalysis>();
+    for (const index of targetIndices) {
+      const message = messages[index]!;
+      const key = analysisKey(sessionId, messages, index, portraitContext, messageLabelsOnly, contextWindow);
+      const cached = messageCache.get(key);
+      if (cached) {
+        resolved.set(index, cached);
+        continue;
+      }
+      pending.push({
+        index, key,
+        state: buildTargetState(messages, index, contextWindow, portraitContext),
+        questions: fineMessageQuestions(message.side, message.text, fineContextHint(messages, index)),
+      });
     }
-    entries.push({
-      result: {
-        messageId: message.id,
-        emotion: cached.emotion,
-        intent: cached.intent,
-        intentBroad: cached.intentBroad,
-        ...(messageLabelsOnly ? { groundedIntent: groundedIntentWithContext(message.text, fineContextHint(messages, index)) } : {}),
-        expression: cached.expression,
-        playfulIntent: cached.playfulIntent,
-        styleEvidence: cached.styleEvidence,
-        relationship: cached.relationship,
-        personalityEvidence: cached.personalityEvidence,
-      },
-      side: message.side,
-    });
+    if (pending.length) {
+      const fitted = pending.map((item) => fitStateForQuestions(item.state, item.questions, !!portraitContext));
+      const predictions = await engine.predictBatch(
+        pending.map((item, position) => ({ state: fitted[position]!, questions: item.questions })));
+      if (predictions.length !== pending.length) {
+        throw new Error("batched analysis returned the wrong number of results");
+      }
+      predictions.forEach((prediction, position) => {
+        const item = pending[position]!;
+        const message = messages[item.index]!;
+        const insight = cachedFineInsight(prediction.answers, message.side, message.text);
+        if (epoch === cacheEpoch) messageCache.set(item.key, insight);
+        resolved.set(item.index, insight);
+      });
+    }
+    for (const index of targetIndices) {
+      const message = messages[index]!;
+      const cached = resolved.get(index)!;
+      entries.push({
+        result: {
+          messageId: message.id,
+          emotion: cached.emotion,
+          intent: cached.intent,
+          intentBroad: cached.intentBroad,
+          groundedIntent: groundedIntentWithContext(message.text, fineContextHint(messages, index)),
+          expression: cached.expression,
+          playfulIntent: cached.playfulIntent,
+          styleEvidence: cached.styleEvidence,
+          relationship: cached.relationship,
+          personalityEvidence: cached.personalityEvidence,
+        },
+        side: message.side,
+      });
+    }
+  } else {
+    for (const index of targetIndices) {
+      const message = messages[index]!;
+      const key = analysisKey(sessionId, messages, index, portraitContext, messageLabelsOnly, contextWindow);
+      let cached = messageCache.get(key);
+      if (!cached) {
+        const state = buildTargetState(messages, index, contextWindow, portraitContext);
+        const contextHint = messageLabelsOnly ? fineContextHint(messages, index) : "";
+        cached = await classifyMessage(engine, state, message.side, message.text,
+          false, !!portraitContext, messageLabelsOnly, contextHint);
+        if (epoch === cacheEpoch) messageCache.set(key, cached);
+      }
+      entries.push({
+        result: {
+          messageId: message.id,
+          emotion: cached.emotion,
+          intent: cached.intent,
+          intentBroad: cached.intentBroad,
+          ...(messageLabelsOnly ? { groundedIntent: groundedIntentWithContext(message.text, fineContextHint(messages, index)) } : {}),
+          expression: cached.expression,
+          playfulIntent: cached.playfulIntent,
+          styleEvidence: cached.styleEvidence,
+          relationship: cached.relationship,
+          personalityEvidence: cached.personalityEvidence,
+        },
+        side: message.side,
+      });
+    }
   }
 
   // SELF_QUALITY only when a selected target is SELF; use the latest selected SELF.

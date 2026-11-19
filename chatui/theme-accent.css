@@ -1,0 +1,77 @@
+/* ========================================================
+   主题色令牌 (THEME ACCENT TOKENS)
+   主窗口 index.html 与沙箱窗口 advisor-frame.html 都要引用本文件。
+   切换 body[data-theme-accent] 即可换色，不需要重新加载页面。
+   ======================================================== */
+:root {
+  /* 默认绿色；预设只覆写这五个值。 */
+  --theme-accent: #76a988;
+  --theme-accent-strong: #8fbf9d;
+  --theme-accent-deep: #5f8a70;
+  --theme-accent-rgb: 118, 169, 136;
+  --theme-accent-contrast: #ffffff;
+}
+
+/* --color-green 是历史别名。必须在 body 上重新声明：自定义属性在声明处解析，
+   只写进 :root 会固化成默认绿，body 上的预设就影响不到它了。 */
+body {
+  --color-green: var(--theme-accent);
+}
+
+/* 每个预设只覆写色板变量；深浅各一套，保证白底上仍然可读。 */
+body[data-theme-accent="green"] {
+  --theme-accent: #76a988;
+  --theme-accent-strong: #8fbf9d;
+  --theme-accent-deep: #5f8a70;
+  --theme-accent-rgb: 118, 169, 136;
+  --theme-accent-contrast: #ffffff;
+}
+body.theme-light[data-theme-accent="green"] {
+  --theme-accent: #2a8a5c;
+  --theme-accent-strong: #35a171;
+  --theme-accent-deep: #1f6e49;
+  --theme-accent-rgb: 42, 138, 92;
+  --theme-accent-contrast: #ffffff;
+}
+body[data-theme-accent="blue"] {
+  --theme-accent: #5b9fd8;
+  --theme-accent-strong: #7cb8e8;
+  --theme-accent-deep: #4a86b8;
+  --theme-accent-rgb: 91, 159, 216;
+  --theme-accent-contrast: #08131f;
+}
+body.theme-light[data-theme-accent="blue"] {
+  --theme-accent: #1f6fb8;
+  --theme-accent-strong: #2c86d6;
+  --theme-accent-deep: #175a96;
+  --theme-accent-rgb: 31, 111, 184;
+  --theme-accent-contrast: #ffffff;
+}
+body[data-theme-accent="yellow"] {
+  --theme-accent: #d9b64a;
+  --theme-accent-strong: #e8c96a;
+  --theme-accent-deep: #b8952f;
+  --theme-accent-rgb: 217, 182, 74;
+  --theme-accent-contrast: #1d1705;
+}
+body.theme-light[data-theme-accent="yellow"] {
+  --theme-accent: #a97b08;
+  --theme-accent-strong: #c1911a;
+  --theme-accent-deep: #8a6203;
+  --theme-accent-rgb: 169, 123, 8;
+  --theme-accent-contrast: #ffffff;
+}
+body[data-theme-accent="red"] {
+  --theme-accent: #e06b6b;
+  --theme-accent-strong: #ec8a8a;
+  --theme-accent-deep: #c25454;
+  --theme-accent-rgb: 224, 107, 107;
+  --theme-accent-contrast: #1c0808;
+}
+body.theme-light[data-theme-accent="red"] {
+  --theme-accent: #c33a3a;
+  --theme-accent-strong: #d64f4f;
+  --theme-accent-deep: #a12c2c;
+  --theme-accent-rgb: 195, 58, 58;
+  --theme-accent-contrast: #ffffff;
+}

@@ -248,6 +248,9 @@ class ModelSourceStore:
         if source_ids is not _MISSING:
             saved["sourceIds"] = source_ids
         saved["api"] = next((item for item in profiles if item["id"] == source_id), None)
+        # The assistant may run on its own profile while analysis keeps another one. A stale
+        # or unknown id is ignored instead of making the configuration unreadable: the
+        # assistant then follows the analysis selection.
         assistant_id = raw.get("assistantProfileId")
         saved["assistantProfileId"] = (assistant_id if _is_hex32(assistant_id) and
                                        any(item["id"] == assistant_id for item in profiles) else None)
@@ -417,6 +420,7 @@ class ModelSourceStore:
 
     def _write_document(self, profiles, source_id, selected_mode, source_ids,
                         assistant_profile_id=_MISSING):
+        """Rewrite the whole document, carrying the assistant choice over unless replaced."""
         if assistant_profile_id is _MISSING:
             previous = self._read_json(self.path)
             assistant_profile_id = (previous.get("assistantProfileId")
