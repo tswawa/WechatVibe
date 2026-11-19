@@ -30,7 +30,7 @@ it("ships a model trained from the current corpus", () => {
   assert.equal(RELATIONSHIP_LINEAR_VERSION, model.version);
   assert.equal(report.version, model.version);
   assert.equal(report.passed, true);
-  assert.equal(model.features, "boundary-unicode-char-ngram-1-4-binary");
+  assert.equal(model.features, "boundary-unicode-char-ngram-1-4-binary+structural-v3");
   assert.ok(model.temperature > 0 && Number.isFinite(model.temperature));
   assert.ok(Object.keys(model.weights).length > 1000);
 });
@@ -40,7 +40,7 @@ it("holds the held-out accuracy gate through the shipped TypeScript path", () =>
     .trim().split(/\r?\n/u).map((line) => JSON.parse(line) as {
       text: string; label: string; split: string;
     }).filter((row) => row.split === "test");
-  assert.equal(rows.length, 300);
+  assert.equal(rows.length, 350);
   let correct = 0;
   for (const row of rows) {
     const best = Object.entries(relationshipTextProbabilities(row.text))

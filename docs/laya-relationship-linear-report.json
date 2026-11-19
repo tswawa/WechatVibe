@@ -1,15 +1,15 @@
 {
-  "version": "relationship-linear-v2-35a840fb",
-  "corpusSha256": "6497e893a152d92ab661c6b8a99c7dc78681d1c4d2b615101bc00a88c2cb6de2",
+  "version": "relationship-linear-v3-17bc5623",
+  "corpusSha256": "f8f39002099c6180928f0c311198d5ac44b1a4659bd2bdea21d9a4ff0008d88c",
   "rows": {
     "train": 495,
     "validation": 136,
-    "test": 300
+    "test": 350
   },
-  "features": "boundary-unicode-char-ngram-1-4-binary",
+  "features": "boundary-unicode-char-ngram-1-4-binary+structural-v3",
   "crossValidation": {
-    "0.0001": 0.8848484848484848,
-    "0.0003": 0.8848484848484848,
+    "0.0001": 0.8828282828282829,
+    "0.0003": 0.8828282828282829,
     "0.001": 0.8848484848484848
   },
   "selectedL2": 0.001,
@@ -18,72 +18,72 @@
   "selectedTemperature": 0.35,
   "calibration": {
     "0.2": {
-      "nll": 0.18516263512199216,
-      "brier": 0.0769290037367211
+      "nll": 0.14513307532333372,
+      "brier": 0.05389618959138722
     },
     "0.25": {
-      "nll": 0.16308959641460527,
-      "brier": 0.07365790703953064
+      "nll": 0.13087249660799258,
+      "brier": 0.05422671908312355
     },
     "0.3": {
-      "nll": 0.15107709066907174,
-      "brier": 0.07157707512377312
+      "nll": 0.12412663244191151,
+      "brier": 0.0551361984255077
     },
     "0.35": {
-      "nll": 0.14502412542565662,
-      "brier": 0.07046756065795609
+      "nll": 0.12175841690807869,
+      "brier": 0.05643648899786276
     },
     "0.5": {
-      "nll": 0.1465240186860484,
-      "brier": 0.07138506240988418
+      "nll": 0.12894434721287312,
+      "brier": 0.061915860117198886
     },
     "0.75": {
-      "nll": 0.18294975396984364,
-      "brier": 0.08236790953583494
+      "nll": 0.16650734278551815,
+      "brier": 0.07539779838678463
     },
     "1.0": {
-      "nll": 0.24224524614411128,
-      "brier": 0.10234549870601373
+      "nll": 0.22322056766815776,
+      "brier": 0.09481067914740665
     },
     "1.5": {
-      "nll": 0.3878860794721313,
-      "brier": 0.1616514246294616
+      "nll": 0.3625883633457929,
+      "brier": 0.1503742917077697
     },
     "2.0": {
-      "nll": 0.5326143609568569,
-      "brier": 0.23179412858219542
+      "nll": 0.503544773458995,
+      "brier": 0.21739379783292392
     },
     "3.0": {
-      "nll": 0.7652533039848144,
-      "brier": 0.36000289222271686
+      "nll": 0.7350783548686667,
+      "brier": 0.34363676284689443
     },
     "5.0": {
-      "nll": 1.03882893647413,
-      "brier": 0.5187907404413347
+      "nll": 1.0137453403412078,
+      "brier": 0.5053151609273601
     },
     "8.0": {
-      "nll": 1.2311278829295085,
-      "brier": 0.6245579756908386
+      "nll": 1.2127628060451783,
+      "brier": 0.6153625229021801
     },
     "12.0": {
-      "nll": 1.3496183408904792,
-      "brier": 0.6846364352263646
+      "nll": 1.336378406050909,
+      "brier": 0.6784050739747172
     },
     "20.0": {
-      "nll": 1.4500526397911644,
-      "brier": 0.7319566269934882
+      "nll": 1.4416383141585625,
+      "brier": 0.7282263630415761
     }
   },
-  "vocabSize": 12498,
-  "exportedGrams": 10578,
+  "vocabSize": 12504,
+  "exportedGrams": 10488,
   "validation": {
     "rows": 136,
-    "correct": 128,
-    "accuracy": 0.9411764705882353,
-    "macroRecall": 0.9416666666666667,
+    "correct": 132,
+    "accuracy": 0.9705882352941176,
+    "macroRecall": 0.9708333333333334,
     "perClass": {
       "rejecting": {
-        "correct": 23,
+        "correct": 24,
         "total": 24
       },
       "distant": {
@@ -91,102 +91,100 @@
         "total": 24
       },
       "neutral": {
-        "correct": 23,
+        "correct": 24,
         "total": 24
       },
       "warm": {
-        "correct": 31,
+        "correct": 32,
         "total": 32
       },
       "romantic": {
-        "correct": 29,
+        "correct": 30,
         "total": 32
       }
     },
     "confusion": {
       "rejecting": {
-        "rejecting": 23,
-        "warm": 1
+        "rejecting": 24
       },
       "distant": {
         "distant": 22,
         "warm": 1,
-        "neutral": 1
+        "rejecting": 1
       },
       "neutral": {
-        "neutral": 23,
-        "distant": 1
+        "neutral": 24
       },
       "warm": {
-        "warm": 31,
-        "distant": 1
+        "warm": 32
       },
       "romantic": {
-        "romantic": 29,
-        "warm": 2,
-        "neutral": 1
+        "romantic": 30,
+        "warm": 1,
+        "rejecting": 1
       }
     },
-    "nll": 0.14502412542565662,
-    "brier": 0.07046756065795609
+    "nll": 0.12175841690807869,
+    "brier": 0.05643648899786276
   },
   "test": {
-    "rows": 300,
-    "correct": 272,
-    "accuracy": 0.9066666666666666,
-    "macroRecall": 0.9066666666666666,
+    "rows": 350,
+    "correct": 317,
+    "accuracy": 0.9057142857142857,
+    "macroRecall": 0.9057142857142857,
     "perClass": {
       "rejecting": {
-        "correct": 48,
-        "total": 60
+        "correct": 65,
+        "total": 70
       },
       "distant": {
-        "correct": 55,
-        "total": 60
+        "correct": 61,
+        "total": 70
       },
       "neutral": {
-        "correct": 59,
-        "total": 60
+        "correct": 63,
+        "total": 70
       },
       "warm": {
-        "correct": 57,
-        "total": 60
+        "correct": 65,
+        "total": 70
       },
       "romantic": {
-        "correct": 53,
-        "total": 60
+        "correct": 63,
+        "total": 70
       }
     },
     "confusion": {
       "rejecting": {
-        "rejecting": 48,
-        "warm": 2,
-        "distant": 7,
-        "neutral": 3
+        "rejecting": 65,
+        "distant": 3,
+        "neutral": 1,
+        "romantic": 1
       },
       "distant": {
-        "distant": 55,
-        "neutral": 1,
+        "distant": 61,
+        "rejecting": 7,
         "romantic": 1,
-        "rejecting": 2,
         "warm": 1
       },
       "neutral": {
-        "neutral": 59,
-        "romantic": 1
+        "neutral": 63,
+        "warm": 1,
+        "rejecting": 3,
+        "distant": 3
       },
       "warm": {
         "distant": 1,
-        "warm": 57,
+        "warm": 65,
+        "rejecting": 2,
         "neutral": 1,
         "romantic": 1
       },
       "romantic": {
-        "romantic": 53,
-        "distant": 1,
-        "warm": 4,
-        "rejecting": 1,
-        "neutral": 1
+        "romantic": 63,
+        "distant": 2,
+        "rejecting": 2,
+        "warm": 3
       }
     },
     "byBatch": {
@@ -197,19 +195,19 @@
         "macroRecall": 0.905,
         "perClass": {
           "rejecting": {
-            "correct": 32,
+            "correct": 37,
             "total": 40
           },
           "distant": {
-            "correct": 35,
+            "correct": 34,
             "total": 40
           },
           "neutral": {
-            "correct": 39,
+            "correct": 36,
             "total": 40
           },
           "warm": {
-            "correct": 37,
+            "correct": 36,
             "total": 40
           },
           "romantic": {
@@ -219,32 +217,30 @@
         },
         "confusion": {
           "rejecting": {
-            "rejecting": 32,
-            "warm": 2,
-            "distant": 5,
-            "neutral": 1
+            "rejecting": 37,
+            "distant": 3
           },
           "distant": {
-            "distant": 35,
-            "neutral": 1,
-            "romantic": 1,
-            "rejecting": 2,
-            "warm": 1
+            "distant": 34,
+            "rejecting": 5,
+            "romantic": 1
           },
           "neutral": {
-            "neutral": 39,
-            "romantic": 1
+            "neutral": 36,
+            "warm": 1,
+            "rejecting": 3
           },
           "warm": {
             "distant": 1,
-            "warm": 37,
+            "warm": 36,
+            "rejecting": 1,
             "neutral": 1,
             "romantic": 1
           },
           "romantic": {
             "romantic": 38,
             "distant": 1,
-            "warm": 1
+            "rejecting": 1
           }
         }
       },
@@ -255,15 +251,15 @@
         "macroRecall": 0.9199999999999999,
         "perClass": {
           "rejecting": {
-            "correct": 8,
+            "correct": 10,
             "total": 10
           },
           "distant": {
-            "correct": 10,
+            "correct": 9,
             "total": 10
           },
           "neutral": {
-            "correct": 10,
+            "correct": 9,
             "total": 10
           },
           "warm": {
@@ -277,14 +273,15 @@
         },
         "confusion": {
           "rejecting": {
-            "rejecting": 8,
-            "distant": 2
+            "rejecting": 10
           },
           "distant": {
-            "distant": 10
+            "distant": 9,
+            "rejecting": 1
           },
           "neutral": {
-            "neutral": 10
+            "neutral": 9,
+            "distant": 1
           },
           "warm": {
             "warm": 10
@@ -298,20 +295,20 @@
       },
       "blindR8": {
         "rows": 50,
-        "correct": 45,
-        "accuracy": 0.9,
-        "macroRecall": 0.9,
+        "correct": 44,
+        "accuracy": 0.88,
+        "macroRecall": 0.8800000000000001,
         "perClass": {
           "rejecting": {
-            "correct": 8,
+            "correct": 9,
             "total": 10
           },
           "distant": {
-            "correct": 10,
+            "correct": 9,
             "total": 10
           },
           "neutral": {
-            "correct": 10,
+            "correct": 8,
             "total": 10
           },
           "warm": {
@@ -319,28 +316,79 @@
             "total": 10
           },
           "romantic": {
-            "correct": 7,
+            "correct": 8,
             "total": 10
           }
         },
         "confusion": {
           "rejecting": {
-            "rejecting": 8,
-            "neutral": 2
+            "rejecting": 9,
+            "neutral": 1
           },
           "distant": {
-            "distant": 10
+            "distant": 9,
+            "rejecting": 1
           },
           "neutral": {
-            "neutral": 10
+            "neutral": 8,
+            "distant": 2
           },
           "warm": {
             "warm": 10
           },
           "romantic": {
-            "romantic": 7,
-            "warm": 2,
-            "neutral": 1
+            "romantic": 8,
+            "distant": 1,
+            "warm": 1
+          }
+        }
+      },
+      "blindR9": {
+        "rows": 50,
+        "correct": 46,
+        "accuracy": 0.92,
+        "macroRecall": 0.9199999999999999,
+        "perClass": {
+          "rejecting": {
+            "correct": 9,
+            "total": 10
+          },
+          "distant": {
+            "correct": 9,
+            "total": 10
+          },
+          "neutral": {
+            "correct": 10,
+            "total": 10
+          },
+          "warm": {
+            "correct": 9,
+            "total": 10
+          },
+          "romantic": {
+            "correct": 9,
+            "total": 10
+          }
+        },
+        "confusion": {
+          "rejecting": {
+            "rejecting": 9,
+            "romantic": 1
+          },
+          "distant": {
+            "distant": 9,
+            "warm": 1
+          },
+          "neutral": {
+            "neutral": 10
+          },
+          "warm": {
+            "warm": 9,
+            "rejecting": 1
+          },
+          "romantic": {
+            "romantic": 9,
+            "warm": 1
           }
         }
       }

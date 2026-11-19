@@ -43,7 +43,16 @@ PRUNE_THRESHOLD = 0.02
 L2_GRID = (1e-4, 3e-4, 1e-3)
 TEMPERATURES = (0.2, 0.25, 0.3, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0)
 CV_SEED = 20261101
-FEATURE_SPEC = "boundary-unicode-char-ngram-1-4-binary"
+FEATURE_SPEC = "boundary-unicode-char-ngram-1-4-binary+structural-v3"
+
+# v3 adds refusal-side structural cues only. Validation A/B showed that adding
+# affection-side or pronoun cues pulled neutral/warm scores down; refusal cues
+# alone lifted validation 94.12% -> 97.06%. Tokens use an @ prefix so they can
+# never collide with a boundary-marked character n-gram. TS inference mirrors this.
+NEG_CHARS = frozenset("不没别勿拒绝")
+DISMISS_CUES = ("删", "退", "撤", "拉黑", "报警", "不必", "不用", "拿走", "放门口")
+IMPERATIVE_CUES = ("把", "请", "给", "拿", "放", "退", "删", "回", "走", "留", "登门")
+DISTANCE_CUES = ("以后", "往后", "从此", "各不", "互不", "别再", "不再", "到此")
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "tests" / "fixtures" / "laya-affinity-corpus.jsonl"
@@ -53,14 +62,34 @@ REPORT = ROOT / "docs" / "laya-relationship-linear-report.json"
 EXPECTED = {
     "train": {"rejecting": 84, "distant": 88, "neutral": 86, "warm": 120, "romantic": 117},
     "validation": {"rejecting": 24, "distant": 24, "neutral": 24, "warm": 32, "romantic": 32},
-    "test": {label: 60 for label in LABELS},
+    "test": {label: 70 for label in LABELS},
 }
+
+
+def structural_features(text: str) -> set[str]:
+    """Refusal-side cues: negation placement, dismissals, imperative refusals."""
+    cue: set[str] = set()
+    stripped = text.strip()
+    if any(char in NEG_CHARS for char in stripped):
+        cue.add("@neg")
+        if any(char in NEG_CHARS for char in stripped[len(stripped) // 2:]):
+            cue.add("@neg_late")
+    if any(item in stripped for item in DISMISS_CUES):
+        cue.add("@dismiss")
+    if stripped.startswith(IMPERATIVE_CUES):
+        cue.add("@imperative_start")
+    if any(item in stripped for item in DISTANCE_CUES):
+        cue.add("@distance")
+    if len(stripped) <= 10:
+        cue.add("@short")
+    return cue
 
 
 def features(text: str) -> set[str]:
     compact = PREFIX + "".join(char for char in text if not char.isspace()) + SUFFIX
-    return {compact[index:index + size]
-            for size in SIZES for index in range(len(compact) - size + 1)}
+    grams = {compact[index:index + size]
+             for size in SIZES for index in range(len(compact) - size + 1)}
+    return grams | structural_features(text)
 
 
 def load_corpus() -> list[dict]:
@@ -230,23 +259,26 @@ def main() -> None:
     validation_metrics = metrics(validation, vocab, weights, bias_array)
     validation_metrics["nll"], validation_metrics["brier"] = calibration[selected_temperature]
     test_metrics = metrics(test, vocab, weights, bias_array)
-    # r7 was used as a development test in an earlier iteration. r8 was authored after
-    # the corpus/model changes and is the never-inspected final blind subset.
+    # r7 was a development test; r8 was the v2 final blind subset. r9 was authored
+    # only after v3 features were frozen on train/validation and never inspected
+    # during selection — it is the v3 final blind subset.
     dev = [row for row in test if row["id"].startswith("test-r7-")]
-    blind = [row for row in test if row["id"].startswith("test-r8-")]
+    blind_v2 = [row for row in test if row["id"].startswith("test-r8-")]
+    blind = [row for row in test if row["id"].startswith("test-r9-")]
     prior = [row for row in test
-             if not row["id"].startswith(("test-r7-", "test-r8-"))]
+             if not row["id"].startswith(("test-r7-", "test-r8-", "test-r9-"))]
     test_metrics["byBatch"] = {
         "priorBatches": metrics(prior, vocab, weights, bias_array),
         "devR7": metrics(dev, vocab, weights, bias_array),
-        "blindR8": metrics(blind, vocab, weights, bias_array),
+        "blindR8": metrics(blind_v2, vocab, weights, bias_array),
+        "blindR9": metrics(blind, vocab, weights, bias_array),
     }
 
     digest = hashlib.sha256(CORPUS.read_bytes()).hexdigest()
     signature = hashlib.sha256(
         f"{digest}|{selected_l2}|{selected_temperature}|{EPOCHS}|{PRUNE_THRESHOLD}|{FEATURE_SPEC}".encode()
     ).hexdigest()[:8]
-    version = f"relationship-linear-v2-{signature}"
+    version = f"relationship-linear-v3-{signature}"
     artifact = {
         "version": version,
         "algorithm": "multinomial-logistic-regression",

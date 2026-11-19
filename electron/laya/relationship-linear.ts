@@ -31,11 +31,33 @@ export const RELATIONSHIP_LINEAR_VERSION = model.version;
 
 export const RELATIONSHIP_LINEAR_LABELS = model.labels;
 
-/** Unique boundary-marked character n-grams. Must mirror the Python trainer. */
+const NEG_CHARS = new Set(Array.from("不没别勿拒绝"));
+const DISMISS_CUES = ["删", "退", "撤", "拉黑", "报警", "不必", "不用", "拿走", "放门口"];
+const IMPERATIVE_CUES = ["把", "请", "给", "拿", "放", "退", "删", "回", "走", "留", "登门"];
+const DISTANCE_CUES = ["以后", "往后", "从此", "各不", "互不", "别再", "不再", "到此"];
+
+/** Refusal-side cue tokens. Must mirror the Python trainer's structural_features. */
+function structuralCues(text: string): string[] {
+  const chars = Array.from(text.trim());
+  const stripped = chars.join("");
+  const cue: string[] = [];
+  if (chars.some((char) => NEG_CHARS.has(char))) {
+    cue.push("@neg");
+    if (chars.slice(Math.floor(chars.length / 2)).some((char) => NEG_CHARS.has(char)))
+      cue.push("@neg_late");
+  }
+  if (DISMISS_CUES.some((item) => stripped.includes(item))) cue.push("@dismiss");
+  if (IMPERATIVE_CUES.some((item) => stripped.startsWith(item))) cue.push("@imperative_start");
+  if (DISTANCE_CUES.some((item) => stripped.includes(item))) cue.push("@distance");
+  if (chars.length <= 10) cue.push("@short");
+  return cue;
+}
+
+/** Unique boundary-marked character n-grams plus refusal cues. Must mirror the Python trainer. */
 export function relationshipTextGrams(text: string): string[] {
   const compact = [model.prefix, ...Array.from(text).filter((char) => !/\s/u.test(char)),
     model.suffix];
-  const grams = new Set<string>();
+  const grams = new Set<string>(structuralCues(text));
   for (const size of model.sizes) {
     for (let index = 0; index + size <= compact.length; index++) {
       grams.add(compact.slice(index, index + size).join(""));

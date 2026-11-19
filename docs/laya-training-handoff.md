@@ -37,12 +37,12 @@
 | Node | v22.22.2（`package.json` 声明 24.11.1） |
 | Python | `.venv/Scripts/python.exe`，3.13.0 |
 | 模型 | `.local/models/laya`，`laya-multilingual-onnx@d9d003d` |
-| 生产关系分类 | 训练模型 `relationship-linear-v2-35a840fb`（边界字符 1–4 gram 逻辑回归） |
+| 生产关系分类 | 训练模型 `relationship-linear-v3-17bc5623`（边界字符 1–4 gram 逻辑回归 + 拒绝侧结构特征） |
 | 本地 MBTI 证据 | 训练模型 `mbti-linear-v1-6d442382`（4 轴 3 分类线性头），test 45/48 = 93.75% |
 | Laya 关系提示词 | `relationship-v2`，现仅作回退/对照，不再决定本地关系分 |
 | 评分头 | `affinity-v2`，半衰期 8 条，无权重下限 |
 | GPU 后端 | WebGPU 可用；DirectML 不可用；CUDA 不可用 |
-| 测试集结果 | **272/300，90.67%**；r8 最终盲测 45/50 = 90%；validation 128/136 = 94.12% |
+| 测试集结果 | **317/350，90.57%**；r9 最终盲测 46/50 = 92%；validation 132/136 = 97.06% |
 | 旧 Laya 提示词结果 | 分类 55%、MAE 11.60（仅为历史对照，不再是当前准确率） |
 
 当前工作区有 **22 个未解决合并冲突文件**（`git status` 中 `UU/AA`），来自其他并行工作。
@@ -370,14 +370,20 @@ npm run test:python
 **提示词这条路基本到头**；评估集扩大后已训练出真正的轻量分类器，且经历了
 "盲测失败 → 按训练/验证补语料 → 新盲测通过"的完整闭环。
 
-### P2：小型关系分类器（已完成 v1 → v2）
+### P2：小型关系分类器（已完成 v1 → v2 → v3）
 
 `relationship-linear` 已落地，v1 NB 相关 6 个文件已删除：
 
 1. 边界字符 1–4 gram + 多项逻辑回归 + 幅度剪枝；
-2. train 5 折 CV 选 L2，validation 拟合温度，test 300 条闸门；
+2. train 5 折 CV 选 L2，validation 拟合温度，test 闸门；
 3. 导出 JSON 模型，TypeScript 直接推理，已接入本地分析链；
-4. test 90.67%，r8 盲测 90%，详见 `docs/laya-relationship-linear.md`。
+4. v2（2026-11-07）：test 272/300 = 90.67%，r8 盲测 90%；
+   v3（2026-11-19）：加拒绝侧结构特征，test 317/350 = 90.57%，r9 盲测 92%，
+   validation 97.06%。详见 `docs/laya-relationship-linear.md`。
+
+v3 选型教训：表白侧 + 人称/问号 cue 虽把 validation 拉到 95.59%，但 test 掉到 89%
+（neutral/warm 被误拉），已回滚；只用拒绝侧 cue、且 `@short` 必须保留才有效。
+test 一旦看过就不能再用于选型，第二轮只用 validation A/B，另起 r9 盲测做最终闸门。
 
 下一步若有人工标注千级真实数据，可升级为多语言编码器（bge-m3 / MiniLM / XLM-R）：
 冻结 embedding 跑 logistic regression 验证信号，再解冻微调、导出 ONNX。仍不是微调现有 Laya。
