@@ -478,3 +478,27 @@
 {"id": "test-jp-p-38", "text": "我习惯最后才拍板", "axis": "JP", "label": "P", "split": "test"}
 {"id": "test-jp-p-39", "text": "先摊开，不急着收", "axis": "JP", "label": "P", "split": "test"}
 {"id": "test-jp-p-40", "text": "有意外的才好玩", "axis": "JP", "label": "P", "split": "test"}
+{"id": "test-r2-EI-insufficient-00", "axis": "EI", "text": "快递单填好放门卫了", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-EI-insufficient-01", "axis": "EI", "text": "系统维护到今晚十点", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-SN-insufficient-02", "axis": "SN", "text": "快递单填好放门卫了", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-SN-insufficient-03", "axis": "SN", "text": "系统维护到今晚十点", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-TF-insufficient-04", "axis": "TF", "text": "快递单填好放门卫了", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-TF-insufficient-05", "axis": "TF", "text": "系统维护到今晚十点", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-JP-insufficient-06", "axis": "JP", "text": "快递单填好放门卫了", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-JP-insufficient-07", "axis": "JP", "text": "系统维护到今晚十点", "label": "insufficient", "target": 50, "split": "test"}
+{"id": "test-r2-EI-E-08", "axis": "EI", "text": "刚散场还想再找人聊会儿", "label": "E", "target": 50, "split": "test"}
+{"id": "test-r2-EI-E-09", "axis": "EI", "text": "一屋子熟人我就停不下来", "label": "E", "target": 50, "split": "test"}
+{"id": "test-r2-EI-I-10", "axis": "EI", "text": "今天说了太多话，现在只想静一静", "label": "I", "target": 50, "split": "test"}
+{"id": "test-r2-EI-I-11", "axis": "EI", "text": "周末宁可窝着，不想赴约", "label": "I", "target": 50, "split": "test"}
+{"id": "test-r2-SN-S-12", "axis": "SN", "text": "我量过尺寸，按这个裁", "label": "S", "target": 50, "split": "test"}
+{"id": "test-r2-SN-S-13", "axis": "SN", "text": "拿出旧备忘，一项项对着看", "label": "S", "target": 50, "split": "test"}
+{"id": "test-r2-SN-N-14", "axis": "SN", "text": "顺着这个势头，后面会翻新", "label": "N", "target": 50, "split": "test"}
+{"id": "test-r2-SN-N-15", "axis": "SN", "text": "表面两件事，根上是一个问题", "label": "N", "target": 50, "split": "test"}
+{"id": "test-r2-TF-T-16", "axis": "TF", "text": "就事论事，别掺情绪", "label": "T", "target": 50, "split": "test"}
+{"id": "test-r2-TF-T-17", "axis": "TF", "text": "哪一步出的问题，摆出来看", "label": "T", "target": 50, "split": "test"}
+{"id": "test-r2-TF-F-18", "axis": "TF", "text": "怕他心里过不去，我先缓一下", "label": "F", "target": 50, "split": "test"}
+{"id": "test-r2-TF-F-19", "axis": "TF", "text": "大家都不容易，别太较真", "label": "F", "target": 50, "split": "test"}
+{"id": "test-r2-JP-J-20", "axis": "JP", "text": "路线我提前查好，出发前发你", "label": "J", "target": 50, "split": "test"}
+{"id": "test-r2-JP-J-21", "axis": "JP", "text": "这周的事我列好了，按表走", "label": "J", "target": 50, "split": "test"}
+{"id": "test-r2-JP-P-22", "axis": "JP", "text": "等走到那步再拍板也不迟", "label": "P", "target": 50, "split": "test"}
+{"id": "test-r2-JP-P-23", "axis": "JP", "text": "留点余地，别把行程塞满", "label": "P", "target": 50, "split": "test"}

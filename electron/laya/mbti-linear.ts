@@ -33,8 +33,27 @@ const model = modelData as MbtiLinearModel;
 
 export const MBTI_LINEAR_VERSION = model.version;
 
-/** Unique boundary-marked character n-grams. Must mirror the Python trainer. */
-export function mbtiTextGrams(text: string): string[] {
+const AXIS_CUES: Record<string, Record<string, string[]>> = {
+  EI: {
+    "@solo_recharge": ["独处", "一个人", "安静", "自己待", "缓一缓", "回血", "看书"],
+    "@social_charge": ["约了", "一整晚", "人多", "聊完", "聚会", "话就特别多"],
+  },
+  SN: {
+    "@abstract": ["规律", "往后", "换个角度", "说不定", "整条路", "本质", "趋势"],
+    "@concrete": ["数据", "上次", "照着", "试过", "步骤", "实测", "按流程"],
+  },
+  TF: {
+    "@empathy": ["难受", "接受", "人情", "处境", "感受", "大家", "照顾"],
+    "@principle": ["规则", "成本", "漏洞", "按流程", "对谁都", "算清楚"],
+  },
+  JP: {
+    "@fixed": ["提前排", "定下来", "别再改", "逐项", "清单", "划掉", "安心"],
+    "@flexible": ["别定死", "到了再说", "多留", "回头挑", "随性", "临时改", "赶不上变化"],
+  },
+};
+
+/** Character n-grams plus the given axis's cue tokens. Must mirror row_features. */
+export function mbtiTextGrams(text: string, axis?: string): string[] {
   const compact = [model.prefix, ...Array.from(text).filter((char) => !/\s/u.test(char)),
     model.suffix];
   const grams = new Set<string>();
@@ -43,24 +62,28 @@ export function mbtiTextGrams(text: string): string[] {
       grams.add(compact.slice(index, index + size).join(""));
     }
   }
+  for (const [token, phrases] of Object.entries(AXIS_CUES[axis || ""] || {})) {
+    if (phrases.some((phrase) => text.includes(phrase))) grams.add(token);
+  }
   return [...grams];
 }
 
 /** Normalized [insufficient, left, right] probabilities for every axis. */
 export function mbtiAxisProbabilities(text: string): Record<string, number[]> {
-  const scores = [...model.bias];
-  for (const gram of mbtiTextGrams(text)) {
-    const values = model.weights[gram];
-    if (!values) continue;
-    for (let index = 0; index < scores.length; index++) {
-      scores[index] = scores[index]! + (values[index] ?? 0);
-    }
-  }
+  // v2 cues are axis-scoped: each head sees only its own cue tokens. The n-grams
+  // are common to all heads, so compute the shared part once and add per-axis cues.
+  const shared = mbtiTextGrams(text);
   const result: Record<string, number[]> = {};
   model.axes.forEach((axis, axisIndex) => {
     const offset = model.axisOffsets[axis]!;
     const temperature = model.temperatures[axisIndex]!;
-    const slice = scores.slice(offset, offset + 3).map((score) => score / temperature);
+    const grams = axis ? [...shared, ...mbtiTextGrams(text, axis).filter((g) => g.startsWith("@"))]
+      : shared;
+    const slice = [0, 1, 2].map((position) => {
+      let score = model.bias[offset + position] ?? 0;
+      for (const gram of grams) score += model.weights[gram]?.[offset + position] ?? 0;
+      return score / temperature;
+    });
     const maximum = Math.max(...slice);
     const exponents = slice.map((score) => Math.exp(score - maximum));
     const total = exponents.reduce((sum, value) => sum + value, 0);

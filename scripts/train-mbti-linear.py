@@ -41,7 +41,7 @@ AXIS_LABELS = {
     "TF": ("insufficient", "T", "F"),
     "JP": ("insufficient", "J", "P"),
 }
-EXPECTED_PER_CLASS = {"train": 32, "validation": 4, "test": 4}
+EXPECTED_PER_CLASS = {"train": 32, "validation": 4, "test": 6}
 SIZES = (1, 2, 3, 4)
 PREFIX = "^"
 SUFFIX = "$"
@@ -51,7 +51,29 @@ PRUNE_THRESHOLD = 0.02
 L2_GRID = (1e-3, 3e-3, 1e-2, 3e-2)
 TEMPERATURES = (0.25, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0)
 CV_SEED = 20261107
-FEATURE_SPEC = "boundary-unicode-char-ngram-1-4-binary"
+FEATURE_SPEC = "boundary-unicode-char-ngram-1-4-binary+axis-cues-v2"
+
+# v2 adds axis-specific structural cues. Each cue token is axis-scoped (the EI head
+# only sees EI cues), so it cannot pull another axis's decision. Tokens use @ prefix
+# to avoid colliding with boundary-marked character n-grams. TS inference mirrors this.
+AXIS_CUES = {
+    "EI": {
+        "@solo_recharge": ("独处", "一个人", "安静", "自己待", "缓一缓", "回血", "看书"),
+        "@social_charge": ("约了", "一整晚", "人多", "聊完", "聚会", "话就特别多"),
+    },
+    "SN": {
+        "@abstract": ("规律", "往后", "换个角度", "说不定", "整条路", "本质", "趋势"),
+        "@concrete": ("数据", "上次", "照着", "试过", "步骤", "实测", "按流程"),
+    },
+    "TF": {
+        "@empathy": ("难受", "接受", "人情", "处境", "感受", "大家", "照顾"),
+        "@principle": ("规则", "成本", "漏洞", "按流程", "对谁都", "算清楚"),
+    },
+    "JP": {
+        "@fixed": ("提前排", "定下来", "别再改", "逐项", "清单", "划掉", "安心"),
+        "@flexible": ("别定死", "到了再说", "多留", "回头挑", "随性", "临时改", "赶不上变化"),
+    },
+}
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "tests" / "fixtures" / "laya-mbti-corpus.jsonl"
@@ -63,6 +85,15 @@ def features(text: str) -> set[str]:
     compact = PREFIX + "".join(char for char in text if not char.isspace()) + SUFFIX
     return {compact[index:index + size]
             for size in SIZES for index in range(len(compact) - size + 1)}
+
+
+def row_features(row: dict) -> set[str]:
+    """Character n-grams plus axis-scoped cue tokens."""
+    result = features(row["text"])
+    for token, phrases in AXIS_CUES.get(row["axis"], {}).items():
+        if any(phrase in row["text"] for phrase in phrases):
+            result.add(token)
+    return result
 
 
 def load_corpus() -> list[dict]:
@@ -82,14 +113,14 @@ def load_corpus() -> list[dict]:
 def vocabulary(rows: list[dict]) -> list[str]:
     grams: set[str] = set()
     for row in rows:
-        grams.update(features(row["text"]))
+        grams.update(row_features(row))
     return sorted(grams)
 
 
 def design_matrix(rows: list[dict], vocab: dict[str, int]) -> np.ndarray:
     matrix = np.zeros((len(rows), len(vocab)), dtype=np.float32)
     for index, row in enumerate(rows):
-        for gram in features(row["text"]):
+        for gram in row_features(row):
             column = vocab.get(gram)
             if column is not None:
                 matrix[index, column] = 1.0
@@ -278,7 +309,7 @@ def main() -> None:
     signature = hashlib.sha256(
         f"{digest}|{selected_l2}|{EPOCHS}|{PRUNE_THRESHOLD}|{FEATURE_SPEC}".encode()
     ).hexdigest()[:8]
-    version = f"mbti-linear-v1-{signature}"
+    version = f"mbti-linear-v2-{signature}"
 
     artifact = {
         "version": version,
