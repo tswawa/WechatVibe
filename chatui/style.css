@@ -2351,6 +2351,19 @@ body.theme-light .pick-bar-primary:hover:not(:disabled) { color: var(--theme-acc
 .mbti-source { color: var(--theme-accent-strong); font-size: 12px; text-decoration: none; }
 .mbti-source:hover { text-decoration: underline; }
 
+/* Relationship tendency (trained classifier, aggregated over loaded messages) */
+.relationship-list { display: flex; flex-direction: column; gap: 10px; }
+.relationship-row { display: flex; flex-direction: column; gap: 4px; }
+.relationship-row-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.relationship-label { color: var(--text-main); }
+.relationship-row.dominant .relationship-label { color: var(--theme-accent-strong); font-weight: 600; }
+.relationship-count { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.relationship-track { height: 6px; border-radius: 3px; background: var(--border-color); overflow: hidden; }
+.relationship-fill { height: 100%; border-radius: 3px; background: var(--theme-accent); opacity: 0.55; transition: width 0.4s ease; }
+.relationship-row.dominant .relationship-fill { opacity: 1; background: linear-gradient(90deg, var(--theme-accent-strong), var(--theme-accent)); }
+.relationship-foot { margin-top: 12px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.relationship-empty { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+
 /* MBTI Personality Lock Panel & Unlock Flow */
 .mbti-lock-panel {
   display: flex;

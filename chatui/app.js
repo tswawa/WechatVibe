@@ -3717,9 +3717,51 @@ function renderProfile(profile) {
     tags.appendChild(tag);
   }
   if (!tags.childNodes.length) tags.textContent = legacyApi ? "待判断" : "暂无关键词";
+  renderRelationshipTendency(group);
   renderPortraitSummary(profile);
   renderApiPortraitDetails(null);
   renderMembers(profile);
+}
+
+// Aggregate the trained classifier's per-message relationship signal over the messages
+// already loaded on screen. Nothing new is computed or sent; the bars are a view of
+// data that was already in labelState.results. Group chats have no single counterpart,
+// so the card is hidden there.
+function renderRelationshipTendency(group) {
+  const card = byId("relationshipCard");
+  if (!card) return;
+  card.hidden = !!group;
+  if (group) return;
+  const view = window.RelationshipView;
+  if (!view || typeof view.summarize !== "function") return;
+  const summary = view.summarize(labelState.results, chatState.messages);
+  const badge = byId("relationshipBadge");
+  const list = byId("relationshipList");
+  const foot = byId("relationshipFoot");
+  if (!badge || !list || !foot) return;
+  badge.textContent = summary.classified ? `${summary.dominant.label} · ${Math.round(summary.dominant.share * 100)}%` : "待分析";
+  list.replaceChildren();
+  if (!summary.classified) {
+    const empty = element("div", "relationship-empty",
+      "暂无关系分类结果。打开「意图识别」分析若干条消息后，这里会显示从本地分类器汇总的关系倾向。");
+    list.appendChild(empty);
+    foot.textContent = "";
+    return;
+  }
+  const max = Math.max(...summary.rows.map(row => row.count), 1);
+  for (const row of summary.rows) {
+    const node = element("div", `relationship-row${summary.dominant.key === row.key ? " dominant" : ""}`);
+    const head = element("div", "relationship-row-head");
+    head.append(element("span", "relationship-label", row.label),
+      element("span", "relationship-count", `${row.count} 条 · ${Math.round(row.share * 100)}%`));
+    const track = element("div", "relationship-track");
+    const fill = element("div", "relationship-fill");
+    fill.style.width = `${Math.round(row.count / max * 100)}%`;
+    track.appendChild(fill);
+    node.append(head, track);
+    list.appendChild(node);
+  }
+  foot.textContent = `基于当前已加载的 ${summary.classified} / ${summary.windowSize} 条已分析消息 · 平均判别置信度 ${Math.round(summary.meanConfidence * 100)}% · 本地模型`;
 }
 portraitState.apiPortraitRequest = 0;
 const API_PORTRAIT_MIN_CONTEXT = 12288;

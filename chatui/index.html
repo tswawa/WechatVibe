@@ -338,6 +338,19 @@
             <div class="mbti-theory-sources" id="mbtiSources"></div>
           </div>
 
+          <!-- Card A2: Relationship tendency from the trained classifier -->
+          <div class="persona-card" id="relationshipCard">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                关系倾向
+              </span>
+              <span class="card-badge" id="relationshipBadge">待分析</span>
+            </div>
+            <div class="relationship-list" id="relationshipList"></div>
+            <div class="relationship-foot" id="relationshipFoot"></div>
+          </div>
+
           <!-- Card B: Six Trait Dimensions -->
           <div class="persona-card" id="radarCard">
             <div class="card-header">
@@ -779,6 +792,7 @@
 <script src="view-state.js"></script>
 <script src="message-insight-adapters.js"></script>
 <script src="message-labels.js"></script>
+<script src="relationship-view.js"></script>
 <script src="report.js"></script>
 <script src="app.js"></script>
 <script src="advisor.js"></script>
