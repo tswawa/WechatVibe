@@ -1,7 +1,8 @@
 // The MBTI evidence corpus is hand-authored and axis-scoped. Neutral logistics lines are
 // deliberately reused as `insufficient` examples for all four axes, so uniqueness is asserted
-// on (axis, text) pairs rather than on text alone. The r2 test batch (24 rows) was authored
-// after the v2 features were frozen and never used for selection.
+// on (axis, text) pairs rather than on text alone. The r2/r3 test batches (24 rows each) were
+// authored after the v2 features and then the v3 training corpus were frozen, and never used
+// for feature or hyperparameter selection.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -14,17 +15,17 @@ const LABELS: Record<(typeof AXES)[number], [string, string, string]> = {
   TF: ["insufficient", "T", "F"],
   JP: ["insufficient", "J", "P"],
 };
-const PER_CLASS = { train: 32, validation: 4, test: 6 } as const;
+const PER_CLASS = { train: 38, validation: 4, test: 8 } as const;
 
 it("keeps the MBTI evidence corpus balanced, leak-free and free of near-duplicates", () => {
   const file = path.resolve("tests/fixtures/laya-mbti-corpus.jsonl");
   const rows = readFileSync(file, "utf8").trim().split(/\r?\n/u).map((line) => JSON.parse(line) as {
     id: string; text: string; axis: string; label: string; split: string;
   });
-  assert.equal(rows.length, 504);
+  assert.equal(rows.length, 600);
   assert.equal(new Set(rows.map((row) => row.id)).size, rows.length);
   assert.equal(new Set(rows.map((row) => `${row.axis}\u0000${row.text}`)).size, rows.length);
-  assert.equal(new Set(rows.map((row) => row.text)).size, 378); // 42 shared insufficient lines
+  assert.equal(new Set(rows.map((row) => row.text)).size, 450); // 50 shared insufficient lines
 
   for (const axis of AXES) {
     for (const [split, expected] of Object.entries(PER_CLASS)) {

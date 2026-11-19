@@ -41,7 +41,7 @@ AXIS_LABELS = {
     "TF": ("insufficient", "T", "F"),
     "JP": ("insufficient", "J", "P"),
 }
-EXPECTED_PER_CLASS = {"train": 32, "validation": 4, "test": 6}
+EXPECTED_PER_CLASS = {"train": 38, "validation": 4, "test": 8}
 SIZES = (1, 2, 3, 4)
 PREFIX = "^"
 SUFFIX = "$"
@@ -309,7 +309,7 @@ def main() -> None:
     signature = hashlib.sha256(
         f"{digest}|{selected_l2}|{EPOCHS}|{PRUNE_THRESHOLD}|{FEATURE_SPEC}".encode()
     ).hexdigest()[:8]
-    version = f"mbti-linear-v2-{signature}"
+    version = f"mbti-linear-v3-{signature}"
 
     artifact = {
         "version": version,

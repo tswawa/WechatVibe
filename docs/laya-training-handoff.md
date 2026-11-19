@@ -38,7 +38,7 @@
 | Python | `.venv/Scripts/python.exe`，3.13.0 |
 | 模型 | `.local/models/laya`，`laya-multilingual-onnx@d9d003d` |
 | 生产关系分类 | 训练模型 `relationship-linear-v3-17bc5623`（边界字符 1–4 gram 逻辑回归 + 拒绝侧结构特征） |
-| 本地 MBTI 证据 | 训练模型 `mbti-linear-v2-040ce9b7`（4 轴 3 分类线性头 + 轴特定 cue），test 69/72 = 95.83% |
+| 本地 MBTI 证据 | 训练模型 `mbti-linear-v3-d5e77a1f`（4 轴 3 分类线性头 + 轴特定 cue），test 93/96 = 96.88% |
 | Laya 关系提示词 | `relationship-v2`，现仅作回退/对照，不再决定本地关系分 |
 | 评分头 | `affinity-v2`，半衰期 8 条，无权重下限 |
 | GPU 后端 | WebGPU 可用；DirectML 不可用；CUDA 不可用 |
@@ -68,7 +68,7 @@ D  electron/laya/relationship-nb.* 等 6 个 v1 文件（已退役）
 | 文件 | 作用 |
 | --- | --- |
 | `tests/fixtures/laya-affinity-corpus.jsonl` | 931 条手写关系语料，唯一数据源 |
-| `tests/fixtures/laya-mbti-corpus.jsonl` | 504 行 MBTI 证据语料（4 轴 × 3 类，378 唯一文本） |
+| `tests/fixtures/laya-mbti-corpus.jsonl` | 600 行 MBTI 证据语料（4 轴 × 3 类，450 唯一文本） |
 | `scripts/train-mbti-linear.py` | MBTI 四头线性模型训练/校准/90% 闸门 |
 | `electron/laya/mbti-linear.ts` | MBTI 生产推理（本地分析链） |
 | `electron/laya/mbti-linear-model.json` | 训练产物 |
@@ -328,7 +328,7 @@ npm run test:python
 
 - `npm run typecheck`：通过；
 - 关系模型 v3：validation 97.06%，test 317/350 = 90.57%，r9 盲测 46/50 = 92%；
-- MBTI 模型 v2：validation 87.5%，test 69/72 = 95.83%，`--check` 闸门通过；
+- MBTI 模型 v3：validation 93.75%，test 93/96 = 96.88%，`--check` 闸门通过；
 - 模型 + 语料契约测试全通过（TS 与 Python 推理数值一致）；
 - 真实模型冒烟：通过；
 - 完整 Node / Python 套件：全通过。
@@ -386,14 +386,15 @@ test 一旦看过就不能再用于选型，第二轮只用 validation A/B，另
 下一步若有人工标注千级真实数据，可升级为多语言编码器（bge-m3 / MiniLM / XLM-R）：
 冻结 embedding 跑 logistic regression 验证信号，再解冻微调、导出 ONNX。仍不是微调现有 Laya。
 
-### P2.5：MBTI 证据分类器（已完成 v1 → v2）
+### P2.5：MBTI 证据分类器（已完成 v1 → v2 → v3）
 
 `mbti-linear` 已落地，本地分析链改用训练模型：
 
 1. 4 轴 × 3 类线性头，共享边界字符 1–4 gram 词表；
-2. 504 行手写语料（378 唯一文本），train/val/test 隔离，最高相似度 0.667；
+2. 600 行手写语料（450 唯一文本），train/val/test 隔离，最高 SequenceMatcher 0.720、Jaccard 0.400；
 3. CV 按**轴内文本**分折选 L2，validation 拟合温度，test 一次性闸门；
-4. v1 test 45/48 = 93.75%；v2（2026-11-19）加 8 个轴特定 cue 后 69/72 = 95.83%。
+4. v1 test 45/48 = 93.75%；v2（2026-11-19）加 8 个轴特定 cue 后 69/72 = 95.83%；
+   v3（同日）特征不变、只扩 train 72 行并新增 r3 盲测 24 行后 93/96 = 96.88%。
 
 迭代教训：首版 16 条/类只有 85.4%；27 组超参搜索全部停在 85.4%，瓶颈是语料不是模型；
 扩到 32 条/类后 95.8%，但查出 4 对 ≥0.75 近重复，剔除后 93.75%。

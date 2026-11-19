@@ -37,7 +37,7 @@ it("holds the held-out accuracy gate through the shipped TypeScript path", () =>
     .trim().split(/\r?\n/u).map((line) => JSON.parse(line) as {
       text: string; axis: string; label: string; split: string;
     }).filter((row) => row.split === "test");
-  assert.equal(rows.length, 72);
+  assert.equal(rows.length, 96);
   let correct = 0;
   for (const row of rows) {
     const values = mbtiAxisProbabilities(row.text)[row.axis]!;
