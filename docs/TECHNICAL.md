@@ -1239,6 +1239,7 @@ chatui/data/analysis-catalog.json（构建期被 electron/*.ts 静态 import，�
 ### 12.13 修改多 API 配置档案（model profiles）
 
 用户可保存任意多条 API 配置（上限 `MAX_PROFILES = 20`），并在聊天标题栏的模型徽标下拉菜单里一键切换当前对话使用的模型。
+- **同一模型的多个来源**：`version:2` 的档案本就允许同一个 `model` 对应多条不同 `baseUrl`/`protocol` 的记录，各自持有独立的 `encryptedKey`，`resolve_key` 也只在协议与 Base URL 完全一致时复用。设置页的 `data-provider-preset` 按钮（`openrouter` / `nvidia`）只预填协议与 Base URL，不碰 Key 与模型 ID；切换菜单第三行显示 `providerHost(baseUrl)`，用来区分同模型下 OpenRouter 与 NVIDIA NIM 这类来源。预设与显示都不产生 provider 调用，切换仍走 `/api/model-source/activate` 的探测后落盘路径。
 
 - **身份**：`profiles[].id` 是 32 位 hex，直接沿用旧的 `sourceId` 语义，因此 SQLite 里所有 `(account, user, source_id)` 作用域的缓存天然按档案隔离，切换档案不会串用旧结果。
 - **指纹**：`sourceIds{fingerprint→id}`，`fingerprint = sha256(["api-source-v1", protocol, baseUrl, model])`。**一条档案只拥有一个指纹**——`_upsert_profile` 在改写它的 protocol/baseUrl/model 之前会先清掉旧指纹，`_read` 的「指纹值互不重复」不变量才始终成立（否则整份配置会被判损坏）。
@@ -1258,7 +1259,7 @@ chatui/data/analysis-catalog.json（构建期被 electron/*.ts 静态 import，�
 - **跨进程白名单必须同步**：主进程 `scripts/advisor-companion.cjs` 的 `OUTBOUND` / `INBOUND` 是 IPC 硬白名单，`ADVISOR_SET_MODELS`（主 → iframe）与 `ADVISOR_SELECT_MODEL`（iframe → 主）都必须登记。漏登记时消息被静默丢弃，表现是「菜单永远空的、点了也没反应」，而渲染层单测仍然全绿——这类问题只有 `tests/advisor-companion.test.cjs` 的双向用例能拦住。
 - **契约**：`bridge/model_source.py` 的 `select_assistant_profile` / `clear_assistant_profile` / `assistant_selection`、`backend_service.model_source_select`、`bridge/test_model_source_select.py`（8 例：分析模式与 sourceId 不变、分析档案不被顶掉、回落、引擎读到自己那份、选择不调用 provider、`profileId:null` 清 pin 后回到跟随分析、非法输入不写盘、HTTP 400/200）、`tests/advisor-ui.test.cjs`（请求序列与「不切分析模式」不变量）。
 
-**改动清单**：`bridge/model_source.py`（存储与校验；`assistantProfileId` 与 `select_assistant_profile` / `clear_assistant_profile` / `assistant_selection`）→ `backend_service.py` 的 `model_source_select` / `model_source_activate` / `model_source_profile_save` / `model_source_profile_delete` / `model_source_clear_key`（语义与原子性）→ `bridge/real_http.py`（路由白名单 + 分支，含 `/api/model-source/select`）→ `chatui/index.html`（`#selectApiProfile`、`#inputApiProfileName`、`#modelBadge*`、`#apiProfileDeleteConfirm`）→ `chatui/app.js`（`modelProfiles()`、`resolveEditedProfileId()`、`postApiModelSource()`、`renderModelBadgeMenu()`）→ `chatui/advisor.js`（`loadModelProfiles()`、`selectModelProfile()`）→ `chatui/advisor-frame.js`（`renderModels()`、`chooseModel()`、`modelOptionRow()`）。前端仍禁止 innerHTML，菜单项用 `document.createElement` 逐个构造；删除沿用账号管理的「二次确认」交互而非 `window.confirm`。
+**改动清单**：`bridge/model_source.py`（存储与校验；`assistantProfileId` 与 `select_assistant_profile` / `clear_assistant_profile` / `assistant_selection`）→ `backend_service.py` 的 `model_source_select` / `model_source_activate` / `model_source_profile_save` / `model_source_profile_delete` / `model_source_clear_key`（语义与原子性）→ `bridge/real_http.py`（路由白名单 + 分支，含 `/api/model-source/select`）→ `chatui/index.html`（`#selectApiProfile`、`#inputApiProfileName`、`#modelBadge*`、`#apiProfileDeleteConfirm`、提供方预设 `data-provider-preset`）→ `chatui/app.js`（`modelProfiles()`、`resolveEditedProfileId()`、`postApiModelSource()`、`renderModelBadgeMenu()`、`applyProviderPreset()`、`providerHost()`）→ `chatui/advisor.js`（`loadModelProfiles()`、`selectModelProfile()`）→ `chatui/advisor-frame.js`（`renderModels()`、`chooseModel()`、`modelOptionRow()`）。前端仍禁止 innerHTML，菜单项用 `document.createElement` 逐个构造；删除沿用账号管理的「二次确认」交互而非 `window.confirm`。
 
 ### 12.14 修改「选择消息」分析（手选若干条只分析它们）
 

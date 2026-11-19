@@ -4810,6 +4810,16 @@ byId("inputDataRoot").addEventListener("keydown", event => {
   if (event.key === "Enter") { event.preventDefault(); void changeDataRoot(); }
 });
 const MODEL_SOURCE_PROTOCOLS = new Set(["anthropic", "responses", "chat_completions", "gemini", "ollama"]);
+// One model ID can be served by several providers. Presets only fill transport fields;
+// keys and model IDs stay user-owned so switching source never reuses another provider's key.
+const API_PROVIDER_PRESETS = {
+  openrouter: { protocol: "chat_completions", baseUrl: "https://openrouter.ai/api/v1", label: "OpenRouter" },
+  nvidia: { protocol: "chat_completions", baseUrl: "https://integrate.api.nvidia.com/v1", label: "NVIDIA NIM" },
+};
+function providerHost(baseUrl) {
+  try { return new URL(baseUrl).hostname.replace(/^www\./u, ""); }
+  catch { return ""; }
+}
 settingsState.modelSourceSnapshot = { mode: "local", api: null, profiles: [], label: "", sourceId: "local", status: "idle" };
 settingsState.modelSourceResolved = false;
 settingsState.modelSourceReadRequest = 0;
@@ -4970,6 +4980,8 @@ function updateModelSourceControls() {
   for (const id of ["selectApiProfile", "selectApiProtocol", "inputApiProfileName", "inputApiBaseUrl", "inputApiKey", "selectApiModel", "inputApiModelId", "inputApiContextTokens"])
     byId(id).disabled = settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.apiProfileBusy ||
       (id === "selectApiModel" && byId(id).options.length < 2);
+  for (const button of document.querySelectorAll?.("[data-provider-preset]") || [])
+    button.disabled = settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.apiProfileBusy;
   byId("btnDeleteApiProfile").hidden = !settingsState.apiProfileId;
   byId("btnDeleteApiProfile").disabled = settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.apiProfileBusy || !settingsState.apiProfileId;
   byId("btnFetchApiModels").disabled = !settingsState.modelSourceResolved || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.modelListBusy;
@@ -5006,9 +5018,12 @@ function modelBadgeOption(profile) {
   const model = document.createElement("span");
   model.className = "model-badge-model";
   model.textContent = profile.model;
+  const source = document.createElement("span");
+  source.className = "model-badge-source";
+  source.textContent = providerHost(profile.baseUrl);
   // `appendChild` takes a single node; the extra arguments were silently dropped,
   // so the name and model never reached the row and only the tick rendered.
-  body.append(name, model);
+  body.append(name, model, source);
   button.append(tick, body);
   return button;
 }
@@ -5030,9 +5045,12 @@ function localModelBadgeOption() {
   const model = document.createElement("span");
   model.className = "model-badge-model";
   model.textContent = "内置本地模型";
+  const source = document.createElement("span");
+  source.className = "model-badge-source";
+  source.textContent = "";
   // `appendChild` takes a single node; the extra arguments were silently dropped,
   // so the name and model never reached the row and only the tick rendered.
-  body.append(name, model);
+  body.append(name, model, source);
   button.append(tick, body);
   return button;
 }
@@ -5137,6 +5155,20 @@ function syncSavedApiKeyHint() {
   byId("apiKeySaved").hidden = !reusable;
   byId("btnClearApiKey").hidden = !profile?.hasKey;
   byId("inputApiKey").placeholder = reusable ? "留空沿用已保存密钥" : "按服务要求填写 API Key";
+}
+function applyProviderPreset(key) {
+  const preset = API_PROVIDER_PRESETS[key];
+  if (!preset || settingsState.modelSourceLoading || settingsState.modelSourceBusy || settingsState.apiProfileBusy) return;
+  // A preset names a different provider. Never rewrite a saved source in place:
+  // start a fresh draft so its key and label cannot leak into the new endpoint.
+  if (settingsState.apiProfileId) { loadApiProfileDraft("", false); showApiProfiles(); }
+  byId("selectApiProtocol").value = preset.protocol;
+  byId("inputApiBaseUrl").value = preset.baseUrl;
+  settingsState.modelSourceDraftDirty = true;
+  invalidateModelDiscovery();
+  syncSavedApiKeyHint();
+  text("modelSourceStatus", `已填入 ${preset.label}，请填写 API Key 和模型 ID`);
+  updateModelSourceControls();
 }
 function showApiProfiles() {
   const select = byId("selectApiProfile");
@@ -6972,6 +7004,9 @@ byId("inputApiContextTokens").addEventListener("input", () => {
   text("modelSourceStatus", "");
 });
 byId("btnFetchApiModels").addEventListener("click", () => { void fetchApiModels(); });
+for (const button of document.querySelectorAll?.("[data-provider-preset]") || []) {
+  button.addEventListener("click", () => { applyProviderPreset(button.dataset.providerPreset); });
+}
 byId("btnReloadModelSource").addEventListener("click", () => { void loadModelSource(true); });
 byId("btnTestApiModel").addEventListener("click", () => { void testApiModel(); });
 byId("btnActivateLocal").addEventListener("click", () => { void activateModelSource("local"); });

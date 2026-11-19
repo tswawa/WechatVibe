@@ -649,6 +649,14 @@
               </select>
             </div>
             <div class="model-source-field">
+              <span class="model-source-preset-label">常用提供方</span>
+              <div class="model-source-presets">
+                <button type="button" class="settings-action-btn" data-provider-preset="openrouter">OpenRouter</button>
+                <button type="button" class="settings-action-btn" data-provider-preset="nvidia">NVIDIA NIM</button>
+                <span class="model-source-preset-hint">自动填入协议与 Base URL，再填密钥和模型 ID</span>
+              </div>
+            </div>
+            <div class="model-source-field">
               <label for="inputApiBaseUrl">Base URL</label>
               <input id="inputApiBaseUrl" type="text" inputmode="url" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
             </div>

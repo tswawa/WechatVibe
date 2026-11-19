@@ -20,7 +20,8 @@ const settingsCode = section("async function api(", "function status(") +
   "activateModelSource, activateModelProfile, saveApiProfile, deleteApiProfile, " +
   "loadApiProfileDraft, showApiProfileDeleteConfirm, toggleModelBadgeMenu, " +
   "clearStoredApiKey, invalidateModelDiscovery, invalidateModelTest, " +
-  "syncRuntimeControl, syncSavedApiKeyHint, getSnapshot: () => settingsState.modelSourceSnapshot, " +
+  "syncRuntimeControl, syncSavedApiKeyHint, applyProviderPreset, providerHost, " +
+  "getSnapshot: () => settingsState.modelSourceSnapshot, " +
   "getProfileId: () => settingsState.apiProfileId, " +
   "markDirty: () => { settingsState.modelSourceDraftDirty = true; } };";
 
@@ -106,6 +107,51 @@ it("shows both deployment paths and keeps the key in a password field", () => {
   assert.match(html, /id="inputApiKey" type="password"/);
   for (const protocol of ["anthropic", "responses", "chat_completions", "gemini", "ollama"])
     assert.match(html, new RegExp(`value="${protocol}"`));
+});
+
+it("fills provider presets into a fresh draft without reusing a saved key", () => {
+  const { ui, byId } = harness(async () => response(apiState));
+  ui.showModelSource(apiState);
+  assert.equal(byId("selectApiProfile").value, id("b"));
+  ui.applyProviderPreset("openrouter");
+  assert.equal(byId("selectApiProfile").value, "");
+  assert.equal(byId("inputApiProfileName").value, "");
+  assert.equal(byId("inputApiKey").value, "");
+  assert.equal(byId("selectApiProtocol").value, "chat_completions");
+  assert.equal(byId("inputApiBaseUrl").value, "https://openrouter.ai/api/v1");
+  assert.equal(ui.getSnapshot().mode, "api");
+  assert.equal(ui.getSnapshot().api.id, id("b"));
+  assert.equal(byId("modelSourceStatus").textContent, "已填入 OpenRouter，请填写 API Key 和模型 ID");
+  // On an unsaved draft the preset only fills transport fields.
+  byId("inputApiKey").value = "user-entered-key";
+  byId("inputApiModelId").value = "shared-model";
+  ui.applyProviderPreset("nvidia");
+  assert.equal(byId("inputApiBaseUrl").value, "https://integrate.api.nvidia.com/v1");
+  assert.equal(byId("inputApiKey").value, "user-entered-key");
+  assert.equal(byId("inputApiModelId").value, "shared-model");
+  assert.equal(byId("apiKeySaved").hidden, true);
+  ui.applyProviderPreset("unknown");
+  assert.equal(byId("inputApiBaseUrl").value, "https://integrate.api.nvidia.com/v1");
+});
+
+it("distinguishes two sources of one model by provider host in the switcher", () => {
+  const profiles = [
+    { ...profile("a", "主力模型", "shared-model"), baseUrl: "https://openrouter.ai/api/v1" },
+    { ...profile("b", "主力模型", "shared-model"), baseUrl: "https://integrate.api.nvidia.com/v1" },
+  ];
+  const { ui, byId } = harness(async () => response(apiState));
+  ui.showModelSource({ ...apiState, profiles });
+  const menu = byId("modelBadgeMenu");
+  menu.hidden = true;
+  ui.toggleModelBadgeMenu();
+  const rows = menu.options.filter(row => row.dataset.profileId);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map(row => row.options[1].options[2].textContent),
+    ["openrouter.ai", "integrate.api.nvidia.com"]);
+  assert.deepEqual(rows.map(row => row.options[1].options[1].textContent),
+    ["shared-model", "shared-model"]);
+  assert.equal(menu.hidden, false);
+  assert.equal(ui.providerHost("https://www.example.com/v1"), "example.com");
 });
 
 it("loads the active source and disables local device changes while API is active", async () => {

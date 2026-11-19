@@ -36,13 +36,15 @@ it("builds the model badge rows with their name and model text", () => {
     const start = app.indexOf(`function ${builder}(`);
     assert.ok(start >= 0, `app.js must define ${builder}`);
     const body = app.slice(start, app.indexOf("\nfunction ", start + 1));
-    assert.match(body, /body\.append\(name, model\)/u, `${builder} must append both text nodes`);
+    assert.match(body, /body\.append\(name, model(?:, source)?\)/u, `${builder} must append both text nodes`);
     assert.match(body, /button\.append\(tick, body\)/u, `${builder} must append the text container`);
   }
   const remote = app.slice(app.indexOf("function modelBadgeOption("),
     app.indexOf("\nfunction ", app.indexOf("function modelBadgeOption(") + 1));
   assert.match(remote, /name\.textContent = profile\.name/u);
   assert.match(remote, /model\.textContent = profile\.model/u);
+  assert.match(remote, /body\.append\(name, model, source\)/u);
+  assert.match(remote, /source\.textContent = providerHost\(profile\.baseUrl\)/u);
   const local = app.slice(app.indexOf("function localModelBadgeOption("),
     app.indexOf("\nfunction ", app.indexOf("function localModelBadgeOption(") + 1));
   assert.match(local, /name\.textContent = LOCAL_MODEL_LABEL/u);
