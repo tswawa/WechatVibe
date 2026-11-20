@@ -30,6 +30,7 @@ const source = linkFilter + "\n" + [
   "function apiInsightWorkCurrent(", "function cancelApiInsightWork(",
   "async function fetchApiInsightResults(", "function renderApiInsightStatus(",
   "async function submitApiInsightJob(", "function ensureApiInsights(", "async function toggleIntentRecognition(",
+  "function messageRenderSignature(", "function messagesSignature(",
 ].map(body).join("\n") + "\nlet recentIntentController = null;\n" + app.slice(actionStart, actionEnd);
 
 function harness(mode = "local", apiOverride, options = {}) {

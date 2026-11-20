@@ -84,6 +84,22 @@ test("auto loading is gated by scroll position, in-flight request and exhaustion
   assert.equal(loader.calls.length, 0, "without a cursor there is no page to request");
 });
 
+test("message signatures stay cheap and change only with rendered content", () => {
+  const context = vm.createContext({});
+  vm.runInContext(slice("function messageRenderSignature(", "function renderMessages("), context);
+  const messages = [{ id: "m1", side: "other", kind: "text", time: 1000, text: "你好" }];
+  const signature = context.messagesSignature(messages);
+  assert.equal(signature, context.messagesSignature(messages.map(message => ({ ...message }))));
+  assert.notEqual(signature, context.messagesSignature([
+    { ...messages[0], text: "你好呀" },
+  ]));
+  assert.notEqual(signature, context.messagesSignature([
+    messages[0], { id: "m2", side: "self", kind: "text", time: 2000, text: "" },
+  ]));
+  assert.equal(context.apiInsightSignature, undefined,
+    "signature helpers must stay independently extractable");
+});
+
 test("loaded history windows are kept and restored instead of being capped at 80", () => {
   assert.match(app, /const historyWindowLimit = 600;/);
   assert.match(app, /const historyWindowCache = new Map\(\);/);

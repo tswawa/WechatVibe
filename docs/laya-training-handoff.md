@@ -32,7 +32,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 日期 | 2026-11-01 建档，2026-11-07 v2 迭代 |
+| 日期 | 2026-11-01 建档，2026-11-07 v2 迭代，2026-11-19 v3，2026-11-20 全量复现 |
 | 分支 | `perf/optimize-tokenizer` |
 | Node | v22.22.2（`package.json` 声明 24.11.1） |
 | Python | `.venv/Scripts/python.exe`，3.13.0 |
@@ -45,8 +45,8 @@
 | 测试集结果 | **317/350，90.57%**；r9 最终盲测 46/50 = 92%；validation 132/136 = 97.06% |
 | 旧 Laya 提示词结果 | 分类 55%、MAE 11.60（仅为历史对照，不再是当前准确率） |
 
-当前工作区有 **22 个未解决合并冲突文件**（`git status` 中 `UU/AA`），来自其他并行工作。
-完整 Node/Python 套件受这些冲突阻塞，与本模型无关。**不要整体回滚，也不要替别人解冲突。**
+当前工作区的历史合并冲突已随上游 1.3.6 合并清空（见 §9 的复现结果）。接手时先 `git status --short`
+自查一次，仍有其他会话的在途改动时，**不要整体 `stash`、`reset` 或回滚**。
 
 v2 迭代涉及的文件：
 
@@ -253,20 +253,27 @@ state' = r^m · state + (1 - r^m) · tail + new_block
 ```bash
 cd /d/project/weixinAnalyzer
 
+# 环境前提：`npm run train:*` 里的 python 是系统解释器，本机没有 numpy，必须用仓库 venv；
+# Laya 提示词评测还要指定模型目录（默认 .models/laya，仓库实际放在 .local/models/laya）。
+PY=.venv/Scripts/python.exe
+export LAYA_MODEL_DIR=/d/project/weixinAnalyzer/.local/models/laya
+
 # 当前主模型：重训 / 只验闸门 / 契约测试
-npm run train:relationship-linear
-python scripts/train-relationship-linear.py --check
+$PY scripts/train-relationship-linear.py
+$PY scripts/train-relationship-linear.py --check
 node --import tsx --test tests/relationship-linear.test.ts tests/laya-affinity-corpus.test.ts
 
 # Laya CPU 线程一次性校准（首次约 1 分钟，之后启动命中缓存）
 npm run benchmark:laya-threads
 
 # MBTI 证据分类器
-npm run train:mbti-linear
-python scripts/train-mbti-linear.py --check
+$PY scripts/train-mbti-linear.py
+$PY scripts/train-mbti-linear.py --check
 node --import tsx --test tests/mbti-linear.test.ts tests/laya-mbti-corpus.test.ts
 
 # Laya 评分头训练：默认 auto（Windows WebGPU 优先），test 只在 winner/baseline 上解码
+# 当前语料 981 条下全量约 11.5 分钟（7010 次前向）；改提示词迭代一律加 --train-only，
+# 只做语料校验加 --dry-run。冒烟用 LAYA_TRAIN_LIMIT=5。
 npm run train:laya-score
 node --import tsx scripts/laya-score-train.ts --train-only       # 完全不解码 test
 node --import tsx scripts/laya-score-train.ts --provider=cpu     # 显式 CPU，约慢 3~4 倍
@@ -332,6 +339,23 @@ npm run test:python
 - 模型 + 语料契约测试全通过（TS 与 Python 推理数值一致）；
 - 真实模型冒烟：通过；
 - 完整 Node / Python 套件：全通过。
+
+2026-11-20 全量复现（WebGPU，`scripts/laya-score-train.ts` 7010 次前向 / 689.8s）：
+
+- 关系模型 v3：validation 132/136 = 97.06%，test 317/350 = 90.571%，r9 盲测 46/50 = 92%，
+  `passed: true`；模型与报告 **零字节变化**，训练完全确定。
+- MBTI 模型 v3：test 93/96 = 96.875%，`passed: true`；同样零字节变化。
+- 契约与回归：`relationship-linear` / `mbti-linear` / 语料 / `laya-scoring-calibration` 16/16；
+  `bridge/test_affinity_calibration` / `test_incremental_reconciliation` / `test_api_portrait_statistics` /
+  `test_message_results` 四个 Python 测试全 OK；`npm run typecheck` 通过。
+- Laya 提示词路径（历史对照，不再是生产关系）：10 候选中 `implicit-romance` 训练最优
+  （区间 0.668 / 召回 0.605 / MAE 12.511），test 58% / MAE 14.297 / 场景 90%；
+  v1 baseline 为 56% / 16.971 / 70%。合成语料上提示词方法的天花板仍在六成上下，
+  再次说明生产关系必须走线性分类器。
+- 离线场景 `laya-score-eval.ts`：v2（现行聚合）12/12，v1 10/12；被否决的对比度拉伸方案结论不变。
+- 半衰期候选表在 981 条语料上给出 4（验证场景 90% / 档位距离 4）> 8（80% / 10）。
+  生产仍用 8：依据是上面这份离线噪声场景与「改聚合要升 `AFFINITY_CALIBRATION.version` /
+  `ANALYSIS_VERSION` 并重跑 Bridge 校准」的成本。**这是产品决策，不要只按候选表改。**
 
 ## 10. 下一阶段建议
 
@@ -437,6 +461,12 @@ API 画像链仍走 4 个固定题面（与关系模型架构一致）；本地�
     截断且不报错。`relationship-v2` 用 176+10，`emotion` 只剩 9 token 余量。加规则前先跑 `--budget`；
     加选项释义会按选项数×长度吃掉指令预算（五个释义占 106 token，指令被砍掉三分之一）。
 11. **调提示词必须用 `--train-only`。** 默认模式跑完会打印 test 结果，看一眼就等于污染了 holdout。
+12. **`scripts/laya-score-train.ts` 的 `EXPECTED` 表必须跟着 `tests/laya-affinity-corpus.test.ts` 走。**
+    11-19 把 test 扩到 70/类（r9 v3 盲测）时漏改这张表，`npm run train:laya-score` 直接崩在
+    `unbalanced corpus: test/rejecting`，11-20 已修。扩语料后先跑
+    `node --import tsx scripts/laya-score-train.ts --dry-run` 确认全链路通了再跑推理。
+13. **`npm run train:relationship-linear` / `train:mbti-linear` 里的 `python` 是系统解释器**，
+    本机没有 numpy，必须用 `.venv/Scripts/python.exe`（文档命令已改用 `$PY`）。
 
 ## 12. 接手完成标准
 

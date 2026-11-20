@@ -54,6 +54,9 @@ import { buildUnifiedInput, projectLegacyWire,
 
 // Observed, unattributed text has model-only generic labels; v3 is reserved for fine targets.
 const OBSERVED_LABEL_SCHEMA = "generic-v3";
+// Four lanes may each queue ten requests, but a single user-selected endpoint must
+// never receive more than this many concurrent calls from this worker.
+const MAX_TOTAL_API_GENERATIONS = 24;
 
 interface Score {
   label: string;
@@ -552,12 +555,14 @@ async function main(): Promise<void> {
     "model:portrait-axes": { active: 0, pending: [] },
     "model:guidance": { active: 0, pending: [] },
   };
+  let activeGenerations = 0;
   function drainGenerationLane(lane: ApiGenerationLane): void {
-    while (lane.active < 10 && lane.pending.length) {
+    while (lane.active < 10 && activeGenerations < MAX_TOTAL_API_GENERATIONS && lane.pending.length) {
       const task = lane.pending.shift()!;
       if (task.timeout) clearTimeout(task.timeout);
       task.timeout = null;
       lane.active++;
+      activeGenerations++;
       void (async () => {
         try {
           await handleApiGeneration(task.id, task.cmd, task.req);
@@ -565,8 +570,9 @@ async function main(): Promise<void> {
           emitRequestError(task.id, error, true);
         } finally {
           lane.active--;
+          activeGenerations--;
           task.complete();
-          drainGenerationLane(lane);
+          for (const other of Object.values(generationLanes)) drainGenerationLane(other);
         }
       })();
     }
@@ -620,7 +626,7 @@ async function main(): Promise<void> {
       void settled.then(() => generationTasks.delete(settled));
       const task: QueuedApiGeneration = { id, cmd, req, complete, timeout: null };
       lane.pending.push(task);
-      if (lane.active >= 10) {
+      if (lane.active >= 10 || activeGenerations >= MAX_TOTAL_API_GENERATIONS) {
         task.timeout = setTimeout(() => {
           const index = lane.pending.indexOf(task);
           if (index < 0) return;

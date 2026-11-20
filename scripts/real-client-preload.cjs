@@ -89,6 +89,11 @@ contextBridge.exposeInMainWorld("desktopHost", Object.freeze({
     ipcRenderer.send("real-client:set-theme", theme);
     return true;
   },
+  setAccent(accent) {
+    if (typeof accent !== "string" || !/^(green|blue|yellow|red|#[0-9a-f]{6})$/u.test(accent)) return false;
+    ipcRenderer.send("real-client:set-accent", accent);
+    return true;
+  },
   copyDraft(value) {
     if (typeof value !== "string" || !value.trim() || value.length > 1_000_000 ||
         !navigator.userActivation.isActive || window.top !== window) return Promise.resolve(false);

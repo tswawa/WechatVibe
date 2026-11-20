@@ -176,9 +176,11 @@ class SnapshotCacheMixin:
         future = None
         with state.lock:
             signature = _source_signature(self, rel)
-            saved = _saved_signature(destination)
+            details = _stamp_details(destination)
+            saved = details[0] if details else None
+            merged = details[0] if details and details[1] >= 0 else None
             if destination.is_file() and saved is not None:
-                if contact and _merged_contact_signature(destination) != signature:
+                if contact and merged != signature:
                     if (time.monotonic() >= state.retry_at and
                             (state.future is None or state.future.done())):
                         state.future = _workers.submit(_refresh, self, rel, destination, state)

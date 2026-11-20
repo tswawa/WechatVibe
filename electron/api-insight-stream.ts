@@ -5,10 +5,37 @@ export function insightStream(normalize: (value: unknown) => ApiInsight | null,
   emit?: (delta: string) => void) {
   let raw = '';
   let scanned = 0;
+  let textBuffer = '';
+  let legacyBlock: { id: string; emotion?: string; intent?: string } | null = null;
   let quoted = false;
   let escaped = false;
   const stack: Array<{ char: string; start: number }> = [];
   const emitted = new Map<string, string>();
+  function flushLegacy() {
+    if (!legacyBlock || legacyBlock.emotion === undefined || legacyBlock.intent === undefined) return;
+    accept({ id: legacyBlock.id, emotion: legacyBlock.emotion, intent: legacyBlock.intent });
+    legacyBlock = null;
+  }
+  function acceptLegacyLine(line: string) {
+    const marker = /^\s*(?:编号|id)\s*[:：]\s*([^\r\n]+)$/iu.exec(line);
+    if (marker) {
+      flushLegacy();
+      legacyBlock = { id: marker[1]!.trim() };
+      return;
+    }
+    if (!legacyBlock) return;
+    const emotion = /^\s*(?:情感|情绪|emotion)\s*[:：]\s*([^\r\n]*)$/iu.exec(line);
+    if (emotion) {
+      legacyBlock.emotion = emotion[1];
+      flushLegacy();
+      return;
+    }
+    const intent = /^\s*(?:意图|intent)\s*[:：]\s*([^\r\n]*)$/iu.exec(line);
+    if (intent) {
+      legacyBlock.intent = intent[1];
+      flushLegacy();
+    }
+  }
   function publish(insight: ApiInsight) {
     const value = JSON.stringify(insight);
     if (emitted.has(insight.id)) return;
@@ -51,15 +78,21 @@ export function insightStream(normalize: (value: unknown) => ApiInsight | null,
           }
         }
       }
-      // Legacy text is accepted only with a complete explicit ID line and a full
-      // line for BOTH fields. No positional guesses while generation is running.
-      const markers = [...raw.matchAll(/(?:^|\n)\s*(?:编号|id)\s*[:：]\s*([^\r\n]+)\r?\n/giu)];
-      for (let i = 0; i < markers.length; i++) {
-        const marker = markers[i]!;
-        const block = raw.slice(marker.index! + marker[0].length, markers[i + 1]?.index);
-        const emotion = block.match(/(?:^|\n)\s*(?:情感|情绪|emotion)\s*[:：]\s*([^\r\n]*)\r?\n/iu);
-        const intent = block.match(/(?:^|\n)\s*(?:意图|intent)\s*[:：]\s*([^\r\n]*)\r?\n/iu);
-        if (emotion && intent) accept({ id: marker[1]!.trim(), emotion: emotion[1], intent: intent[1] });
+      // Legacy text: consume complete lines only, so partial ID/field lines stay
+      // pending without rescanning the whole transcript on every delta.
+      textBuffer += delta;
+      let newline = textBuffer.indexOf('\n');
+      while (newline >= 0) {
+        const line = textBuffer.slice(0, newline).replace(/\r$/, '');
+        textBuffer = textBuffer.slice(newline + 1);
+        if (line.trim()) acceptLegacyLine(line);
+        newline = textBuffer.indexOf('\n');
+      }
+      // Drop the already-scanned JSON prefix when no object spans it, so `raw`
+      // cannot grow for the whole response.
+      if (stack.length === 0 && scanned > 8192) {
+        raw = raw.slice(scanned);
+        scanned = 0;
       }
     },
     finish(values: Iterable<ApiInsight>) { if (emit) for (const value of values) publish(value); },

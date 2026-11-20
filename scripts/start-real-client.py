@@ -130,6 +130,24 @@ def port_bindable(port):
             return False
 
 
+def listener_pid(port):
+    """Return the PID actually listening on a loopback port, or None if unknown."""
+    try:
+        import psutil
+    except ImportError:
+        return None
+    try:
+        for connection in psutil.net_connections(kind="inet"):
+            address = connection.laddr
+            if (connection.status == psutil.CONN_LISTEN and address and
+                    getattr(address, "port", None) == port and
+                    type(connection.pid) is int and connection.pid > 0):
+                return connection.pid
+    except (OSError, AttributeError, psutil.Error):
+        return None
+    return None
+
+
 def selected_port(config, *, allow_fallback):
     """Resolve the saved installation port; status/stop never select or write one."""
     marker = checked_runtime_dir(config) / "selected-port.json"
@@ -436,6 +454,13 @@ def ensure_service(config, starter=start_service, *, recovery=False):
         while time.monotonic() < deadline:
             state = health(config)
             if state == "ready":
+                # A bind probe and the child's bind are separate syscalls. Health alone
+                # cannot tell a same-identity抢端口 process from the bridge we just launched,
+                # so confirm the listener belongs to our child before claiming success.
+                owner = listener_pid(config.port)
+                if owner not in (None, os.getpid(), process.pid):
+                    abort(f"Port {config.port} is owned by PID {owner}, not the bridge just "
+                          f"started (PID {process.pid}); log: {log_path}")
                 if recovery and config.no_auto_recovery_marker.exists():
                     abort("Automatic recovery is disabled after clearing the current account")
                 if not recovery:

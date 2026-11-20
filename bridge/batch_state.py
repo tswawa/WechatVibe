@@ -772,6 +772,19 @@ class BatchStateStore:
                                      (score is not None or emotion)
                                      for tail_position, score, emotion, _confidence in tails)
             fast_result = _combined_result([(1, result)]) if fast_batch else None
+            # Pre-aggregate all fragments for this scope in one query. The old code ran
+            # the same JOIN once per completed target inside the write transaction.
+            fragments_by_id = {}
+            if not fast_batch and completed:
+                fragment_sql = ("SELECT f.message_id,f.start_offset,f.end_offset,r.result_json "
+                                "FROM batch_fragments_v1 f "
+                                "JOIN batch_runs_v1 r ON r.account=f.account AND r.session=f.session "
+                                "AND r.base_version=f.base_version AND r.subject=f.subject "
+                                "AND r.batch_version=f.batch_version AND r.batch_id=f.batch_id "
+                                "WHERE f.account=? AND f.session=? AND f.base_version=? AND f.subject=? "
+                                "AND f.batch_version=? ORDER BY f.message_id,f.start_offset")
+                for message_id, start, end, fragment_raw in conn.execute(fragment_sql, scope):
+                    fragments_by_id.setdefault(message_id, []).append((end - start, json.loads(fragment_raw)))
             new_targets = 0
             anchor_item = None
             for item in completed:
@@ -784,15 +797,7 @@ class BatchStateStore:
                     if fast_batch:
                         effective = fast_result
                     else:
-                        fragments = [(end - start, json.loads(raw)) for start, end, raw in conn.execute(
-                            "SELECT f.start_offset,f.end_offset,r.result_json FROM batch_fragments_v1 f "
-                            "JOIN batch_runs_v1 r ON r.account=f.account AND r.session=f.session "
-                            "AND r.base_version=f.base_version AND r.subject=f.subject "
-                            "AND r.batch_version=f.batch_version AND r.batch_id=f.batch_id "
-                            "WHERE f.account=? AND f.session=? AND f.base_version=? AND f.subject=? "
-                            "AND f.batch_version=? AND f.message_id=? ORDER BY f.start_offset",
-                            (*scope, stable_id))]
-                        effective = _combined_result(fragments)
+                        effective = _combined_result(fragments_by_id.get(stable_id, []))
                     if effective is not None:
                         latest = (*item["position"], stable_id)
                         if not fast_batch:

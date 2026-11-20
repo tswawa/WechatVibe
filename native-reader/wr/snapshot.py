@@ -108,8 +108,21 @@ class SnapshotStore:
             return
         if len(entries) <= max_datasets:
             return
+        referenced: set[str] = set()
+        for name in os.listdir(self.directory):
+            if not name.endswith(".meta.json"):
+                continue
+            try:
+                with open(os.path.join(self.directory, name), "r", encoding="utf-8") as handle:
+                    dataset_id = json.load(handle).get("datasetId")
+                if isinstance(dataset_id, str):
+                    referenced.add(dataset_id)
+            except (OSError, ValueError, AttributeError):
+                continue
         entries.sort(key=lambda name: os.path.getmtime(os.path.join(self.directory, name)))
-        for name in entries[: len(entries) - max_datasets]:
+        # A pruned dataset would leave every snapshot that points at it unreadable.
+        prunable = [name for name in entries if name[: -len(".dataset.json")] not in referenced]
+        for name in prunable[: len(entries) - max_datasets]:
             dataset_id = name[: -len(".dataset.json")]
             try:
                 os.remove(os.path.join(self.directory, name))

@@ -138,8 +138,8 @@ def _file_fingerprint(path: str | None) -> tuple:
         return (path, None, None)
 
 
-def _decrypt_shard_image(db: bytes, wal_data: bytes | None, page_key: crypto.PageKey) -> bytes:
-    """Decrypt a whole SQLCipher shard (main DB + committed WAL) into an in-memory image."""
+def _decrypt_shard_pages(db: bytes, wal_data: bytes | None, page_key: crypto.PageKey):
+    """Decrypt a whole SQLCipher shard into pages plus WAL replay bookkeeping."""
     if not db or len(db) % PAGE_SIZE != 0:
         raise errors.ProtocolError(errors.READ_ERROR, "shard size is not page aligned")
     pages: dict[int, bytes] = {}
@@ -148,8 +148,8 @@ def _decrypt_shard_image(db: bytes, wal_data: bytes | None, page_key: crypto.Pag
         page_number = offset // PAGE_SIZE + 1
         pages[page_number] = crypto.decrypt_page(page, page_key, page_number, page_number == 1)
     commit_pages: int | None = None
-    if wal_data:
-        parsed = wal.parse_wal(wal_data)
+    parsed = wal.parse_wal(wal_data) if wal_data else None
+    if parsed is not None:
         if parsed.corrupt_before_commit:
             raise errors.ProtocolError(errors.READ_ERROR, "wal corrupt before commit")
         for frame in parsed.frames:
@@ -158,6 +158,13 @@ def _decrypt_shard_image(db: bytes, wal_data: bytes | None, page_key: crypto.Pag
                 frame.page, page_key, frame.page_number, frame.page_number == 1
             )
         commit_pages = parsed.commit_db_size
+    wal_salt = wal_data[16:24] if wal_data and len(wal_data) >= 24 else None
+    return pages, commit_pages, wal_salt, len(parsed.frames) if parsed else 0
+
+
+def _decrypt_shard_image(db: bytes, wal_data: bytes | None, page_key: crypto.PageKey) -> bytes:
+    """Decrypt a whole SQLCipher shard (main DB + committed WAL) into an in-memory image."""
+    pages, commit_pages, _salt, _frames = _decrypt_shard_pages(db, wal_data, page_key)
     return database.sqlite_image_from_pages(pages, commit_pages=commit_pages)
 
 
@@ -177,6 +184,7 @@ class NativeService:
         self._snapshots: "OrderedDict[str, dict]" = OrderedDict()
         self._processes: list[discovery.WeixinProcess] = []
         self._store_fingerprint: tuple | None = None
+        self._shard_images: dict[str, dict] = {}
         if self.mode == "fixture":
             for account in self._fixture_accounts:
                 self.accounts[account.id] = AccountState(
@@ -432,6 +440,42 @@ class NativeService:
             parts.append(_file_fingerprint(shard.wal_path))
         return tuple(parts)
 
+    def _live_shard_image(self, shard, page_key: crypto.PageKey) -> bytes:
+        """Reuse decrypted pages when only WAL frames were appended to a shard."""
+        db_fp = _file_fingerprint(shard.path)
+        wal_fp = _file_fingerprint(shard.wal_path) if shard.wal_path else ("", -1, -1)
+        cached = self._shard_images.get(shard.path)
+        if (cached and cached["key"] == page_key and cached["db_fp"] == db_fp
+                and cached["wal_fp"] == wal_fp):
+            return cached["image"]
+        wal_data = _read_stable(shard.wal_path) if shard.wal_path else None
+        if (cached and cached["key"] == page_key and cached["db_fp"] == db_fp
+                and wal_data and cached["wal_salt"] == wal_data[16:24]):
+            parsed = wal.parse_wal(wal_data)
+            if (parsed.header_ok and not parsed.corrupt_before_commit
+                    and len(parsed.frames) >= cached["frame_count"]):
+                pages = dict(cached["pages"])
+                for frame in parsed.frames[cached["frame_count"]:]:
+                    pages[frame.page_number] = crypto.decrypt_page(
+                        frame.page, page_key, frame.page_number, frame.page_number == 1
+                    )
+                image = database.sqlite_image_from_pages(pages, commit_pages=parsed.commit_db_size)
+                self._shard_images[shard.path] = {
+                    "key": page_key, "db_fp": db_fp, "wal_fp": wal_fp,
+                    "pages": pages, "wal_salt": cached["wal_salt"],
+                    "frame_count": len(parsed.frames), "image": image,
+                }
+                return image
+        data = _read_stable(shard.path)
+        pages, commit_pages, wal_salt, frame_count = _decrypt_shard_pages(data, wal_data, page_key)
+        image = database.sqlite_image_from_pages(pages, commit_pages=commit_pages)
+        self._shard_images[shard.path] = {
+            "key": page_key, "db_fp": db_fp, "wal_fp": wal_fp,
+            "pages": pages, "wal_salt": wal_salt,
+            "frame_count": frame_count, "image": image,
+        }
+        return image
+
     def _refresh_live_store_if_stale(self) -> None:
         """Rebuild the live store from source only when a message shard changed (bounded)."""
         if self.mode != "live":
@@ -451,9 +495,7 @@ class NativeService:
                 page_key = account.keys_by_salt.get(page[:SALT_SIZE])
                 if page_key is None:
                     raise errors.ProtocolError(errors.KEY_UNAVAILABLE, "no key for message shard")
-                data = _read_stable(shard.path)
-                wal_data = _read_stable(shard.wal_path) if shard.wal_path else None
-                image = _decrypt_shard_image(data, wal_data, page_key)
+                image = self._live_shard_image(shard, page_key)
                 handles.append(database.SqliteShard(shard.id, image, account.id, account.username))
         except errors.ProtocolError as exc:
             for handle in handles:

@@ -75,5 +75,38 @@ class LegacyMbtiEvidenceTests(unittest.TestCase):
         self.assertEqual(result["available"]["mbtiEvidenceCount"], 120)
 
 
+class ProfileStateIncrementTests(unittest.TestCase):
+    """The incremental profile path must stay correct when new rows are inserted."""
+
+    def setUp(self):
+        scratch = Path(__file__).resolve().parents[1] / ".local" / "test-temp"
+        scratch.mkdir(parents=True, exist_ok=True)
+        temporary = tempfile.TemporaryDirectory(prefix="result-store-profile-", dir=scratch)
+        self.addCleanup(temporary.cleanup)
+        self.store = ResultStore(Path(temporary.name) / "profile.sqlite3")
+        self.scope = ("synthetic-account", "synthetic-session", "synthetic-version")
+
+    def seed(self, message_id, sort_seq, side="other"):
+        with self.store.connect() as conn:
+            conn.execute("INSERT OR REPLACE INTO results_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                         (*self.scope[:2], message_id, sort_seq, "shard", sort_seq, "sender",
+                          side, json.dumps({"emotion": [], "intent": []}), 0.5, self.scope[2]))
+
+    def profile(self):
+        return self.store.profile_state(*self.scope, None, lambda refs: {})
+
+    def test_incremental_and_out_of_order_rows_are_counted_without_full_rebuild(self):
+        self.seed("m1", 1)
+        self.seed("m2", 2)
+        self.assertEqual(self.profile()["targetCount"], 2)
+        self.seed("m3", 3)
+        self.assertEqual(self.profile()["targetCount"], 3)
+        # A backfilled row older than the stored latest uses the batched tail path.
+        self.seed("m0", 0)
+        state = self.profile()
+        self.assertEqual(state["targetCount"], 4)
+        self.assertEqual(state["count"], 4)
+
+
 if __name__ == "__main__":
     unittest.main()

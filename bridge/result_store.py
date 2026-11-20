@@ -341,17 +341,41 @@ class ResultStore:
                             "FROM results_v2 r LEFT JOIN profile_tokens_v1 t ON t.account=r.account AND t.session=r.session "
                             "AND t.version=r.version AND t.id=r.id WHERE " + conditions +
                             " ORDER BY r.sort_seq,r.shard,r.local_id,r.id", fresh_args).fetchall()
+                # One SQL pass for all out-of-order rows in this increment instead of one
+                # tail query per row. The common in-order path needs no tail query at all.
+                tail_pool = []
+                if saved:
+                    running_latest = tuple(state["latest"]) if state["latest"] else None
+                    needed = []
+                    for scan_rowid, scan_id, _scan_raw, _scan_score, scan_side, scan_seq, scan_shard, scan_local, _scan_words in rows:
+                        scan_position = (scan_seq, scan_shard, scan_local, scan_id)
+                        if scan_side != "other":
+                            continue
+                        if running_latest is not None and scan_position < running_latest:
+                            needed.append((scan_rowid, scan_position))
+                        if running_latest is None or scan_position > running_latest:
+                            running_latest = scan_position
+                    if needed:
+                        lower = min(position for _rowid, position in needed)
+                        upper_rowid = max(rowid for rowid, _position in needed)
+                        tail_sql = ("SELECT rowid,id,result,score,sort_seq,shard,local_id FROM results_v2 "
+                                    "WHERE account=? AND session=? AND version=? AND side='other' AND rowid<? "
+                                    "AND (sort_seq,shard,local_id,id)>(?,?,?,?)")
+                        tail_args = (*scope, upper_rowid, *lower)
+                        if subject:
+                            tail_sql += " AND sender=?"
+                            tail_args += (subject,)
+                        tail_pool = [(tail_rowid, (tail_seq, tail_shard, tail_local, tail_id),
+                                      json.loads(tail_raw), tail_score)
+                                     for tail_rowid, tail_id, tail_raw, tail_score, tail_seq,
+                                     tail_shard, tail_local in conn.execute(tail_sql, tail_args)]
                 for rowid, stable_id, raw, score, side, seq, shard, local_id, words in rows:
                     result, position = json.loads(raw), (seq, shard, local_id, stable_id)
                     tails = []
                     if saved and side == "other" and state["latest"] is not None and position < tuple(state["latest"]):
-                        tail_where = "account=? AND session=? AND version=? AND side='other' AND rowid<? AND (sort_seq,shard,local_id,id)>(?,?,?,?)"
-                        tail_args = (*scope, rowid, *position)
-                        if subject:
-                            tail_where += " AND sender=?"
-                            tail_args += (subject,)
-                        tails = [(json.loads(raw_tail), tail_score) for raw_tail, tail_score in
-                                 conn.execute("SELECT result,score FROM results_v2 WHERE " + tail_where, tail_args)]
+                        tails = [(tail_result, tail_score) for tail_rowid, tail_position,
+                                 tail_result, tail_score in tail_pool
+                                 if tail_rowid < rowid and tail_position > position]
                     if not covers_tail_emotions(state, [item.get("emotion") for item, _score in tails
                                                        if item.get("emotion")]):
                         state = empty_profile_state()

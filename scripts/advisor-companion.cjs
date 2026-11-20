@@ -33,12 +33,17 @@ function attachAdvisorCompanion(options) {
   const { WebContentsView, ipcMain, screen, clipboard, mainWindow, clientUrl, trustedMainFrame } = options;
   const address = new URL("advisor-window.html", clientUrl).href;
   let child = null, showing = false, closing = false, arranging = false, modal = false, theme = "dark", latestInit = null, currentScope = null;
-  let expandedBy = 0;
+  let expandedBy = 0, accent = "green";
   const minimum = mainWindow.getMinimumSize();
   const themes = { dark: "#1b1b1b", light: "#ffffff" };
+  const accents = /^(green|blue|yellow|red|#[0-9a-f]{6})$/u;
+  // 军师外壳地址带 `?accent=` query 注入首屏主题色，因此信任判断按 pathname 而非全等。
+  function sameShellUrl(target) {
+    try { return new URL(target).pathname === new URL(address).pathname; } catch { return false; }
+  }
   function trustedChild(event) {
     return child && !child.webContents.isDestroyed() && event.sender === child.webContents &&
-      event.senderFrame === child.webContents.mainFrame && event.senderFrame.url === address;
+      event.senderFrame === child.webContents.mainFrame && sameShellUrl(event.senderFrame.url);
   }
   function emit(data) {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("advisor:to-main", data);
@@ -97,14 +102,15 @@ function attachAdvisorCompanion(options) {
     own.setBackgroundColor(themes[theme]); own.setVisible(false);
     mainWindow.contentView.addChildView(own);
     own.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-    own.webContents.on("will-navigate", (event, target) => { if (target !== address) event.preventDefault(); });
-    own.webContents.on("will-redirect", (event, target) => { if (target !== address) event.preventDefault(); });
+    own.webContents.on("will-navigate", (event, target) => { if (!sameShellUrl(target)) event.preventDefault(); });
+    own.webContents.on("will-redirect", (event, target) => { if (!sameShellUrl(target)) event.preventDefault(); });
     own.webContents.on("will-attach-webview", event => event.preventDefault());
     own.webContents.on("did-finish-load", () => {
       if (closing || own.webContents.isDestroyed()) return;
       emit({ type: "ADVISOR_WINDOW_READY" });
     });
-    void own.webContents.loadURL(address); return own;
+    // 主题色走 query：shell 再转给 iframe，避免军师窗口首帧先渲染默认绿再跳色。
+    void own.webContents.loadURL(new URL("?accent=" + encodeURIComponent(accent), address).href); return own;
   }
   ipcMain.handle("advisor:toggle", (event, force) => {
     if (!trustedMainFrame(event) || (force !== undefined && typeof force !== "boolean") || closing) return { visible: false };
@@ -148,6 +154,15 @@ function attachAdvisorCompanion(options) {
       if (!Object.hasOwn(themes, value)) return;
       theme = value;
       if (child && !child.webContents.isDestroyed()) child.setBackgroundColor(themes[value]);
+    },
+    // 主题色来自主界面设置页；主窗口换色时推给已打开的军师窗口，新建窗口则由 query 注入。
+    setAccent(value) {
+      if (typeof value !== "string" || !accents.test(value)) return;
+      accent = value;
+      if (child && !child.webContents.isDestroyed() && latestInit && currentScope) {
+        child.webContents.send("advisor:to-window", { envelope: "advisor", nonce: latestInit.nonce,
+          type: "ADVISOR_THEME", payload: { theme, accent }, scope: currentScope });
+      }
     },
     close() {
       closing = true; showing = false;

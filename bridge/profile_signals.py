@@ -5,6 +5,14 @@ import math
 import re
 from collections import Counter
 
+try:
+    import jieba
+except ImportError:
+    jieba = None
+
+_TOKEN_RE = re.compile(r"[\u4e00-\u9fff]+|[A-Za-z]{3,}")
+_VALID_WORD_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[a-z]{3,24}")
+
 STYLE_LABELS = {
     "socialEnergy": "表达活力", "humor": "幽默表达", "composure": "情绪平和",
     "initiative": "话题主动", "care": "关怀支持", "affection": "亲近表达",
@@ -60,16 +68,12 @@ def style_traits(rows):
 
 
 def keyword_counts(texts):
-    try:
-        import jieba
-    except ImportError:
-        jieba = None
     counts = Counter()
     for text in texts:
-        tokens = jieba.lcut(text) if jieba else re.findall(r"[\u4e00-\u9fff]+|[A-Za-z]{3,}", text)
+        tokens = jieba.lcut(text) if jieba else _TOKEN_RE.findall(text)
         for token in tokens:
             word = token.strip().lower()
-            if word in STOPWORDS or (not re.fullmatch(r"[\u4e00-\u9fff]{2,8}|[a-z]{3,24}", word)):
+            if word in STOPWORDS or not _VALID_WORD_RE.fullmatch(word):
                 continue
             counts[word] += 1
     return counts

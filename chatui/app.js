@@ -63,9 +63,11 @@ function getVisibleUnreadCount(session) {
 }
 const defaults = { theme: "dark", zoom: "1.0", intent: true, backgroundAnalyze: false,
   guidanceWindowMinutes: 1440, accent: "green" };
-// 主题色预设：与 style.css 的 body[data-theme-accent="…"] 一一对应。
+// 主题色预设：与 theme-accent.css 的 body[data-theme-accent="…"] 一一对应；另接受 6 位十六进制自定义色。
 const THEME_ACCENTS = ["green", "blue", "yellow", "red"];
-const THEME_ACCENT_LABELS = { green: "绿色", blue: "蓝色", yellow: "黄色", red: "红色" };
+const THEME_ACCENTS_HEX = /^#[0-9a-f]{6}$/u;
+const isThemeAccent = value => THEME_ACCENTS.includes(value) || (typeof value === "string" && THEME_ACCENTS_HEX.test(value));
+const THEME_ACCENT_LABELS = { green: "绿色", blue: "蓝色", yellow: "黄色", red: "红色", custom: "自定义" };
 const CURRENT_LABEL_SCHEMA = "generic-v12";
 const GENERIC_INTENT_LABELS = Object.freeze({
   small_talk: "闲聊", share_news: "分享", ask_question: "提问", seek_help: "求助", deny: "否认",
@@ -101,10 +103,10 @@ settingsState.settings = undefined;
 try { settingsState.settings = { ...defaults, ...JSON.parse(localStorage.getItem("real-ui-settings-1") || "{}") }; }
 catch { settingsState.settings = { ...defaults }; }
 delete settingsState.settings.historyLimit;
-if (!["dark", "light"].includes(settingsState.settings.theme)) settingsState.settings.theme = "dark";
+if (!["dark", "light", "auto"].includes(settingsState.settings.theme)) settingsState.settings.theme = "dark";
 if (!["0.9", "1.0", "1.1", "1.25", "1.5"].includes(settingsState.settings.zoom)) settingsState.settings.zoom = "1.0";
-// 主题色只接受预设值；旧版本设置里没有这个键，或手改坏了，一律回落到默认绿色。
-if (!THEME_ACCENTS.includes(settingsState.settings.accent)) settingsState.settings.accent = "green";
+// 主题色接受四个预设或 6 位十六进制；旧版本没有这个键、或手改坏了，一律回落到默认绿色。
+if (!isThemeAccent(settingsState.settings.accent)) settingsState.settings.accent = "green";
 if (typeof settingsState.settings.intent !== "boolean") settingsState.settings.intent = true;
 // Analysing every added chat in the background is opt-in: it can keep the CPU or GPU busy
 // for hours on a large account.
@@ -1903,32 +1905,89 @@ function messageNode(message) {
   attachPickControl(message, item);
   return item;
 }
+function messageRenderSignature(message) {
+  const candidates = Array.isArray(message?.senderAvatarCandidates) ?
+    message.senderAvatarCandidates.join("\u0001") : "";
+  return [message?.id, message?.side, message?.kind, message?.time, message?.text,
+    message?.senderName, message?.senderId, message?.senderAvatar, candidates].join("\u0000");
+}
+function messagesSignature(messages) {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (const message of messages) {
+    const part = messageRenderSignature(message);
+    for (let index = 0; index < part.length; index++) {
+      const code = part.charCodeAt(index);
+      h1 = Math.imul(h1 ^ code, 16777619) >>> 0;
+      h2 = (Math.imul(h2 + code, 2246822519) + (h1 >>> 13)) >>> 0;
+    }
+    h1 = Math.imul(h1 ^ 0xff, 16777619) >>> 0;
+    h2 = Math.imul(h2 + 0xff, 2246822519) >>> 0;
+  }
+  return `${messages.length}:${h1.toString(16)}:${h2.toString(16)}`;
+}
 function renderMessages(next, restoreScroll = null, historyAnchor = null) {
   const container = byId("chatMessages");
   const previousMessages = chatState.messages;
   const oldIds = chatState.messages.map(message => String(message.id));
   const nextIds = next.map(message => String(message.id));
-  const appendOnly = oldIds.length && oldIds.length <= nextIds.length && oldIds.every((id, index) => id === nextIds[index] && JSON.stringify(chatState.messages[index]) === JSON.stringify(next[index])) && container.querySelectorAll(".msg-item").length === oldIds.length;
+  const oldSignatures = chatState.messages.map(messageRenderSignature);
+  const nextSignatures = next.map(messageRenderSignature);
+  const appendOnly = oldIds.length && oldIds.length <= nextIds.length &&
+    oldIds.every((id, index) => id === nextIds[index] && oldSignatures[index] === nextSignatures[index]) &&
+    container.querySelectorAll(".msg-item").length === oldIds.length;
+  // Historical paging keeps the loaded window contiguous. Reuse those rows instead of
+  // rebuilding all 600 nodes just to prepend or append one page.
+  const overlapStart = !appendOnly && oldIds.length ? nextIds.indexOf(oldIds[0]) : -1;
+  const contiguous = overlapStart >= 0 &&
+    oldIds.every((id, index) => nextIds[overlapStart + index] === id);
+  const reuse = contiguous && container.querySelectorAll(".msg-item").length === oldIds.length
+    ? { start: overlapStart, end: overlapStart + oldIds.length } : null;
   const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
   chatState.followLatest = historyAnchor ? false : restoreScroll ? restoreScroll.followLatest : atBottom || !oldIds.length;
   const scroll = container.scrollTop;
   const anchor = !atBottom && !appendOnly ? [...container.querySelectorAll(".msg-item")].find(node => node.getBoundingClientRect().bottom >= container.getBoundingClientRect().top) : null;
   const anchorId = anchor?.dataset.messageId;
   const anchorOffset = anchor ? anchor.getBoundingClientRect().top - container.getBoundingClientRect().top : 0;
-  const start = appendOnly ? oldIds.length : 0;
   const fragment = document.createDocumentFragment();
-  try {
-    chatState.messages = next;
-    for (let index = start; index < next.length; index++) {
+  const appendRange = (target, from, to) => {
+    for (let index = from; index < to; index++) {
       const message = next[index];
       const previous = next[index - 1];
       if (!previous || Number(message.time) - Number(previous.time) > 300000) {
         const row = element("div", "msg-time-row");
         row.appendChild(element("span", "msg-time", time(message.time)));
-        fragment.appendChild(row);
+        target.appendChild(row);
       }
-      fragment.appendChild(messageNode(message));
+      target.appendChild(messageNode(message));
     }
+  };
+  try {
+    chatState.messages = next;
+    if (reuse) {
+      const items = [...container.querySelectorAll(".msg-item")];
+      for (let index = 0; index < oldIds.length; index++) {
+        if (oldSignatures[index] === nextSignatures[reuse.start + index]) continue;
+        items[index].replaceWith(messageNode(next[reuse.start + index]));
+      }
+      if (reuse.start > 0) {
+        const prefix = document.createDocumentFragment();
+        appendRange(prefix, 0, reuse.start);
+        const first = next[reuse.start];
+        const previous = next[reuse.start - 1];
+        const firstItem = container.querySelector(".msg-item");
+        const staleTime = firstItem?.previousElementSibling;
+        if (staleTime?.classList?.contains("msg-time-row")) staleTime.remove();
+        if (previous && Number(first.time) - Number(previous.time) > 300000) {
+          const row = element("div", "msg-time-row");
+          row.appendChild(element("span", "msg-time", time(first.time)));
+          prefix.appendChild(row);
+        }
+        container.insertBefore(prefix, container.firstChild);
+      }
+      if (reuse.end < next.length) appendRange(fragment, reuse.end, next.length);
+    } else if (appendOnly) appendRange(fragment, oldIds.length, next.length);
+    else appendRange(fragment, 0, next.length);
   } catch (error) {
     chatState.messages = previousMessages;
     throw error;
@@ -1936,8 +1995,10 @@ function renderMessages(next, restoreScroll = null, historyAnchor = null) {
   if (!byId("replyPrediction").hidden) clearReplyPrediction();
   updatePredictReplyAvailability();
   if (!next.length) status(container, "暂无消息");
-  else if (appendOnly) container.appendChild(fragment);
-  else container.replaceChildren(fragment);
+  else if (fragment.childNodes.length) {
+    if (appendOnly || reuse) container.appendChild(fragment);
+    else container.replaceChildren(fragment);
+  }
   if (next.length && historyAnchor) {
     const anchor = [...container.querySelectorAll(".msg-item")].find(node => node.dataset.messageId === historyAnchor.id);
     if (anchor) container.scrollTop += anchor.getBoundingClientRect().top - container.getBoundingClientRect().top - historyAnchor.top;
@@ -2819,8 +2880,8 @@ async function loadMessages(token = chatState.generation, poll = false, refresh 
     if (poll && !next.length && chatState.messages.length && ++chatState.emptyMessagePolls < 2) return;
     if (next.length) chatState.emptyMessagePolls = 0;
     if (typeof data.hasMoreBefore === "boolean") chatState.currentHasMoreBefore = data.hasMoreBefore;
-    const signature = JSON.stringify(next);
-    const changed = signature !== JSON.stringify(chatState.messages);
+    const signature = messagesSignature(next);
+    const changed = signature !== messagesSignature(chatState.messages);
     const previousOther = new Map(chatState.messages.filter(message => message.side === "other" && message.kind === "text")
       .map(message => [String(message.id), message.text]));
     const changedOther = next.some(message => message.side === "other" && message.kind === "text" &&
@@ -2966,7 +3027,7 @@ function switchSession(user, force = false) {
       labelState.selectedAnalysisTimer = null;
       if (token !== chatState.generation || account !== chatState.currentAccount || user !== chatState.currentUser || chatState.historyState) return;
       const analysis = await loadAnalysis(user, token, signal);
-      if (analysis && token === chatState.generation && !chatState.historyState) scheduleIncremental(user, token, signal, analysis, false, JSON.stringify(chatState.messages));
+      if (analysis && token === chatState.generation && !chatState.historyState) scheduleIncremental(user, token, signal, analysis, false, messagesSignature(chatState.messages));
     }, 120);
   } else void loadMessages(token, !!cached);
 }
@@ -4289,6 +4350,8 @@ async function loadProfile(member = "", retry = false) {
 function applyThemeAccent() {
   const accent = THEME_ACCENTS.includes(settingsState.settings.accent) ? settingsState.settings.accent : "green";
   document.body.dataset.themeAccent = accent;
+  // 同步给独立军师窗口：已打开的下发 ADVISOR_THEME，未打开的由创建时的 query 带上。
+  window.desktopHost?.setAccent?.(accent);
   for (const swatch of document.querySelectorAll(".theme-accent-swatch"))
     swatch.setAttribute("aria-checked", String(swatch.dataset.accent === accent));
   const reset = byId("btnResetThemeAccent");
@@ -4882,7 +4945,7 @@ function resumeLocalAnalysis() {
   const user = chatState.currentUser, token = chatState.generation, signal = chatState.controller.signal;
   void loadAnalysis(user, token, signal).then(analysis => {
     if (analysis && token === chatState.generation && !chatState.historyState)
-      scheduleIncremental(user, token, signal, analysis, false, JSON.stringify(chatState.messages));
+      scheduleIncremental(user, token, signal, analysis, false, messagesSignature(chatState.messages));
   });
 }
 function applyActiveModelSource(data) {
@@ -5649,7 +5712,21 @@ function apiInsightCandidates() {
   return chatState.messages.filter(eligible).slice(-500);
 }
 function apiInsightSignature(candidates) {
-  return JSON.stringify(candidates.map(message => [String(message.id), message.text]));
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (const message of candidates) {
+    const parts = [String(message.id), typeof message.text === "string" ? message.text : ""];
+    for (const part of parts) {
+      for (let index = 0; index < part.length; index++) {
+        const code = part.charCodeAt(index);
+        h1 = Math.imul(h1 ^ code, 16777619) >>> 0;
+        h2 = (Math.imul(h2 + code, 2246822519) + (h1 >>> 13)) >>> 0;
+      }
+      h1 = Math.imul(h1 ^ 0xff, 16777619) >>> 0;
+      h2 = Math.imul(h2 + 0xff, 2246822519) >>> 0;
+    }
+  }
+  return `${candidates.length}:${h1.toString(16)}:${h2.toString(16)}`;
 }
 function apiInsightWorkCurrent(work) {
   return labelState.apiInsightWork === work && settingsState.modelSourceResolved && settingsState.modelSourceSnapshot.mode === "api" &&
@@ -6870,7 +6947,7 @@ function retryAnalysis() {
   state.failed = false;
   state.queued = false;
   state.bootstrapRequested = true;
-  state.requestedSignature = JSON.stringify(chatState.messages);
+  state.requestedSignature = messagesSignature(chatState.messages);
   void startIncremental(chatState.currentUser, chatState.generation, chatState.controller.signal, key, state);
 }
 byId("btnRetryAnalysis").addEventListener("click", retryAnalysis);
@@ -7308,7 +7385,11 @@ byId("btnManageConversations").addEventListener("click", () => {
   if (panel.hidden) openConversationManager();
   else closeConversationManager();
 });
-byId("conversationSearch").addEventListener("input", renderConversationManager);
+let conversationSearchTimer = 0;
+byId("conversationSearch").addEventListener("input", () => {
+  clearTimeout(conversationSearchTimer);
+  conversationSearchTimer = setTimeout(renderConversationManager, 150);
+});
 byId("btnAddAllConversations").addEventListener("click", () => { void addAllConversations(); });
 byId("btnRemoveSelectedConversations").addEventListener("click", () => { void removeSelectedConversations(); });
 byId("btnToggleBackgroundAnalyze").addEventListener("click", () => {

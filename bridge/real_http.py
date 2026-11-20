@@ -29,6 +29,31 @@ import advisor_http
 CHATUI = ROOT / "chatui"
 CONTROL_TOKEN_ENV = "WECHATVIBE_CONTROL_TOKEN"
 CONTROL_TOKEN_HEADER = "X-WechatVibe-Control-Token"
+MAX_HTTP_REQUEST_THREADS = 32
+
+
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """Cap concurrent request threads so a burst cannot exhaust local resources."""
+
+    def __init__(self, address, handler):
+        super().__init__(address, handler)
+        self._request_slots = threading.BoundedSemaphore(MAX_HTTP_REQUEST_THREADS)
+
+    def process_request(self, request, client_address):
+        if not self._request_slots.acquire(timeout=10):
+            request.close()
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._request_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._request_slots.release()
 
 
 def app_version():
@@ -739,8 +764,8 @@ def _serve(classifier):
         port = integer(os.environ.get("CHATUI_PORT"), default_port(ROOT, profile), 65535)
         accounts = AccountAPI(backend, ROOT / ".local" / "real-client-data",
                               runtime_dir=runtime_dir(ROOT, profile))
-        server = ThreadingHTTPServer(("127.0.0.1", port),
-                                     make_handler(backend, accounts, control_token, profile))
+        server = BoundedThreadingHTTPServer(("127.0.0.1", port),
+                                            make_handler(backend, accounts, control_token, profile))
         print(f"chatui server on http://127.0.0.1:{port}", flush=True)
         server.serve_forever()
     finally:

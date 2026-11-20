@@ -227,21 +227,39 @@ export async function fitPortraitFacts(config: ModelConfig, evidence: ApiPortrai
   contextTokens: number, generate: PortraitGenerator): Promise<PortraitFact[]> {
   const budget = portraitContextBudget(contextTokens) - 180;
   let facts = evidenceFacts(evidence);
+  const singleSizes = new Map<PortraitFact, number>();
+  const singleSize = (fact: PortraitFact) => {
+    let size = singleSizes.get(fact);
+    if (size === undefined) {
+      size = charCount(JSON.stringify(factInput([fact])));
+      singleSizes.set(fact, size);
+    }
+    return size;
+  };
+  const totalSizes = new Map<PortraitFact[], number>();
+  const totalSize = (items: PortraitFact[]) => {
+    let size = totalSizes.get(items);
+    if (size === undefined) {
+      size = charCount(JSON.stringify(factInput(items)));
+      totalSizes.set(items, size);
+    }
+    return size;
+  };
   // A wide evidence item must still fit a small model. Only the temporary quote
   // preview is shortened; all original citations remain in the stored ledger.
   facts = facts.map(fact => {
-    if (charCount(JSON.stringify(factInput([fact]))) <= budget) return fact;
+    if (singleSize(fact) <= budget) return fact;
     return { ...fact, sources: [fact.sources[0]!].map(source => ({ ...source,
       quote: Array.from(source.quote).slice(0, 80).join("") })) };
   });
-  for (let round = 0; charCount(JSON.stringify(factInput(facts))) > budget; round++) {
+  for (let round = 0; totalSize(facts) > budget; round++) {
     if (round >= 8) throw new ModelConnectorError("context-too-long", "画像证据无法压缩至所选上下文");
     const groups: PortraitFact[][] = [];
     let group: PortraitFact[] = [];
     for (const fact of facts) {
-      if (charCount(JSON.stringify(factInput([fact]))) > budget)
+      if (singleSize(fact) > budget)
         throw new ModelConnectorError("context-too-long", "单项画像证据超过所选上下文");
-      if (group.length && charCount(JSON.stringify(factInput([...group, fact]))) > budget) {
+      if (group.length && totalSize([...group, fact]) > budget) {
         groups.push(group); group = [];
       }
       group.push(fact);
@@ -278,7 +296,7 @@ export async function fitPortraitFacts(config: ModelConfig, evidence: ApiPortrai
       reduced.push(...batch.filter(fact => !covered.has(fact.id)));
     }
     reduced.forEach((f, i) => { f.id = `r${round + 1}e${i + 1}`; });
-    if (charCount(JSON.stringify(factInput(reduced))) >= charCount(JSON.stringify(factInput(facts))))
+    if (totalSize(reduced) >= totalSize(facts))
       throw new ModelConnectorError("context-too-long", "画像证据压缩没有减少上下文，请增大上下文设置");
     facts = reduced;
   }

@@ -182,12 +182,14 @@ const HALF_LIVES = [4, 6, 8, 10, 12, 16, 24];
 const CORPUS_PATH = path.resolve("tests/fixtures/laya-affinity-corpus.jsonl");
 /**
  * Per-label row count in each split. Mirrors `tests/laya-affinity-corpus.test.ts`.
- * Warm/romantic are intentionally positive-enriched on train/validation; test stays 4/class.
+ * Warm/romantic are intentionally positive-enriched on train/validation. Test grew from the
+ * original 4/class to 70/class across six batches; the last blind r9 was authored after the
+ * v3 feature freeze, so this table has to track the contract test, not the 931-row era.
  */
 const EXPECTED: Record<Split, Record<Label, number>> = {
   train: { rejecting: 84, distant: 88, neutral: 86, warm: 120, romantic: 117 },
   validation: { rejecting: 24, distant: 24, neutral: 24, warm: 32, romantic: 32 },
-  test: { rejecting: 60, distant: 60, neutral: 60, warm: 60, romantic: 60 },
+  test: { rejecting: 70, distant: 70, neutral: 70, warm: 70, romantic: 70 },
 };
 
 function loadCorpus(): CorpusCase[] {

@@ -19,6 +19,11 @@ const timelineCss = read("chatui", "advisor-timeline.css");
 const app = read("chatui", "app.js");
 const advisor = read("chatui", "advisor.js");
 const frame = read("chatui", "advisor-frame.js");
+const shellJs = read("chatui", "advisor-window.js");
+const shellHtml = read("chatui", "advisor-window.html");
+const shell = read("scripts", "real-client-shell.cjs");
+const preload = read("scripts", "real-client-preload.cjs");
+const companion = read("scripts", "advisor-companion.cjs");
 // 规则查询覆盖所有样式表：预设已抽到独立的 theme-accent.css。
 const allCss = [css, themeCss, advisorCss, timelineCss].join("\n");
 
@@ -119,6 +124,25 @@ it("forwards the accent to the companion window on init and on every change", ()
   assert.match(frame, /ADVISOR_INIT: \[[^\]]*"accent"/u);
   assert.match(frame, /payload\.accent !== undefined && !ACCENTS\.includes\(payload\.accent\)/u);
   assert.equal((frame.match(/dataset\.themeAccent = ACCENTS\.includes/gu) || []).length, 2);
+});
+
+it("seeds the companion window's first paint with the current accent", () => {
+  // 链路：主窗口 → preload setAccent → shell → companion（保存 + 新建窗口带 query / 已建下发消息）
+  // → 外壳组装 iframe src → 帧内最早的同步脚本写 dataset，全部发生在首帧 paint 之前。
+  assert.match(app, /window\.desktopHost\?\.setAccent\?\.\(accent\);/u);
+  assert.match(preload, /setAccent\(accent\)/u);
+  assert.match(preload, /ipcRenderer\.send\("real-client:set-accent", accent\)/u);
+  assert.match(preload, /\^\(green\|blue\|yellow\|red\|#\[0-9a-f\]\{6\}\)\$/u);
+  assert.match(shell, /ipcMain\.on\("real-client:set-accent"/u);
+  assert.match(shell, /advisorCompanion\?\.setAccent\(accent\)/u);
+  assert.match(companion, /loadURL\(new URL\("\?accent=" \+ encodeURIComponent\(accent\), address\)\.href\)/u);
+  assert.match(companion, /sameShellUrl\(event\.senderFrame\.url\)/u);
+  assert.match(companion, /setAccent\(value\)/u);
+  assert.match(shellJs, /frame\.src = frameSrc\(\);/u);
+  assert.match(shellJs, /\?accent=" \+ encodeURIComponent\(currentAccent\)/u);
+  assert.match(frame, /dataset\.themeAccent = initialAccent;/u);
+  // iframe 的 src 不再写死在 HTML 里，否则注入就赶不上第一次加载。
+  assert.equal(/<iframe[^>]*src="advisor-frame\.html"/u.test(shellHtml), false);
 });
 
 it("defaults to green, validates stored values and applies the attribute", () => {

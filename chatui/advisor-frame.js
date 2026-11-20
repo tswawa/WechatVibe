@@ -4,6 +4,11 @@
   const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
   const text = (value, limit) => typeof value === "string" && value.length <= limit;
   const ACCENTS = ["green", "blue", "yellow", "red"];
+  // 首屏主题色：宿主经创建 query 注入，先于任何 postMessage 落地，避免默认绿先闪一帧。
+  // 手写解析而非 URLSearchParams：测试沙箱的 window 桩不提供该全局。
+  const queryAccent = (document.location?.search || "").match(/[?&]accent=([^&]+)/);
+  const initialAccent = queryAccent ? decodeURIComponent(queryAccent[1]) : "";
+  if (initialAccent && ACCENTS.includes(initialAccent)) document.body.dataset.themeAccent = initialAccent;
   const terminal = new Set(["done", "error", "stopped", "cancelled"]);
   const byId = id => document.getElementById(id);
   const agentName = byId("agentName"), agentMenu = byId("agentMenu"), menuButton = byId("btnAgentMenu");

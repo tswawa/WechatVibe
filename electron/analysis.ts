@@ -586,12 +586,14 @@ function fitStateForQuestions(
       maxStateTokens = Math.min(maxStateTokens, config.max_len - prefix.ids.length - 1);
     }
     const tokenCount = (value: State) => tokenizer.encode(serializeState(value).replaceAll(tokenizer.maskToken, " ")).length;
-    if (tokenCount(fittedState) > maxStateTokens) {
+    let fittedTokens = tokenCount(fittedState);
+    if (fittedTokens > maxStateTokens) {
       if (typeof state === "string") {
         fittedState = fitTargetStateToBudget(state, maxStateTokens, tokenCount, hasPortrait);
       }
-      if (tokenCount(fittedState) > maxStateTokens) {
-        throw new ObservedTextTooLongError(tokenCount(fittedState) + config.max_len - maxStateTokens, config.max_len);
+      fittedTokens = tokenCount(fittedState);
+      if (fittedTokens > maxStateTokens) {
+        throw new ObservedTextTooLongError(fittedTokens + config.max_len - maxStateTokens, config.max_len);
       }
     }
   }

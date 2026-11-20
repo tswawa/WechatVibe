@@ -7,7 +7,24 @@ import type { ModelConfig } from "../electron/model-connectors";
 const MAX_LINE_BYTES = 20 * 1024 * 1024;
 type CommandId = string | number;
 
-function output(value: unknown): void { process.stdout.write(JSON.stringify(value) + "\n"); }
+const pendingWrites: string[] = [];
+let writing = false;
+function flushWrites(): void {
+  if (writing) return;
+  writing = true;
+  while (pendingWrites.length) {
+    const line = pendingWrites.shift()!;
+    if (!process.stdout.write(line)) {
+      process.stdout.once("drain", () => { writing = false; flushWrites(); });
+      return;
+    }
+  }
+  writing = false;
+}
+function output(value: unknown): void {
+  pendingWrites.push(JSON.stringify(value) + "\n");
+  flushWrites();
+}
 
 export async function runAdvisorWorker(root: string): Promise<void> {
   const runtime = new AdvisorRuntime({ root });

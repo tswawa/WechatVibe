@@ -35,6 +35,12 @@ SYSTEM_TYPES = {10000, 10002}
 TIME_MS_SQL = "(CASE WHEN create_time < 100000000000 THEN create_time * 1000 ELSE create_time END)"
 
 
+def _time_ms_sql(column: str) -> str:
+    """Same normalisation, built from the column name actually present in the shard."""
+    quoted = f'"{column}"'
+    return f"(CASE WHEN {quoted} < 100000000000 THEN {quoted} * 1000 ELSE {quoted} END)"
+
+
 def md5_username(username: str) -> str:
     return hashlib.md5(username.encode("utf-8")).hexdigest()
 
@@ -218,7 +224,7 @@ class SqliteShard:
         if not table:
             return 0
         row = self._execute(
-            f'SELECT COUNT(*) FROM "{table}" WHERE {TIME_MS_SQL} <= ?', (cutoff_ms,)
+            f'SELECT COUNT(*) FROM "{table}" WHERE {_time_ms_sql(self._time_column(table))} <= ?', (cutoff_ms,)
         )
         return int(row[0][0]) if row else 0
 
@@ -237,6 +243,15 @@ class SqliteShard:
             raise errors.ProtocolError(errors.UNSUPPORTED_SCHEMA, "message columns missing")
         selected = [column for column in (local_col, server_col, sort_col, type_col, sender_col, time_col, body_col, compress_col) if column]
         return table, selected
+
+    def _time_column(self, table: str) -> str:
+        return _first_existing(self._columns[table], ("create_time", "createTime")) or "create_time"
+
+    def _order_columns(self, table: str) -> tuple[str, str]:
+        columns = self._columns[table]
+        sort_col = _first_existing(columns, ("sort_seq", "sortSeq")) or "sort_seq"
+        local_col = _first_existing(columns, ("local_id", "localId")) or "local_id"
+        return sort_col, local_col
 
     def _row_from(self, selected: list[str], record: tuple, username: str, contact_id: str) -> dict:
         values = dict(zip(selected, record))
@@ -286,15 +301,17 @@ class SqliteShard:
             "side": side,
         }
 
-    def _keyset_predicate(self, cursor: tuple[int, str, int] | None) -> tuple[str, tuple]:
+    def _keyset_predicate(self, cursor: tuple[int, str, int] | None,
+                          sort_col: str, local_col: str) -> tuple[str, tuple]:
         if cursor is None:
             return "", ()
         cursor_sort, cursor_shard, cursor_local = cursor
+        sort_sql, local_sql = f'"{sort_col}"', f'"{local_col}"'
         if self.shard_id > cursor_shard:
-            return "AND sort_seq >= ?", (cursor_sort,)
+            return f"AND {sort_sql} >= ?", (cursor_sort,)
         if self.shard_id < cursor_shard:
-            return "AND sort_seq > ?", (cursor_sort,)
-        return "AND (sort_seq > ? OR (sort_seq = ? AND local_id > ?))", (
+            return f"AND {sort_sql} > ?", (cursor_sort,)
+        return f"AND ({sort_sql} > ? OR ({sort_sql} = ? AND {local_sql} > ?))", (
             cursor_sort,
             cursor_sort,
             cursor_local,
@@ -312,11 +329,13 @@ class SqliteShard:
         if not table:
             return
         table, selected = self._select_columns(table)
-        predicate, predicate_params = self._keyset_predicate(cursor)
+        sort_col, local_col = self._order_columns(table)
+        sort_sql, local_sql = f'"{sort_col}"', f'"{local_col}"'
+        predicate, predicate_params = self._keyset_predicate(cursor, sort_col, local_col)
         columns = ", ".join(f'"{column}"' for column in selected)
         sql = (
-            f'SELECT {columns} FROM "{table}" WHERE {TIME_MS_SQL} <= ? {predicate} '
-            f"ORDER BY sort_seq ASC, local_id ASC LIMIT ?"
+            f'SELECT {columns} FROM "{table}" WHERE {_time_ms_sql(self._time_column(table))} <= ? {predicate} '
+            f"ORDER BY {sort_sql} ASC, {local_sql} ASC LIMIT ?"
         )
         params = (cutoff_ms, *predicate_params, limit)
         try:
@@ -331,8 +350,10 @@ class SqliteShard:
         if not table:
             return []
         table, selected = self._select_columns(table)
+        sort_col, local_col = self._order_columns(table)
+        sort_sql, local_sql = f'"{sort_col}"', f'"{local_col}"'
         columns = ", ".join(f'"{column}"' for column in selected)
-        sql = f'SELECT {columns} FROM "{table}" ORDER BY sort_seq DESC, local_id DESC LIMIT ?'
+        sql = f'SELECT {columns} FROM "{table}" ORDER BY {sort_sql} DESC, {local_sql} DESC LIMIT ?'
         rows = self._execute(sql, (limit,))
         return [self._row_from(selected, tuple(record), username, contact_id) for record in rows]
 
@@ -347,7 +368,7 @@ class SqliteShard:
         if local_col is None or sort_col is None:
             return None
         sql = (
-            f'SELECT "{sort_col}", "{local_col}" FROM "{table}" WHERE {TIME_MS_SQL} <= ? '
+            f'SELECT "{sort_col}", "{local_col}" FROM "{table}" WHERE {_time_ms_sql(self._time_column(table))} <= ? '
             f'ORDER BY "{sort_col}" DESC, "{local_col}" DESC LIMIT 1'
         )
         rows = self._execute(sql, (cutoff_ms,))
@@ -355,19 +376,21 @@ class SqliteShard:
             return None
         return (int(rows[0][0] or 0), int(rows[0][1] or 0))
 
-    def _before_predicate(self, cursor: tuple[int, str, int], inclusive: bool) -> tuple[str, tuple]:
+    def _before_predicate(self, cursor: tuple[int, str, int], inclusive: bool,
+                          sort_col: str, local_col: str) -> tuple[str, tuple]:
         cursor_sort, cursor_shard, cursor_local = cursor
+        sort_sql, local_sql = f'"{sort_col}"', f'"{local_col}"'
         if self.shard_id < cursor_shard:
-            return "AND sort_seq <= ?", (cursor_sort,)
+            return f"AND {sort_sql} <= ?", (cursor_sort,)
         if self.shard_id > cursor_shard:
-            return "AND sort_seq < ?", (cursor_sort,)
+            return f"AND {sort_sql} < ?", (cursor_sort,)
         if inclusive:
-            return "AND (sort_seq < ? OR (sort_seq = ? AND local_id <= ?))", (
+            return f"AND ({sort_sql} < ? OR ({sort_sql} = ? AND {local_sql} <= ?))", (
                 cursor_sort,
                 cursor_sort,
                 cursor_local,
             )
-        return "AND (sort_seq < ? OR (sort_seq = ? AND local_id < ?))", (
+        return f"AND ({sort_sql} < ? OR ({sort_sql} = ? AND {local_sql} < ?))", (
             cursor_sort,
             cursor_sort,
             cursor_local,
@@ -387,11 +410,13 @@ class SqliteShard:
         if not table or limit <= 0:
             return
         table, selected = self._select_columns(table)
-        predicate, predicate_params = self._before_predicate(cursor, inclusive)
+        sort_col, local_col = self._order_columns(table)
+        sort_sql, local_sql = f'"{sort_col}"', f'"{local_col}"'
+        predicate, predicate_params = self._before_predicate(cursor, inclusive, sort_col, local_col)
         columns = ", ".join(f'"{column}"' for column in selected)
         sql = (
-            f'SELECT {columns} FROM "{table}" WHERE {TIME_MS_SQL} <= ? {predicate} '
-            f"ORDER BY sort_seq DESC, local_id DESC LIMIT ?"
+            f'SELECT {columns} FROM "{table}" WHERE {_time_ms_sql(self._time_column(table))} <= ? {predicate} '
+            f"ORDER BY {sort_sql} DESC, {local_sql} DESC LIMIT ?"
         )
         params = (cutoff_ms, *predicate_params, limit)
         try:

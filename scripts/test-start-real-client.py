@@ -15,6 +15,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -168,6 +169,28 @@ class LauncherTests(unittest.TestCase):
         self.server("real-ui-1")
         self.assertEqual(launcher.ensure_service(self.config, starter=lambda *_: self.fail("started")), (False, None))
         self.assertFalse(self.config.runtime_dir.exists())
+
+    def test_listener_pid_reads_only_the_listening_loopback_socket(self):
+        port = self.config.port
+        fake_psutil = SimpleNamespace(
+            CONN_LISTEN="LISTEN", Error=OSError,
+            net_connections=lambda kind: [
+                SimpleNamespace(status="ESTABLISHED", laddr=SimpleNamespace(port=port), pid=11),
+                SimpleNamespace(status="LISTEN", laddr=SimpleNamespace(port=port + 1), pid=12),
+                SimpleNamespace(status="LISTEN", laddr=SimpleNamespace(port=port), pid=4242),
+            ])
+        with patch.dict(sys.modules, {"psutil": fake_psutil}):
+            self.assertEqual(launcher.listener_pid(port), 4242)
+
+    def test_ready_service_with_foreign_listener_is_rejected(self):
+        def starter(config, log_path, control_token):
+            self.server("real-ui-1")
+            return FakeProcess()
+        with patch.object(launcher, "process_identity", return_value=(True, 42)), \
+             patch.object(launcher, "listener_pid", return_value=99999), \
+             patch.object(launcher, "abort_owned_launch", return_value=[]):
+            with self.assertRaisesRegex(launcher.LauncherError, "owned by PID 99999"):
+                launcher.ensure_service(self.config, starter=starter)
 
     def test_rejects_wrong_version_and_non_http_occupant(self):
         self.server("old-version")

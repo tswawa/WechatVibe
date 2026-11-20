@@ -132,6 +132,15 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
       }
     });
 
+    ipcMain.on("real-client:set-accent", (event, accent) => {
+      if (!trustedFrame(event) || typeof accent !== "string" || !/^(green|blue|yellow|red|#[0-9a-f]{6})$/u.test(accent)) return;
+      advisorCompanion?.setAccent(accent);
+      if (selfTest) {
+        testState.accents = [...(testState.accents || []), accent];
+        if (testState.accentWaiter) testState.accentWaiter(accent);
+      }
+    });
+
     ipcMain.handle("real-client:choose-assistant-package", async (event, kind, activated) => {
       if (!trustedFrame(event) || activated !== true || !["file", "directory"].includes(kind) || selfTest) return null;
       const selection = await dialog.showOpenDialog(window, {

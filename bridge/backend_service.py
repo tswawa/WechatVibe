@@ -79,6 +79,9 @@ ELASTIC_CALM_CPU = 55
 ELASTIC_CALM_MEMORY = 80
 ELASTIC_CALM_GPU = 55
 ELASTIC_CALM_FREE_VRAM_MIB = 3072
+# A follower may share one in-flight forecast with the leader. Bound that wait so a
+# wedged model cannot pin an HTTP thread forever; the leader still has no hard limit.
+FORECAST_FLIGHT_WAIT_SECONDS = 60
 
 
 def analysis_worker_settings():
@@ -2640,6 +2643,14 @@ class Backend:
         finally:
             for lock in reversed(locks):
                 lock.release()
+            # Locks are created on demand for every (account, path, user) triple. Drop
+            # the ones for this scope once nobody holds them, so long-running clients
+            # that churn accounts/sessions do not accumulate lock objects forever.
+            with self.jobs_lock:
+                for key in [key for key in self.profile_locks
+                            if key[0] == account and key[2] == user]:
+                    if not self.profile_locks[key].locked():
+                        self.profile_locks.pop(key, None)
             with self.request_condition:
                 self.analysis_scope_resets.discard(reset_scope)
                 self.request_condition.notify_all()
@@ -3336,7 +3347,8 @@ class Backend:
             candidates = cached
             self._verify_forecast_basis(actual_account, workdir, user, version, draft, fingerprint)
         elif not leader:
-            flight["event"].wait()
+            if not flight["event"].wait(timeout=FORECAST_FLIGHT_WAIT_SECONDS):
+                raise ForecastRequestError(503, "forecast-busy", "预测仍在进行，请稍后重试")
             if flight["error"] is not None:
                 raise flight["error"]
             candidates = flight["candidates"]
@@ -4464,12 +4476,11 @@ class Backend:
                 self.tasks.task_done()
                 continue
             lock = self._key_lock(task[0])
-            if not lock.acquire(blocking=False):
-                # Another worker is inside this conversation; take something else and
-                # come back to this task instead of blocking a whole worker on it.
+            # Blocking with a timeout removes the old acquire/sleep/requeue spin: a
+            # contended conversation no longer floods the queue with the same task.
+            if not lock.acquire(timeout=0.25):
                 self.tasks.task_done()
                 self._enqueue(task)
-                time.sleep(0.02)
                 continue
             self.worker_busy.add(index)
             try:

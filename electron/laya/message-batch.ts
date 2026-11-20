@@ -58,6 +58,11 @@ function validSide(side: unknown): side is "self" | "other" {
   return side === "self" || side === "other";
 }
 
+function segmentLine(segment: Segment): string {
+  return JSON.stringify({ role: segment.target ? "TARGET" : "BACKGROUND",
+    speaker: segment.side, continuation: segment.start > 0, text: segment.text });
+}
+
 function renderState(context: readonly BatchContext[], segments: readonly Segment[]): string {
   const lines = [
     "TARGET message to judge: the complete ordered set of TARGET records below, treated as ONE combined message batch.",
@@ -70,10 +75,7 @@ function renderState(context: readonly BatchContext[], segments: readonly Segmen
     }
   }
   lines.push("Ordered message batch:");
-  for (const segment of segments) {
-    lines.push(JSON.stringify({ role: segment.target ? "TARGET" : "BACKGROUND",
-      speaker: segment.side, continuation: segment.start > 0, text: segment.text }));
-  }
+  for (const segment of segments) lines.push(segmentLine(segment));
   return lines.join("\n");
 }
 
@@ -110,18 +112,27 @@ export function packMessageBatch(
     }
     return { message, codepoints, offset };
   });
+  const tokenCounts = new Map<string, number>();
   const checkedCount = (state: string) => {
+    const cached = tokenCounts.get(state);
+    if (cached !== undefined) return cached;
     const count = countTokens(state);
     if (!Number.isInteger(count) || count < 0) throw new MessageBatchInputError("invalid tokenizer count");
+    tokenCounts.set(state, count);
     return count;
   };
   const packWithContext = (context: readonly BatchContext[], contextTrimmed: boolean): PackedMessageBatch | null => {
     const segments: Segment[] = [];
     const consumed: BatchConsumed[] = [];
-    if (checkedCount(renderState(context, segments)) > maxStateTokens) return null;
+    // The prompt prefix is identical for every probe in this context variant.
+    // Reuse it instead of re-serializing the whole background on each token count.
+    const prefix = renderState(context, []);
+    const stateOf = (parts: readonly Segment[]) =>
+      parts.length ? prefix + "\n" + parts.map(segmentLine).join("\n") : prefix;
+    if (checkedCount(prefix) > maxStateTokens) return null;
     for (const { message, codepoints, offset } of normalized) {
       const remaining = codepoints.slice(offset);
-      const fits = (count: number) => checkedCount(renderState(context, [...segments,
+      const fits = (count: number) => checkedCount(stateOf([...segments,
         { side: message.side, target: message.target, start: offset, text: remaining.slice(0, count).join("") }])) <= maxStateTokens;
       let count = remaining.length;
       if (!fits(count)) {
@@ -153,7 +164,7 @@ export function packMessageBatch(
     const targetSegments = segments.filter(segment => segment.target && segment.text.trim());
     const sides = new Set(targetSegments.map(segment => segment.side));
     const targetSide = sides.size === 0 ? null : sides.size > 1 ? "mixed" : [...sides][0]!;
-    const state = renderState(context, segments);
+    const state = stateOf(segments);
     return { state, targetText: targetSegments.map(segment => segment.text).join("\n"),
       targetSide, consumed, contextTrimmed, stateTokens: checkedCount(state) };
   };

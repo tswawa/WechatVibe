@@ -442,6 +442,7 @@
             <span>主题外观</span>
             <select id="selectThemeMode">
               <option value="dark">深色模式 (默认)</option>
+              <option value="auto">跟随系统</option>
               <option value="light">浅色模式 (白天)</option>
             </select>
           </div>
@@ -452,6 +453,11 @@
               <button type="button" class="theme-accent-swatch" data-accent="blue" role="radio" aria-checked="false" title="蓝色" aria-label="蓝色"></button>
               <button type="button" class="theme-accent-swatch" data-accent="yellow" role="radio" aria-checked="false" title="黄色" aria-label="黄色"></button>
               <button type="button" class="theme-accent-swatch" data-accent="red" role="radio" aria-checked="false" title="红色" aria-label="红色"></button>
+              <label class="theme-accent-custom" title="自定义颜色">
+                <button type="button" class="theme-accent-swatch theme-accent-custom-swatch" data-accent="custom" role="radio" aria-checked="false" aria-label="自定义颜色"></button>
+                <input type="color" id="themeAccentColor" value="#76a988" aria-label="自定义主题色（取色器）">
+                <input type="text" id="themeAccentHex" maxlength="7" spellcheck="false" placeholder="#1a7f4b" aria-label="自定义主题色（十六进制）">
+              </label>
               <button type="button" class="settings-action-btn" id="btnResetThemeAccent" title="恢复默认绿色">恢复默认</button>
             </div>
           </div>

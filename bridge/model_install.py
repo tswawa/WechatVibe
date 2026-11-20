@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sys
 import uuid
 import zipfile
@@ -49,7 +50,6 @@ def install(archive_path: Path, root: Path) -> Path:
     pins = pinned_files()
     temporary = models / (".laya-" + uuid.uuid4().hex)
     plain_directory(temporary)
-    written = []
     try:
         with zipfile.ZipFile(archive_path) as archive:
             rows = archive.infolist()
@@ -65,7 +65,6 @@ def install(archive_path: Path, root: Path) -> Path:
                 digest = hashlib.sha256()
                 size = 0
                 with archive.open(row) as source, destination.open("xb") as output:
-                    written.append(destination)
                     while chunk := source.read(1024 * 1024):
                         size += len(chunk)
                         if size > row.file_size:
@@ -80,12 +79,12 @@ def install(archive_path: Path, root: Path) -> Path:
         return target
     finally:
         if temporary.exists():
-            for path in written:
-                path.unlink(missing_ok=True)
-            tokenizer = temporary / "tokenizer"
-            if tokenizer.exists():
-                tokenizer.rmdir()
-            temporary.rmdir()
+            # Recursive cleanup handles every subdirectories named in the pin list;
+            # a cleanup failure must never mask the extraction/verification error.
+            try:
+                shutil.rmtree(temporary)
+            except OSError:
+                pass
 
 
 def main() -> None:

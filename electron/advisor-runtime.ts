@@ -275,10 +275,17 @@ export async function startAdvisorEngine(spec: AdvisorEngineSpec): Promise<Advis
   try {
     url = await new Promise<string>((resolve, reject) => {
       let buffer = "";
+      let settled = false;
+      const drain = () => {};
       const timer = setTimeout(() => reject(new AdvisorRuntimeError("engine-start")), 25_000);
       const finish = (value?: string) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         child.stdout.off("data", onData);
+        // Keep a consumer on stdout for the rest of the process lifetime. Without it
+        // the child blocks once its stdout pipe buffer fills with later log writes.
+        child.stdout.on("data", drain);
         value ? resolve(value) : reject(new AdvisorRuntimeError("engine-start"));
       };
       const onData = (chunk: Buffer) => {

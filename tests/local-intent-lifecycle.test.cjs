@@ -24,6 +24,7 @@ const source = [
   "function analyzableMessages(", "function fineWindowSignature(", "function uncoveredMessages(",
   "function scheduleRecent(", "function incrementalState(", "async function startIncremental(",
   "function scheduleIncremental(", "async function toggleIntentRecognition(",
+  "function messageRenderSignature(", "function messagesSignature(",
 ].map(body).join("\n") + "\nlet recentIntentController = null;\n";
 
 function harness({ ready = true, results = {}, apiOverride } = {}) {
