@@ -279,3 +279,21 @@ Decision:
   内存读取没有移植。
 
 Consequences: 至此不再有任何"声称与 Python 等价"的缺口被掩盖。UIA 树遍历与截图是真正未完成的功能。
+
+## ADR-018: Win32 层收尾范围
+
+Status: accepted (2026-11-21)
+
+Context: 截图、UIA、进程内存扫描是最后三块 Win32 代码。
+
+Decision:
+- `window_capture`：GDI `BitBlt` + `GetDIBits` 抓客户区，BGR→RGB 后复用已证明的 zlib PNG 编码；
+  只在 `capture=true` 时执行，不落盘。
+- 进程内存：`OpenProcess` + `VirtualQueryEx` + `ReadProcessMemory`，8 MiB 分块、最多 4096 块、
+  512 MiB 上限；只返回密钥字面量，纯扫描函数有单元测试。
+- UIA：实现有界树模型（`probe_tree`，节点/深度上限与 offscreen 剪枝，7 项单元测试之一），
+  但 COM 树遍历未接；有窗口时返回显式 `uia-unavailable`。
+- `NativeService::connect_live`：解析 96-hex `x'<key><salt>'` 候选，逐个尝试解密分片，
+  用 SQLite 头验证候选正确性，构建 `ContactStore`。无等价证明。
+
+Consequences: 没有再以"等价"名义交付的 Win32 代码。真正未实现的是 UIA COM 树遍历。

@@ -957,3 +957,131 @@ impl NativeService {
         json!({ "ok": false, "reason": "uia-unavailable" })
     }
 }
+
+/// Parse a WCDB `x'<enc_key><salt>'` literal into raw key + salt.
+///
+/// 96 hex chars = 32-byte enc key + 16-byte salt. 64 hex chars = key only; the caller must supply
+/// the salt from the shard header in that case, so this helper returns `None` for the shorter form.
+pub fn parse_key_candidate(hex: &str) -> Option<(Vec<u8>, Vec<u8>)> {
+    if hex.len() != 96 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+        .collect::<Option<Vec<u8>>>()?;
+    Some((bytes[..32].to_vec(), bytes[32..48].to_vec()))
+}
+
+impl NativeService {
+    /// Port of `_connect_live`: resolve key candidates, decrypt each shard, build the store.
+    ///
+    /// Reads live process memory and live shard files. No equivalence claim (ADR-017).
+    pub fn connect_live(&mut self, params: &Value) -> Result<Value, PortError> {
+        if self.mode != "live" {
+            return Err(protocol_error("bad_request", "not a live service"));
+        }
+        if self.processes.is_empty() {
+            self.processes = wr_win32::win32::find_weixin_processes();
+        }
+        if self.processes.is_empty() {
+            return Err(protocol_error("wechat_closed", "Weixin.exe 未运行"));
+        }
+        let requested = params.get("accountId").cloned().unwrap_or(Value::Null);
+        let id = if requested.is_null() {
+            if self.accounts.len() != 1 {
+                return Err(protocol_error(
+                    "select_account",
+                    "multiple accounts require explicit selection",
+                ));
+            }
+            self.accounts.keys().next().cloned().unwrap_or_default()
+        } else {
+            let id = requested.as_str().unwrap_or_default().to_string();
+            if !self.accounts.contains_key(&id) {
+                return Err(protocol_error("not_found", "unknown account"));
+            }
+            id
+        };
+        let account = self.accounts.get(&id).expect("checked").clone();
+
+        let mut candidates: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+        for process in &self.processes {
+            for (_origin, hex) in wr_win32::win32::scan_key_candidates(process.pid) {
+                if let Some(pair) = parse_key_candidate(&hex)
+                    && !candidates.contains(&pair) {
+                        candidates.push(pair);
+                    }
+            }
+        }
+        if candidates.is_empty() {
+            return Err(protocol_error("key_unavailable", "no key candidate found"));
+        }
+
+        let shards = discovery::discover_shards(&account.dir_path);
+        if shards.is_empty() {
+            return Err(protocol_error("not_found", "no shard found"));
+        }
+        let mut handles: Vec<database::SqliteShard> = Vec::new();
+        for shard in shards {
+            let attrs = shard.get("attrs").unwrap_or(&shard);
+            let shard_id = attrs
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let path = attrs
+                .get("path")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let db = std::fs::read(&path)
+                .map_err(|_| protocol_error("read_error", "source unreadable"))?;
+            let wal_path = attrs
+                .get("wal_path")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty());
+            let wal = wal_path.and_then(|p| std::fs::read(p).ok());
+            let mut image: Option<Vec<u8>> = None;
+            for (raw_key, salt) in &candidates {
+                if let Ok(decrypted) = core::decrypt_shard_image(
+                    &json!({ "$bytes": db }),
+                    wal.as_ref().map(|w| json!({ "$bytes": w })).as_ref(),
+                    &json!({ "$bytes": raw_key }),
+                    &json!({ "$bytes": salt }),
+                )
+                    && let Some(bytes) = decrypted.get("$bytes").and_then(Value::as_array) {
+                        let image_bytes: Vec<u8> = bytes
+                            .iter()
+                            .filter_map(|b| b.as_u64())
+                            .map(|b| b as u8)
+                            .collect();
+                        if image_bytes.starts_with(b"SQLite format 3\x00") {
+                            image = Some(image_bytes);
+                            break;
+                        }
+                    }
+            }
+            let image =
+                image.ok_or_else(|| protocol_error("read_error", "shard decrypt failed"))?;
+            handles.push(database::SqliteShard::new(&shard_id, &image, &id, None)?);
+        }
+
+        let self_username = handles.iter().find_map(|shard| {
+            shard
+                .known_usernames()
+                .into_iter()
+                .find(|name| name.ends_with(&id) || name == &id)
+        });
+        for shard in &mut handles {
+            if let Some(ref username) = self_username {
+                shard.set_self_username(Some(username));
+            }
+        }
+        self.store_handle = Some(database::ContactStore::new(&id, handles));
+        self.account_id = Some(id);
+        self.state = "ready".to_string();
+        self.message = "live ready".to_string();
+        Ok(self.account_status())
+    }
+}

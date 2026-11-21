@@ -85,3 +85,53 @@ fn active_account_requires_exactly_one_match() {
     );
     assert_eq!(active_account_id(&accounts, &[], is_under), None);
 }
+
+trait TapOffscreen {
+    fn tap_offscreen(self) -> Self;
+}
+impl TapOffscreen for wr_win32::window_uia::Element {
+    fn tap_offscreen(mut self) -> Self {
+        self.offscreen = true;
+        self
+    }
+}
+
+#[test]
+fn uia_tree_is_bounded_by_nodes_and_depth() {
+    use wr_win32::window_uia::{Element, probe_tree};
+
+    let leaf = |name: &str| Element {
+        control_type: "Button".into(),
+        name: name.into(),
+        automation_id: String::new(),
+        enabled: true,
+        offscreen: false,
+        rect: (0, 0, 10, 10),
+        children: Vec::new(),
+    };
+    let root = Element {
+        control_type: "Window".into(),
+        name: "Weixin".into(),
+        automation_id: String::new(),
+        enabled: true,
+        offscreen: false,
+        rect: (0, 0, 800, 600),
+        children: vec![
+            leaf("a"),
+            leaf("offscreen").tap_offscreen(),
+            Element {
+                control_type: "Pane".into(),
+                name: String::new(),
+                automation_id: String::new(),
+                enabled: true,
+                offscreen: false,
+                rect: (0, 0, 100, 100),
+                children: vec![leaf("deep")],
+            },
+        ],
+    };
+    let result = probe_tree(&root, 4, 1);
+    assert_eq!(result["ok"], json!(true));
+    assert_eq!(result["nodes"].as_array().unwrap().len(), 3);
+    assert_eq!(result["truncated"], json!(false));
+}

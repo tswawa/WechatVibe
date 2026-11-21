@@ -1,7 +1,7 @@
 //! Deterministic parts of the live-mode boundary. Live process/window reads are not replayable.
 
 use serde_json::json;
-use wr_native::{NativeService, decode_cursor, encode_cursor};
+use wr_native::{NativeService, decode_cursor, encode_cursor, parse_key_candidate};
 
 #[test]
 fn cursor_roundtrip() {
@@ -34,4 +34,14 @@ fn live_service_starts_closed() {
     assert!(status["state"].is_string());
     assert!(status["accounts"].is_array());
     assert_eq!(status["accountId"], json!(null));
+}
+
+#[test]
+fn key_candidate_parsing() {
+    let hex = format!("{}{}", "ab".repeat(32), "cd".repeat(16));
+    let (key, salt) = parse_key_candidate(&hex).unwrap();
+    assert_eq!(key.len(), 32);
+    assert_eq!(salt.len(), 16);
+    assert!(parse_key_candidate(&"ab".repeat(32)).is_none());
+    assert!(parse_key_candidate("not-hex").is_none());
 }

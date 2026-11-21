@@ -15,8 +15,13 @@ fn main() {
     let cache = arg(&args, "--cache").unwrap_or_default();
     let ops_path = arg(&args, "--ops").unwrap_or_else(|| "testdata/ops.json".to_string());
 
-    let mut service = NativeService::new(&cache, Some(&manifest))
-        .unwrap_or_else(|e| panic!("construct service: {e:?}"));
+    let live = arg(&args, "--live").is_some();
+    let mut service = if live {
+        NativeService::new_live(&cache)
+    } else {
+        NativeService::new(&cache, Some(&manifest))
+    }
+    .unwrap_or_else(|e| panic!("construct service: {e:?}"));
     let file = std::fs::File::open(&ops_path).expect("read ops");
     let mut out: Vec<Value> = Vec::new();
     let params = |op: &Value| op.get("params").cloned().unwrap_or(json!({}));
@@ -32,7 +37,13 @@ fn main() {
             "hello" => Ok(service.hello()),
             "status" => Ok(service.status()),
             "accounts" => Ok(service.accounts_method()),
-            "connect" => service.connect(&params(&op)),
+            "connect" => {
+                if live {
+                    service.connect_live(&params(&op))
+                } else {
+                    service.connect(&params(&op))
+                }
+            }
             "contacts" => service.contacts(&params(&op)),
             "latest" => service.latest(&params(&op)),
             "open_history" => service.open_history(&params(&op)),
