@@ -1,0 +1,26 @@
+{"op": "opaque_account_id", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"}
+{"op": "opaque_account_id", "path": "."}
+{"op": "is_under", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage\\nested", "root": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"}
+{"op": "is_under", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage", "root": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage\\nested"}
+{"op": "is_under", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage", "root": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"}
+{"op": "decode_config_bytes", "hex": "646174615f6469723d443a5c70726f6a6563745c77656978696e416e616c797a65725c727573745c77722d646973636f766572792d72735c74657374646174615c747265655c787765636861745f66696c65730a"}
+{"op": "decode_config_bytes", "hex": "fffe70006100740068003d0044003a005c00700072006f006a006500630074005c00770065006900780069006e0041006e0061006c0079007a00650072005c0072007500730074005c00770072002d0064006900730063006f0076006500720079002d00720073005c00740065007300740064006100740061005c0074007200650065005c0078007700650063006800610074005f00660069006c00650073000a00"}
+{"op": "decode_config_bytes", "hex": "efbbbf68656c6c6f"}
+{"op": "decode_config_bytes", "hex": "fffe00"}
+{"op": "existing_absolute_directory", "value": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"}
+{"op": "existing_absolute_directory", "value": "\"D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage\""}
+{"op": "existing_absolute_directory", "value": "relative\\path"}
+{"op": "existing_absolute_directory", "value": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\missing"}
+{"op": "config_line_directory", "line": "data_dir=D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"}
+{"op": "config_line_directory", "line": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"}
+{"op": "config_line_directory", "line": "prefix: D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files"}
+{"op": "config_line_directory", "line": "   "}
+{"op": "config_content_directories", "content": "{\"dataDir\": \"D:\\\\project\\\\weixinAnalyzer\\\\rust\\\\wr-discovery-rs\\\\testdata\\\\tree\\\\xwechat_files\"}"}
+{"op": "config_content_directories", "content": "[\"D:\\\\project\\\\weixinAnalyzer\\\\rust\\\\wr-discovery-rs\\\\testdata\\\\tree\\\\xwechat_files\", \"bad\"]"}
+{"op": "config_content_directories", "content": "\"D:\\\\project\\\\weixinAnalyzer\\\\rust\\\\wr-discovery-rs\\\\testdata\\\\tree\\\\xwechat_files\""}
+{"op": "config_content_directories", "content": "﻿dataDir=D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage\nother=1"}
+{"op": "config_content_directories", "content": "[General]\npath=D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files"}
+{"op": "discover_account_dirs", "roots": ["D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files", "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\missing"]}
+{"op": "discover_account_dirs", "roots": ["D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files\\acctA\\db_storage"]}
+{"op": "discover_shards", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\xwechat_files"}
+{"op": "discover_shards", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-discovery-rs\\testdata\\tree\\missing"}

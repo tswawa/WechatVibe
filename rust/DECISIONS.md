@@ -206,3 +206,17 @@ Decision: `tools/compare.py` 用双目录差分：
 
 Consequences: 结果 30/30（22 个响应 + 8 个文件）一致。代价是每个写操作都要在 op 里显式编码，
 不能靠录制器自动生成。
+
+## ADR-014: discovery 只移植可复现的一半
+
+Status: accepted (2026-11-21)
+
+Context: `discovery.py` 混了两类代码：路径/配置解析（确定性，能差分）和
+`find_weixin_processes` / `process_open_file_paths` / 内存扫描（读活进程，两次运行结果天然不同）。
+
+Decision: `rust/wr-discovery-rs` 只移植前者：`opaque_account_id`、`_is_under`、配置解码
+（UTF-8 BOM / UTF-16 / GBK）、配置值提取、`discover_account_dirs(roots)`、`discover_shards`。
+26 个操作在合成目录树上与原版逐条一致。活进程扫描明确列为未完成，**不假装有等价证明**。
+
+Consequences: 未来接 `service.py` 时，进程信息只能由 Rust 侧用 `windows` crate 重新实现，
+并单独设计自测；不能声称和原版做过输入输出比对。
