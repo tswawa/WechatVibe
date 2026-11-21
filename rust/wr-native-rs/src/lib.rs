@@ -712,3 +712,112 @@ impl NativeService {
         }))
     }
 }
+
+fn row_key(row: &Value) -> (i64, String, i64) {
+    let number = |key: &str| -> i64 {
+        match row.get(key) {
+            Some(Value::String(s)) => s.parse::<i64>().unwrap_or(0),
+            Some(Value::Number(n)) => n.as_i64().unwrap_or(0),
+            _ => 0,
+        }
+    };
+    (
+        number("sortSeq"),
+        row.get("shardId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        number("localId"),
+    )
+}
+
+impl NativeService {
+    /// Port of `read_incremental`.
+    pub fn read_incremental(&mut self, params: &Value) -> Result<Value, PortError> {
+        self.require_ready()?;
+        if let Some(id) = params.get("accountId").and_then(Value::as_str)
+            && id != self.account_id.as_deref().unwrap_or_default()
+        {
+            return Err(protocol_error("bad_request", "account mismatch"));
+        }
+        let contact_id = params
+            .get("contactId")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| protocol_error("bad_request", "contactId required"))?;
+        let limit = core::int_param(
+            params.get("limit").unwrap_or(&Value::Null),
+            120,
+            1,
+            500,
+            "limit",
+        )?;
+        let context_limit = core::int_param(
+            params.get("contextLimit").unwrap_or(&Value::Null),
+            0,
+            0,
+            32,
+            "contextLimit",
+        )?;
+        let overlap_limit = core::int_param(
+            params.get("overlapLimit").unwrap_or(&Value::Null),
+            0,
+            0,
+            120,
+            "overlapLimit",
+        )?;
+        let username = self
+            .store_handle
+            .as_ref()
+            .expect("ready")
+            .username_for(contact_id)
+            .ok_or_else(|| protocol_error("not_found", "contact not found"))?;
+        let cursor = decode_cursor(params.get("cursor").unwrap_or(&Value::Null))?;
+        let store = self.store_handle.as_mut().expect("ready");
+
+        if cursor.is_none() {
+            let rows = store.latest(&username, limit)?;
+            let (context, next_cursor) = if let (Some(first), Some(last)) =
+                (rows.first(), rows.last())
+            {
+                let first_key = row_key(first);
+                let last_key = row_key(last);
+                (
+                    store.context_before(&username, 1 << 62, first_key, context_limit, false)?,
+                    Some(last_key),
+                )
+            } else {
+                (Vec::new(), None)
+            };
+            return Ok(json!({
+                "rows": rows,
+                "context": context,
+                "nextCursor": encode_cursor(next_cursor),
+                "done": true,
+            }));
+        }
+
+        let cursor = cursor.expect("checked");
+        let (after, _next, done) = store.page(&username, 1 << 62, Some(cursor.clone()), limit)?;
+        let next_cursor = after.last().map(row_key).unwrap_or(cursor.clone());
+        let overlap = if overlap_limit > 0 {
+            store.context_before(&username, 1 << 62, cursor, overlap_limit, true)?
+        } else {
+            Vec::new()
+        };
+        let mut rows = overlap;
+        rows.extend(after);
+        let context = match rows.first() {
+            Some(first) => {
+                store.context_before(&username, 1 << 62, row_key(first), context_limit, false)?
+            }
+            None => Vec::new(),
+        };
+        Ok(json!({
+            "rows": rows,
+            "context": context,
+            "nextCursor": encode_cursor(Some(next_cursor)),
+            "done": done,
+        }))
+    }
+}

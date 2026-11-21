@@ -46,6 +46,9 @@ OPS = [
     {"op": "read_history", "params": {"snapshotId": "__snap0", "limit": 3}},
     {"op": "read_history", "params": {"snapshotId": "__snap0", "limit": 3, "contextLimit": 2}},
     {"op": "read_history", "params": {"snapshotId": "missing"}},
+    {"op": "read_incremental", "params": {"contactId": "c_a", "limit": 3}},
+    {"op": "read_incremental", "params": {"contactId": "c_a", "limit": 3, "contextLimit": 2}},
+    {"op": "read_incremental", "params": {"contactId": "c_a", "limit": 3, "cursor": {"sortSeq": "105", "shardId": "shard-1", "localId": "6"}, "overlapLimit": 2}},
     {"op": "close"},
 ]
 
@@ -107,6 +110,8 @@ def run_python():
                 value = svc.open_history(params)
             elif name == "read_history":
                 value = svc.read_history(params)
+            elif name == "read_incremental":
+                value = svc.read_incremental(params)
             elif name == "close":
                 value = svc.close()
             else:

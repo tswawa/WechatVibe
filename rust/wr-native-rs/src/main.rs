@@ -37,6 +37,7 @@ fn main() {
             "latest" => service.latest(&params(&op)),
             "open_history" => service.open_history(&params(&op)),
             "read_history" => service.read_history(&params(&op)),
+            "read_incremental" => service.read_incremental(&params(&op)),
             "close" => Ok(service.close()),
             other => Ok(json!({"error": format!("unknown op {other}")})),
         };
