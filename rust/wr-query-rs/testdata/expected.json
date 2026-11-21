@@ -1,0 +1,1001 @@
+[
+ {
+  "ok": [
+   "wxid_a",
+   "wxid_b"
+  ]
+ },
+ {
+  "ok": [
+   "wxid_me",
+   "wxid_a",
+   "wxid_b",
+   "wxid_c"
+  ]
+ },
+ {
+  "ok": {
+   "wxid_a": {
+    "name": "阿甲"
+   },
+   "wxid_b": {}
+  }
+ },
+ {
+  "ok": true
+ },
+ {
+  "ok": false
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 1
+ },
+ {
+  "ok": [
+   100,
+   1
+  ]
+ },
+ {
+  "ok": 12
+ },
+ {
+  "ok": [
+   111,
+   12
+  ]
+ },
+ {
+  "ok": 12
+ },
+ {
+  "ok": [
+   111,
+   12
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通消息 wxid_a #11",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f694f315b83ac738e6d50bb38ff3ce0a",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "108",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000108000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "02ee0cc11cef7028d4a63b2d6fcdcffa",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "107",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000107000,
+    "text": "普通消息 wxid_a #7",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩内容 wxid_a #0",
+    "side": "self"
+   },
+   {
+    "id": "972b253770af5fabafa599bd2d82426c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "2",
+    "serverId": "9001",
+    "sortSeq": "101",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000101000,
+    "text": "普通消息 wxid_a #1",
+    "side": "other"
+   },
+   {
+    "id": "a4709efae14603d3a230519e12f39a6e",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "3",
+    "serverId": "9002",
+    "sortSeq": "102",
+    "senderId": "3",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000102000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b08c36ea85fc0aef8d037aac08637b5c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "99119087125af361355e681a8d699b15",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通消息 wxid_a #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b08c36ea85fc0aef8d037aac08637b5c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "99119087125af361355e681a8d699b15",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通消息 wxid_a #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b08c36ea85fc0aef8d037aac08637b5c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "99119087125af361355e681a8d699b15",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通消息 wxid_a #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b08c36ea85fc0aef8d037aac08637b5c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "99119087125af361355e681a8d699b15",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通消息 wxid_a #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b08c36ea85fc0aef8d037aac08637b5c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "99119087125af361355e681a8d699b15",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通消息 wxid_a #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "291167418b9779ece469dc4d08b5fff1",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b08c36ea85fc0aef8d037aac08637b5c",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "99119087125af361355e681a8d699b15",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通消息 wxid_a #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 1
+ },
+ {
+  "ok": [
+   200,
+   1
+  ]
+ },
+ {
+  "ok": 12
+ },
+ {
+  "ok": [
+   211,
+   12
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通消息 wxid_b #11",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "fc68ef274a2c20aa9c6afab7f6b1c0b5",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "208",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000208000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "34bf122ebbf615d09b1f5507032f5310",
+    "accountId": "wxid_self_account",
+    "contactId": "c1",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "207",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000207000,
+    "text": "普通消息 wxid_b #7",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": false
+ },
+ {
+  "ok": false
+ },
+ {
+  "ok": true
+ },
+ {
+  "ok": [
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "c2",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通消息 wxid_a #11",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "c2",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "c2",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   }
+  ]
+ }
+]

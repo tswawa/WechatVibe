@@ -154,3 +154,23 @@ NaN 当作"转换失败"返回 `None` → 0；Infinity 抛 `OverflowError`。
 
 Consequences: 4 个边界用例从不匹配变匹配。代价是 `normalize_time` 的返回类型从 `i64` 变成
 `serde_json::Value`（也因此 `refresh` 会重新生成绑定）。
+
+## ADR-011: 类不适合 bridge，改用「金标准操作集」证明
+
+Status: accepted (2026-11-21)
+
+Context: `SqliteShard` 和 `ContactStore` 是类，边界是一个活着的 `sqlite3` 连接，`pyconv` 带不过去，
+`record`/`diff` 对它们失效。但它们恰恰是 `wr/` 里逻辑最重的一块（SQL 分页、游标、跨分片归并）。
+
+Decision: 换一种证明方式，`rust/wr-query-rs`：
+1. `tools/build-golden.py` 用**原版 Python** 造一个 fixture 分片（Name2Id + 两张 Msg_ 表，
+   含秒/毫秒时间戳、zstd 正文、非法 UTF-8、Name2Id 里缺失的 sender），
+   把 108 个操作跑一遍，输出 `testdata/expected.json`。
+2. Rust 侧实现同样的类，`src/main.rs` 重放同一批操作，`tests/golden.rs` 逐条比对，
+   不一致就打印 op 序号、参数和两边的完整 JSON。
+3. `tools/compare.py` 提供不依赖 cargo 的端到端复跑。
+
+Consequences: 证明力与 record/diff 等价（同样的输入、同样的输出、逐条比对），代价是用例要手写，
+且新增行为要同时补 Python 侧和 Rust 侧的操作。第一次跑就发现一个真问题：
+用例里 `set_self_username(None)` 排在取数操作之前，导致 `side` 三个分支只覆盖了一个 —— 顺序一调，
+`self`/`other`/`unknown` 才全部跑到。

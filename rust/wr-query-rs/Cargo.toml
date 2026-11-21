@@ -1,0 +1,30 @@
+[package]
+name = "wr-query"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+description = "Rust port of wr/database.py's SqliteShard query layer"
+
+[lib]
+name = "wr_query"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wr-query"
+path = "src/main.rs"
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = "2"
+md-5 = "0.10"
+sha2 = "0.10"
+zstd = "0.13"
+
+[profile.release]
+lto = true
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+too_many_arguments = "allow"

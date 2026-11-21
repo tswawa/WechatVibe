@@ -17,7 +17,7 @@
 
 ## 单元状态
 
-`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 crate、4,062 条用例全绿。
+`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 1 个独立 crate（108 条金标准操作）全绿。
 
 | # | 单元 | 语言 | 行数 | crate | 状态 |
 | ---: | --- | --- | ---: | --- | --- |
@@ -27,7 +27,9 @@
 | 4 | `wr/protocol.py` | Python | 65 | `rust/wr-protocol-rs` | **done** gate 通过，692/692（`read_request`/`write_message` 保留 Python） |
 | 5 | `wr/snapshot.py` | Python | 154 | — | open —— 文件系统为主，需要 fixture 目录才能 replay |
 | 6 | `wr/fixture.py` | Python | 70 | `rust/wr-fixture-rs` | **done** gate 通过，224/224（只读，testdata 目录随 crate 提交） |
-| 7 | `wr/database.py`（自由函数） | Python | 571 | `rust/wr-database-rs` | **done** gate 通过，1121/1121；`SqliteShard`/`ContactStore` 两个查询类仍留在 Python |
+| 7 | `wr/database.py`（自由函数） | Python | 571 | `rust/wr-database-rs` | **done** gate 通过，1121/1121 |
+| 7b | `wr/database.py` → `SqliteShard` | Python | 317 | `rust/wr-query-rs` | **done** 108/108 金标准操作，`cargo test` 固化 |
+| 7c | `wr/database.py` → `ContactStore` | Python | 178 | — | open —— 跨分片归并 + 去重 |
 | 8 | `wr/discovery.py` | Python | 488 | — | open —— ctypes/Win32 |
 | 9 | `wr/window.py` / `window_uia.py` / `window_capture.py` | Python | 755 | — | open —— Win32 + UIA |
 | 10 | `wr/service.py` | Python | 803 | — | open —— 编排层，依赖上面全部 |
