@@ -1,0 +1,238 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\native-reader",
+  "unit": "wr/database.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "database-rs",
+  "exports": [
+    {
+      "name": "md5_username",
+      "file": "wr/database.py",
+      "line": 44,
+      "params": [
+        {
+          "name": "username",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "contact_id_for",
+      "file": "wr/database.py",
+      "line": 48,
+      "params": [
+        {
+          "name": "account_id",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "username",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "message_id_for",
+      "file": "wr/database.py",
+      "line": 52,
+      "params": [
+        {
+          "name": "account_id",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "username",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "shard_id",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "local_id",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "normalize_time",
+      "file": "wr/database.py",
+      "line": 63,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "int",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "extract_text",
+      "file": "wr/database.py",
+      "line": 76,
+      "params": [
+        {
+          "name": "message_content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "compress_content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "classify_kind",
+      "file": "wr/database.py",
+      "line": 99,
+      "params": [
+        {
+          "name": "local_type",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "string",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "encode_cursor",
+      "file": "wr/database.py",
+      "line": 610,
+      "params": [
+        {
+          "name": "cursor",
+          "ts_type": "tuple | undefined",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "dict | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "decode_cursor",
+      "file": "wr/database.py",
+      "line": 616,
+      "params": [
+        {
+          "name": "raw",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "tuple | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "sqlite_image_from_pages",
+      "file": "wr/database.py",
+      "line": 627,
+      "params": [
+        {
+          "name": "pages",
+          "ts_type": "dict",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page_size",
+          "ts_type": "int",
+          "optional": true,
+          "rest": false,
+          "default": "4096"
+        },
+        {
+          "name": "reserved",
+          "ts_type": "int",
+          "optional": true,
+          "rest": false,
+          "default": "80"
+        },
+        {
+          "name": "commit_pages",
+          "ts_type": "int | undefined",
+          "optional": true,
+          "rest": false,
+          "default": "None"
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "SqliteShard",
+      "file": "wr/database.py",
+      "line": 114,
+      "reason": "class: async or generator method `iter_before`, async or generator method `iter_keyset`, public attribute `account_id`, public attribute `image`, public attribute `self_id`, public attribute `shard_id`"
+    },
+    {
+      "name": "ContactStore",
+      "file": "wr/database.py",
+      "line": 431,
+      "reason": "class: async or generator method `rows`, public attribute `account_id`, public attribute `shards`"
+    }
+  ]
+}

@@ -137,3 +137,20 @@ Decision: 每个 port 里写 `py_len` / `type_name` 辅助函数：bytes 数字�
 
 Consequences: 错误消息与异常类型逐字一致；代价是每个 crate 有十几行样板。
 `wal.py` 的 12 个不匹配、`png_encode.py` 的 29 个不匹配都是这一类，改完立刻归零。
+
+## ADR-010: Python 的整数是任意精度，`normalize_time` 要能吃 1e308
+
+Status: accepted (2026-11-21)
+
+Context: `normalize_time` 走 `int(value)`，Python 的 int 无上限。fuzz 用例里有 `1e21` 和
+`1.7976931348623157e308`，原版返回精确的十进制整数（309 位），Rust 用 `i64` 直接截断成 `i64::MAX`，
+输出就不等了。另外 `int(float('nan'))` 抛 `ValueError`（被 `except` 吞成 0），
+`int(float('inf'))` 抛 `OverflowError`（不吞，直接冒给调用方）——两者处理路径不同。
+
+Decision: 内部用 `enum PyNum { Small(i64), Big(String) }`。超出 `i64` 的浮点走
+`format!("{:.0}", f)` —— Rust 的这个格式化给出 f64 的**精确**十进制展开，正是 `int(f)` 的结果；
+字符串溢出的走 `parse_big`（去符号、下划线、前导零）。返回时大数编码成 `{"$int": "<十进制>"}`。
+NaN 当作"转换失败"返回 `None` → 0；Infinity 抛 `OverflowError`。
+
+Consequences: 4 个边界用例从不匹配变匹配。代价是 `normalize_time` 的返回类型从 `i64` 变成
+`serde_json::Value`（也因此 `refresh` 会重新生成绑定）。
