@@ -83,3 +83,5 @@
 
 - `scripts/`：一次性构建 / 训练 / 打包脚本，port 零收益。
 - 上游 fork 关系：本仓库是 `tswawa/WechatVibe` 的 fork，跟着上游走，不另起实现。
+
+| 12 | Rust 入口 `wechatvibe.exe` | — | ~180 | `rust/app` | **done** Start.bat 走 Rust 路径，回落消失；2 项单测 |

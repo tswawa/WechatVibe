@@ -324,3 +324,18 @@ Status: accepted (2026-11-21)
 `max()` 并列保留首个而 Rust `max_by` 保留末个；`{"$num":"-0"}` 在 Python 是 falsy。
 `profile_signals` 的 gate 只卡 size 启发式（5.3x），行为与静态检查全过 —— 行数来自逐条复刻
 Python 的容器 unpack / 异常 / 特殊浮点语义，没有可抽取的公共 crate。
+
+## ADR-021: Rust 入口做进程编排，不重写 HTTP 层
+
+Status: accepted (2026-11-21)
+
+Context: Start.bat 一直回落 Electron，因为缺 `rust/app/target/release/wechatvibe.exe`。
+但 Python 后端有 100+ 端点（模型调用、会话、UIA 等），逐条移植不现实。
+
+Decision: `rust/app` 做进程编排层（即 service.py 的职责）：自检、`start-real-client.py --no-open --json`
+拿 URL、启动 Electron shell、等待退出、`--stop-owned-bridge` 清理。数据查询层复用已证明的
+wr-native 等 crate。消息全 ASCII，因为 Start.bat 跑在 GBK 控制台。
+
+Consequences: `Start.bat --check` 现在显示 `[1/1] Rust 可执行文件：...`，回落行消失。
+2 项单测通过。端到端启动被 Python 启动器既有的 port_conflict 挡住（反复调用后 health/listener_pid
+读到将死进程的 PID）——该问题在我介入前就复现，已回滚我对其的调试改动，不在本次交付范围。
