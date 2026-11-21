@@ -1,0 +1,59 @@
+{"fn": "api_insight_scope", "args": [{"a": {"b": "c"}}], "error": "TypeError: unsupported operand type(s) for +: 'dict' and 'str'"}
+{"fn": "api_insight_scope", "args": [{}], "error": "TypeError: unsupported operand type(s) for +: 'dict' and 'str'"}
+{"fn": "api_insight_scope", "args": [["a", 1]], "error": "TypeError: can only concatenate list (not \"str\") to list"}
+{"fn": "api_insight_scope", "args": [null], "error": "TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'"}
+{"fn": "api_insight_scope", "args": [0], "error": "TypeError: unsupported operand type(s) for +: 'int' and 'str'"}
+{"fn": "api_insight_scope", "args": [true], "error": "TypeError: unsupported operand type(s) for +: 'bool' and 'str'"}
+{"fn": "api_insight_scope", "args": ["x"], "ok": "x:free-label-v6-compact"}
+{"fn": "api_insight_scope", "args": [[]], "error": "TypeError: can only concatenate list (not \"str\") to list"}
+{"fn": "api_insight_scope", "args": [{"a": "b"}], "error": "TypeError: unsupported operand type(s) for +: 'dict' and 'str'"}
+{"fn": "api_insight_scope", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "TypeError: unsupported operand type(s) for +: 'dict' and 'str'"}
+{"fn": "api_insight_scope", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "TypeError: unsupported operand type(s) for +: 'dict' and 'str'"}
+{"fn": "api_insight_scope", "args": [[3, 1, 2]], "error": "TypeError: can only concatenate list (not \"str\") to list"}
+{"fn": "valid_api_insight_label", "args": [{"a": "b"}], "ok": false}
+{"fn": "valid_api_insight_label", "args": ["x"], "ok": false}
+{"fn": "valid_api_insight_label", "args": [0], "ok": false}
+{"fn": "valid_api_insight_label", "args": [["a", 1]], "ok": false}
+{"fn": "valid_api_insight_label", "args": [[]], "ok": false}
+{"fn": "valid_api_insight_label", "args": [{"a": {"b": "c"}}], "ok": false}
+{"fn": "valid_api_insight_label", "args": [true], "ok": false}
+{"fn": "valid_api_insight_label", "args": [null], "ok": false}
+{"fn": "valid_api_insight_label", "args": [{}], "ok": false}
+{"fn": "valid_api_insight_label", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": false}
+{"fn": "valid_api_insight_label", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": false}
+{"fn": "valid_api_insight_label", "args": [[3, 1, 2]], "ok": false}
+{"fn": "normalize_api_insight", "args": [0], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"a": "b"}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [true], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"a": {"b": "c"}}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [null], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [["a", 1]], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [[]], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": ["x"], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [[3, 1, 2]], "error": "ValueError: invalid-insights"}
+{"fn": "api_insight_scope", "args": ["wxid_abc"], "ok": "wxid_abc:free-label-v6-compact"}
+{"fn": "api_insight_scope", "args": ["chatroom-1"], "ok": "chatroom-1:free-label-v6-compact"}
+{"fn": "api_insight_scope", "args": [""], "ok": ":free-label-v6-compact"}
+{"fn": "valid_api_insight_label", "args": ["开心"], "ok": true}
+{"fn": "valid_api_insight_label", "args": ["担心"], "ok": true}
+{"fn": "valid_api_insight_label", "args": ["ok"], "ok": false}
+{"fn": "valid_api_insight_label", "args": ["开心啊"], "ok": true}
+{"fn": "valid_api_insight_label", "args": ["开门见山"], "ok": true}
+{"fn": "valid_api_insight_label", "args": ["😀开心"], "ok": false}
+{"fn": "valid_api_insight_label", "args": ["a开心"], "ok": false}
+{"fn": "normalize_api_insight", "args": [{"id": "m1", "status": "ok"}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"id": "m2", "status": "routine"}], "ok": {"id": "m2", "status": "routine"}}
+{"fn": "normalize_api_insight", "args": [{"id": "m3", "status": "uncertain", "affect": {}, "intents": []}], "ok": {"id": "m3", "status": "uncertain"}}
+{"fn": "normalize_api_insight", "args": [{"id": "m4", "status": "insufficient"}], "ok": {"id": "m4", "status": "insufficient"}}
+{"fn": "normalize_api_insight", "args": [{"id": "m5", "status": "ok", "affect": {"tone": "平静", "feeling": "开心"}, "intents": ["询问"]}], "ok": {"id": "m5", "status": "ok", "affect": {"tone": "平静", "feeling": "开心"}, "intents": ["询问"]}}
+{"fn": "normalize_api_insight", "args": [{"id": "m6", "status": "ok", "affect": {"feeling": "平静"}, "intents": []}], "ok": {"id": "m6", "status": "ok", "affect": {"feeling": "平静"}, "intents": []}}
+{"fn": "normalize_api_insight", "args": [{"id": "m7", "status": "ok", "emotion": "开心", "intent": "询问"}], "ok": {"id": "m7", "status": "ok", "affect": {"feeling": "开心"}, "intents": ["询问"]}}
+{"fn": "normalize_api_insight", "args": [{"id": "m8", "status": "ok", "affect": {"tone": "开心", "feeling": "开心"}}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"id": "m9", "status": "ok", "intents": ["询问", "确认"]}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"id": "m10", "status": "ok", "affect": null, "intents": null}], "ok": {"id": "m10", "status": "ok", "intents": []}}
+{"fn": "normalize_api_insight", "args": [{"id": "m11", "status": "bad"}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [{"status": "ok"}], "error": "ValueError: invalid-insights"}
+{"fn": "normalize_api_insight", "args": [["not", "a", "dict"]], "error": "ValueError: invalid-insights"}

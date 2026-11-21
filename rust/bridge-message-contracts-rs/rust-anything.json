@@ -1,0 +1,66 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\bridge",
+  "unit": "message_contracts.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "message-contracts-rs",
+  "exports": [
+    {
+      "name": "api_insight_scope",
+      "file": "message_contracts.py",
+      "line": 24,
+      "params": [
+        {
+          "name": "source_id",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "valid_api_insight_label",
+      "file": "message_contracts.py",
+      "line": 34,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "normalize_api_insight",
+      "file": "message_contracts.py",
+      "line": 40,
+      "params": [
+        {
+          "name": "item",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": []
+}

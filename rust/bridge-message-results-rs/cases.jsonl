@@ -1,0 +1,446 @@
+{"fn": "validate_fine_result", "args": [{"a": "b"}, true, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, [], {"a": {"b": "c"}}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, {}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, true, 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", {}, "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, null, true], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [[], true, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, 0, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [["a", 1], ["a", 1], {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, 0], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], true, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, ["a", 1], {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, {"a": {"b": "c"}}, null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, [], {"a": "b"}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, "x", []], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, 0, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, {}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, true, true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, ["a", 1], ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, true, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [0, {"a": {"b": "c"}}, null], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, {"a": "b"}, 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": "b"}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, 0, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", {"a": "b"}, null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", 0, {"a": {"b": "c"}}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], [], null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, [], "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, ["a", 1], true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, {}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [0, null, "x"], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, {"a": "b"}, 0], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, {"a": "b"}, {}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], 0, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], true, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, null], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, {"a": "b"}, "x"], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], ["a", 1], 0], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], "x", null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], 0, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], true, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, null, []], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [{}, null, ["a", 1]], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [[], null, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], "x", {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, "x", {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, null, {"a": "b"}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, {}, true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, {}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {}, true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, 0, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", ["a", 1], "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, {"a": {"b": "c"}}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", true, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], 0, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], "x", {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", null, null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], true, "x"], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, true, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [0, {"a": "b"}, {}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, 0, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, null, "x"], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, null, {}], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, 0, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, null, ["a", 1]], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [null, true, {}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, "x", true], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, [], []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", "x", []], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, ["a", 1], {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, true, null], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, "x", {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", "x", null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, 0, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, "x", "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, [], []], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], {"a": {"b": "c"}}, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, "x", []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", ["a", 1], {}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, [], {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": "b"}, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, "x", 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", null, true], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, {}, 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, ["a", 1], {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, "x", {}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", [], {"a": "b"}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, {"a": "b"}, true], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [0, [], {"a": {"b": "c"}}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, ["a", 1], []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [0, ["a", 1], ["a", 1]], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": "b"}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, ["a", 1], {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, {"a": "b"}, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, true, []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", 0, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], null, null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], "x", 0], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], null, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, {}, ["a", 1]], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, "x", {"a": "b"}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], {"a": "b"}, 0], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, null, 0], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [{}, true, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", ["a", 1], {"a": {"b": "c"}}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, [], 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, true, {}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], 0, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, true, []], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, null, "x"], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], "x", true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, ["a", 1], "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", [], []], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, [], null], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", 0, "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, {"a": {"b": "c"}}, []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, "x", []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [[], {"a": "b"}, null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, "x", 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, null, null], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [0, null, []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], {}, "x"], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, {"a": {"b": "c"}}, []], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, [], {}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, true, []], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, {"a": "b"}, {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, {"a": "b"}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, [], []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, 0, {"a": {"b": "c"}}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, true, "x"], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, 0, null], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, ["a", 1], null], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [[], {}, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, {}, 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, true], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], 0, null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": {"b": "c"}}, 0, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, {"a": {"b": "c"}}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, {"a": "b"}, true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, {"a": "b"}, "x"], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], {}, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], null, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, true, "x"], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], {"a": {"b": "c"}}, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], null, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", {"a": {"b": "c"}}, "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", null, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, "x", null], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, ["a", 1], true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, [], 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], ["a", 1], null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, ["a", 1], 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, ["a", 1], true], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], 0, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"a": "b"}, 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, null, []], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [0, 0, 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], null, "x"], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, true, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [true, "x", {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", 0, 0], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, null, 0], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [["a", 1], {}, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, [], true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [null, null, null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, null, true], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], ["a", 1], ["a", 1]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, {}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [[], true, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, 0, {"a": "b"}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, ["a", 1], []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, "x", "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{}, {"a": {"b": "c"}}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [["a", 1], ["a", 1], {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, "x", 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": ["x", true, []], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, 0, 0], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [0, ["a", 1], {"a": "b"}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], [], []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, [], 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [0, {"a": {"b": "c"}}, "x"], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [true, null, {}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [[], [], {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": ["x", {}, {"a": {"b": "c"}}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [["a", 1], [], null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, ["a", 1], "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [[], true, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [null, {"a": "b"}, null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, null, {"a": {"b": "c"}}], "error": "RuntimeError: fine label schema mismatch"}
+{"fn": "validate_fine_result", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, true, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, true, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [[3, 1, 2], true, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_fine_result", "args": [{}, true, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, [3, 1, 2], {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, {}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, true, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, true, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, true, [3, 1, 2]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"a": "b"}, true, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], 0, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", true, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, "x", "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, ["a", 1], true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, {"a": {"b": "c"}}, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, true, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": ["x", true, []], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {"a": {"b": "c"}}, []], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", null, true], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {}, {"a": "b"}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, "x", 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, {"a": "b"}, ["a", 1]], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": "b"}, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, null, ["a", 1]], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", ["a", 1], null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], ["a", 1], true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, {}, true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, [], null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, 0, null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": "b"}, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, null, {}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": "b"}, ["a", 1]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {}, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], null, "x"], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", 0, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, "x", ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, ["a", 1], {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, {"a": {"b": "c"}}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, null, ["a", 1]], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", ["a", 1], []], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", 0, true], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], "x", null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, 0, {}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {"a": "b"}, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, ["a", 1], {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], null, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}, null], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, {"a": "b"}, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": ["x", {}, ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, [], "x"], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, true, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, [], {}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, {"a": {"b": "c"}}, {"a": {"b": "c"}}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, null, true], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, true, 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, true, true], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], "x", {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, true, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, null, {"a": "b"}], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [null, {"a": {"b": "c"}}, "x"], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {"a": "b"}, "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, ["a", 1], {}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, {}, 0], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, {}, {}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {"a": "b"}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, null, {}], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [null, true, null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {"a": {"b": "c"}}, null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, "x", {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [0, null, {}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, 0, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, 0, []], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", true, {"a": {"b": "c"}}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {"a": "b"}, {"a": "b"}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, [], []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": "b"}, null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, {"a": {"b": "c"}}, 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, [], {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": "b"}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": "b"}, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, true, []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], [], []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, {"a": "b"}, 0], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], [], null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, "x", 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, "x", []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": ["x", true, "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], "x", "x"], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}, true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, true, {"a": "b"}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, ["a", 1], []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, {"a": "b"}, {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], "x", 0], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], 0, ["a", 1]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, true, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, [], {"a": {"b": "c"}}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {"a": {"b": "c"}}, {}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], [], {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], 0, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, ["a", 1], {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, {"a": "b"}, []], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, true, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], ["a", 1], null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, {"a": {"b": "c"}}, {"a": {"b": "c"}}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, 0, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, {"a": "b"}, {}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": "b"}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": "b"}, 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, ["a", 1], 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], null, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, ["a", 1], 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], true, {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", 0, {"a": "b"}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, 0, {"a": "b"}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, 0, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], true, null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, [], 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {}, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, true, true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], ["a", 1], []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, null, true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], {}, null], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, {"a": "b"}, 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, null, 0], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [true, ["a", 1], ["a", 1]], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {}, true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], "x", []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, [], ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": {"b": "c"}}, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], "x", true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], 0, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, "x", ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, {"a": "b"}, {"a": {"b": "c"}}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, 0, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, ["a", 1], []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], 0, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {"a": "b"}, 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, "x", {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], ["a", 1], 0], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, "x", 0], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {}, null], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], 0, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], true, []], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, null, {}], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, "x", 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, [], {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [0, {}, null], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [null, null, []], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, null, null], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [{}, {}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": ["x", ["a", 1], ["a", 1]], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": "b"}, true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, ["a", 1], true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {"a": {"b": "c"}}, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, ["a", 1], {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": {"b": "c"}}, true], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, true, 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {"a": "b"}, []], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}, 0], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, {"a": {"b": "c"}}, {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", ["a", 1], {"a": "b"}], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, ["a", 1], ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, {"a": {"b": "c"}}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], ["a", 1], {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, 0, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [0, {}, {"a": {"b": "c"}}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, ["a", 1], null], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, 0, {}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, true, null], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [null, "x", {"a": {"b": "c"}}], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, {"a": "b"}, "x"], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, "x", null], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", {"a": {"b": "c"}}, 0], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, true, {"a": {"b": "c"}}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, 0, {"a": {"b": "c"}}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {"a": {"b": "c"}}, []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": {"b": "c"}}, null, {"a": "b"}], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [["a", 1], null, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, 0, {}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, "x", []], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [0, "x", 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, {"a": {"b": "c"}}, true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], true, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, ["a", 1], {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [true, true, {"a": "b"}], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {"a": {"b": "c"}}, {}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, true, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], true, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [["a", 1], [], {"a": "b"}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, "x", {"a": "b"}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], ["a", 1], {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, "x", true], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, "x", null], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, {}, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [true, "x", true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {}, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{}, {}, ["a", 1]], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [0, true, {}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": ["x", null, "x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [0, {}, 0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, {"a": "b"}, "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"a": "b"}, ["a", 1], "x"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [["a", 1], {"a": "b"}, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, 0, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, 0, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[3, 1, 2], 0, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{}, 0, {"a": {"b": "c"}}], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [[], {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], [3, 1, 2], {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], {}, {"a": {"b": "c"}}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], 0, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], 0, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], 0, [3, 1, 2]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [[], 0, {}], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "ok": {"emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "analysisVersion": "v3", "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "state": "done", "score": null}}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "other"], "ok": {"emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "analysisVersion": "v3", "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "state": "done", "score": 0.5}}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v2", "self"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "x", "probability": 1.5}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "error": "RuntimeError: invalid model intent"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "x", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "error": "RuntimeError: invalid playful intent distribution"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"humor": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5}, "v3", "self"], "error": "RuntimeError: invalid personality evidence axes"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}]}, "v3", "other"], "error": "RuntimeError: missing relationship score"}
+{"fn": "validate_portrait_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": null, "score": 0.5}, "v3", "self"], "ok": {"emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "analysisVersion": "v3", "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [], "state": "done", "score": null}}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "ok": {"emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "analysisVersion": "v3", "intentBroad": [{"label": "社交", "probability": 0.7}], "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}, "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "state": "done", "score": null}}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "other"], "ok": {"emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "analysisVersion": "v3", "intentBroad": [{"label": "社交", "probability": 0.7}], "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}, "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "state": "done", "score": 0.5}}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v2", "self"], "error": "RuntimeError: analysis response version mismatch"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "error": "RuntimeError: invalid model emotion"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "x", "probability": 1.5}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "error": "RuntimeError: invalid model intent"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "x", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "error": "RuntimeError: invalid playful intent distribution"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"humor": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {}}, "relationship": [{"label": "朋友", "probability": 0.8}], "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "error": "RuntimeError: invalid personality evidence axes"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [{"label": "朋友", "probability": 0.8}], "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "other"], "error": "RuntimeError: missing relationship score"}
+{"fn": "validate_fine_result", "args": [{"analysisVersion": "v3", "emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "intentBroad": [{"label": "社交", "probability": 0.7}], "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": null, "score": 0.5, "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}}, "v3", "self"], "ok": {"emotion": [{"label": "开心", "probability": 0.9}], "intent": [{"label": "询问", "probability": 0.8}], "emotionLabel": "开心", "intentLabel": "询问", "emotionP": 0.9, "intentP": 0.8, "analysisVersion": "v3", "intentBroad": [{"label": "社交", "probability": 0.7}], "labelSchema": "generic-v12", "groundedIntent": {"label": "greet", "evidenceKind": "greeting_phrase"}, "expression": [{"label": "简短", "probability": 0.6}], "playfulIntent": [{"label": "playful:tease", "probability": 0.4}], "styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}, "personalityEvidence": {"EI": {"E": 0.5, "I": 0.3, "insufficient": 0.2}, "SN": {"S": 0.5, "N": 0.3, "insufficient": 0.2}, "TF": {"T": 0.5, "F": 0.3, "insufficient": 0.2}, "JP": {"J": 0.5, "P": 0.3, "insufficient": 0.2}}, "relationship": [], "state": "done", "score": null}}

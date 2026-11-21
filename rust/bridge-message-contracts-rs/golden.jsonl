@@ -1,0 +1,23 @@
+{"fn": "api_insight_scope", "args": ["wxid_abc"]}
+{"fn": "api_insight_scope", "args": ["chatroom-1"]}
+{"fn": "api_insight_scope", "args": [""]}
+{"fn": "valid_api_insight_label", "args": ["开心"]}
+{"fn": "valid_api_insight_label", "args": ["担心"]}
+{"fn": "valid_api_insight_label", "args": ["ok"]}
+{"fn": "valid_api_insight_label", "args": ["开心啊"]}
+{"fn": "valid_api_insight_label", "args": ["开门见山"]}
+{"fn": "valid_api_insight_label", "args": ["😀开心"]}
+{"fn": "valid_api_insight_label", "args": ["a开心"]}
+{"fn": "normalize_api_insight", "args": [{"id": "m1", "status": "ok"}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m2", "status": "routine"}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m3", "status": "uncertain", "affect": {}, "intents": []}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m4", "status": "insufficient"}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m5", "status": "ok", "affect": {"tone": "平静", "feeling": "开心"}, "intents": ["询问"]}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m6", "status": "ok", "affect": {"feeling": "平静"}, "intents": []}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m7", "status": "ok", "emotion": "开心", "intent": "询问"}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m8", "status": "ok", "affect": {"tone": "开心", "feeling": "开心"}}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m9", "status": "ok", "intents": ["询问", "确认"]}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m10", "status": "ok", "affect": null, "intents": null}]}
+{"fn": "normalize_api_insight", "args": [{"id": "m11", "status": "bad"}]}
+{"fn": "normalize_api_insight", "args": [{"status": "ok"}]}
+{"fn": "normalize_api_insight", "args": [["not", "a", "dict"]]}

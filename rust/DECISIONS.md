@@ -311,3 +311,16 @@ IsEnabled / IsOffscreen / BoundingRectangle / ControlType，节点数受 maxNode
 控制类型返回 UIA 数字 id，未映射到 Python 的名字字符串 —— 这是明确的行为差异。
 
 Consequences: UIA 树遍历不再是 stub。仍无等价证明：三次差异全部来自活桌面状态。
+
+## ADR-020: bridge 层首批三个纯逻辑模块
+
+Status: accepted (2026-11-21)
+
+- `message_contracts`：短标签只接受 1-4 个汉字，scope 用修订号拼接；59/59。
+- `message_results`：结构化校验 + 固定字段顺序 + style/personality 证据；446/446。
+- `profile_signals`：有界 mood / style traits / 关键词 / 摘要；595/595。
+
+踩坑：Python 的 `dict` 输出顺序参与比较，Rust 必须用插入顺序结构；
+`max()` 并列保留首个而 Rust `max_by` 保留末个；`{"$num":"-0"}` 在 Python 是 falsy。
+`profile_signals` 的 gate 只卡 size 启发式（5.3x），行为与静态检查全过 —— 行数来自逐条复刻
+Python 的容器 unpack / 异常 / 特殊浮点语义，没有可抽取的公共 crate。

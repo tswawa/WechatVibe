@@ -1,0 +1,595 @@
+{"fn": "validate_style_evidence", "args": [{"a": "b"}], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [{"a": {"b": "c"}}], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [{}], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [["a", 1]], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [null], "ok": null}
+{"fn": "validate_style_evidence", "args": [0], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [true], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [[]], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": ["x"], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "validate_style_evidence", "args": [[3, 1, 2]], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "historical_mood", "args": ["x", 0], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{}, true], "ok": null}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, "x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, {"a": {"b": "c"}}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, {}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [0, ["a", 1]], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": ["x", null], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [["a", 1], {"a": {"b": "c"}}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{}, null], "ok": null}
+{"fn": "historical_mood", "args": [["a", 1], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [true, ["a", 1]], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [[], "x"], "ok": null}
+{"fn": "historical_mood", "args": [["a", 1], null], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [0, {"a": {"b": "c"}}], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": ["x", true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"a": "b"}, "x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [0, []], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": [true, "x"], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, ["a", 1]], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": ["x", {}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], null], "ok": null}
+{"fn": "historical_mood", "args": [true, {"a": "b"}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [["a", 1], "x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [0, 0], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": [{}, "x"], "ok": null}
+{"fn": "historical_mood", "args": [{}, {}], "ok": null}
+{"fn": "historical_mood", "args": [0, true], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": "b"}, {"a": "b"}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [null, {"a": {"b": "c"}}], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": ["x", ["a", 1]], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [0, {}], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": "b"}, ["a", 1]], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{}, {"a": "b"}], "ok": null}
+{"fn": "historical_mood", "args": [null, ["a", 1]], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, {"a": "b"}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [true, 0], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [{}, ["a", 1]], "ok": null}
+{"fn": "historical_mood", "args": [true, {"a": {"b": "c"}}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [null, "x"], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": "b"}, 0], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [null, 0], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [["a", 1], {}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{}, []], "ok": null}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, 0], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [true, []], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [0, null], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": ["x", "x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{}, 0], "ok": null}
+{"fn": "historical_mood", "args": [null, {}], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [true, null], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, null], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"a": "b"}, {}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], {"a": {"b": "c"}}], "ok": null}
+{"fn": "historical_mood", "args": [["a", 1], []], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [null, []], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": "b"}, {"a": {"b": "c"}}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [["a", 1], {"a": "b"}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], []], "ok": null}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, []], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [true, true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": [0, {"a": "b"}], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": [["a", 1], ["a", 1]], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [null, {"a": "b"}], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [{"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], true], "ok": null}
+{"fn": "historical_mood", "args": ["x", {"a": "b"}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"a": {"b": "c"}}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"a": "b"}, null], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], ["a", 1]], "ok": null}
+{"fn": "historical_mood", "args": [{}, {"a": {"b": "c"}}], "ok": null}
+{"fn": "historical_mood", "args": [0, "x"], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "historical_mood", "args": [["a", 1], 0], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [true, {}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "historical_mood", "args": ["x", {"a": {"b": "c"}}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": ["x", []], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], {"a": "b"}], "ok": null}
+{"fn": "historical_mood", "args": [{"a": "b"}, []], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[], 0], "ok": null}
+{"fn": "historical_mood", "args": [null, true], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [null, null], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "historical_mood", "args": [[], {}], "ok": null}
+{"fn": "historical_mood", "args": ["x", "X"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, 0], "error": "ValueError: too many values to unpack (expected 4)"}
+{"fn": "historical_mood", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, 0], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": [[3, 1, 2], 0], "error": "TypeError: cannot unpack non-iterable int object"}
+{"fn": "historical_mood", "args": ["x", {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": ["x", {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "historical_mood", "args": ["x", [3, 1, 2]], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "style_traits", "args": [{}], "ok": []}
+{"fn": "style_traits", "args": [["a", 1]], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "style_traits", "args": [null], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "style_traits", "args": [true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "style_traits", "args": [{"a": {"b": "c"}}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "style_traits", "args": [0], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "style_traits", "args": [[]], "ok": []}
+{"fn": "style_traits", "args": ["x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "style_traits", "args": [{"a": "b"}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "style_traits", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "error": "ValueError: too many values to unpack (expected 4)"}
+{"fn": "style_traits", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "style_traits", "args": [[3, 1, 2]], "error": "TypeError: cannot unpack non-iterable int object"}
+{"fn": "keyword_counts", "args": [null], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "keyword_counts", "args": [true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "keyword_counts", "args": ["x"], "ok": {}}
+{"fn": "keyword_counts", "args": [{"a": "b"}], "ok": {}}
+{"fn": "keyword_counts", "args": [["a", 1]], "error": "AttributeError: 'int' object has no attribute 'decode'"}
+{"fn": "keyword_counts", "args": [[]], "ok": {}}
+{"fn": "keyword_counts", "args": [{}], "ok": {}}
+{"fn": "keyword_counts", "args": [0], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "keyword_counts", "args": [{"a": {"b": "c"}}], "ok": {}}
+{"fn": "keyword_counts", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": {"zebra": 1, "apple": 2}}
+{"fn": "keyword_counts", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": {"neg": 1}}
+{"fn": "keyword_counts", "args": [[3, 1, 2]], "error": "AttributeError: 'int' object has no attribute 'decode'"}
+{"fn": "keywords_from_counts", "args": [null], "error": "AttributeError: 'NoneType' object has no attribute 'items'"}
+{"fn": "keywords_from_counts", "args": [{}], "ok": []}
+{"fn": "keywords_from_counts", "args": ["x"], "error": "AttributeError: 'str' object has no attribute 'items'"}
+{"fn": "keywords_from_counts", "args": [[]], "error": "AttributeError: 'list' object has no attribute 'items'"}
+{"fn": "keywords_from_counts", "args": [{"a": {"b": "c"}}], "error": "TypeError: bad operand type for unary -: 'dict'"}
+{"fn": "keywords_from_counts", "args": [true], "error": "AttributeError: 'bool' object has no attribute 'items'"}
+{"fn": "keywords_from_counts", "args": [{"a": "b"}], "error": "TypeError: bad operand type for unary -: 'str'"}
+{"fn": "keywords_from_counts", "args": [0], "error": "AttributeError: 'int' object has no attribute 'items'"}
+{"fn": "keywords_from_counts", "args": [["a", 1]], "error": "AttributeError: 'list' object has no attribute 'items'"}
+{"fn": "keywords_from_counts", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": [{"word": "Apple", "count": 6}, {"word": "é", "count": 5}, {"word": "2", "count": 4}, {"word": "10", "count": 3}, {"word": "apple", "count": 2}]}
+{"fn": "keywords_from_counts", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": [{"word": "f", "count": {"$float": "1e+21"}}, {"word": "n", "count": {"$int": "9007199254740993"}}]}
+{"fn": "keywords_from_counts", "args": [[3, 1, 2]], "error": "AttributeError: 'list' object has no attribute 'items'"}
+{"fn": "keywords_from_texts", "args": [["a", 1]], "error": "AttributeError: 'int' object has no attribute 'decode'"}
+{"fn": "keywords_from_texts", "args": ["x"], "ok": []}
+{"fn": "keywords_from_texts", "args": [{}], "ok": []}
+{"fn": "keywords_from_texts", "args": [{"a": "b"}], "ok": []}
+{"fn": "keywords_from_texts", "args": [{"a": {"b": "c"}}], "ok": []}
+{"fn": "keywords_from_texts", "args": [0], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "keywords_from_texts", "args": [true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "keywords_from_texts", "args": [null], "error": "TypeError: 'NoneType' object is not iterable"}
+{"fn": "keywords_from_texts", "args": [[]], "ok": []}
+{"fn": "keywords_from_texts", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": [{"word": "apple", "count": 2}]}
+{"fn": "keywords_from_texts", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": []}
+{"fn": "keywords_from_texts", "args": [[3, 1, 2]], "error": "AttributeError: 'int' object has no attribute 'decode'"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, 0, [], false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, "x", 0, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", ["a", 1], "x", {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [[], 0, true, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {"a": "b"}, {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {"a": {"b": "c"}}, {}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {}, 0, false], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", "x", null, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], "x", {"a": {"b": "c"}}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, null, {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [0, ["a", 1], null, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, ["a", 1], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, {"a": {"b": "c"}}, ["a", 1]], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {"a": {"b": "c"}}, {"a": "b"}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, ["a", 1], true, false], "ok": null}
+{"fn": "summary_from_signals", "args": [[], {"a": "b"}, {"a": "b"}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [true, [], null, true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, "x", false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {}, "x"], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, 0, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, ["a", 1], {}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, ["a", 1], [], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, 0, {}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, [], true, true], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, {"a": {"b": "c"}}, [], {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [[], true, "x", false], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, {}, {"a": "b"}], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, 0, ["a", 1], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, true, "x"], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, []], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, [], {}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, true, 0, true], "ok": null}
+{"fn": "summary_from_signals", "args": [true, {}, "x", {"$undefined": true}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [0, "x", {}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [null, [], ["a", 1], true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, "x", [], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, ["a", 1], 0, true], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {}, true, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], ["a", 1], {}, {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", {"a": {"b": "c"}}, "x", true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, [], {"a": "b"}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, ["a", 1], null, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, {}, null, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, null, null], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], true, null, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {"a": {"b": "c"}}, true, false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [true, "x", null, {"$undefined": true}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [[], [], ["a", 1], false], "ok": null}
+{"fn": "summary_from_signals", "args": [[], true, "x", true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, {"a": "b"}, {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {}, null], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{}, {"a": {"b": "c"}}, ["a", 1], false], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {"a": {"b": "c"}}, null, true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], [], [], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, ["a", 1], [], false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [[], null, "x", false], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, 0, true, true], "ok": null}
+{"fn": "summary_from_signals", "args": [[], {"a": {"b": "c"}}, ["a", 1], false], "ok": null}
+{"fn": "summary_from_signals", "args": [true, "x", {}, {"$undefined": true}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [[], {"a": {"b": "c"}}, ["a", 1], true], "ok": null}
+{"fn": "summary_from_signals", "args": [0, null, null, true], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", {}, "x", true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, 0, "x", false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": ["x", "x", {"a": {"b": "c"}}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, [], {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {}, true, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, ["a", 1], "x", true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, {}, [], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, null, ["a", 1], {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], {}, {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, 0, {}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [null, {}, {}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [null, [], {}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [true, true, []], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [["a", 1], "x", true, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, "x", {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, 0, 0, true], "ok": null}
+{"fn": "summary_from_signals", "args": [0, ["a", 1], ["a", 1], true], "ok": null}
+{"fn": "summary_from_signals", "args": [0, 0, [], true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], {}, 0, {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", {}, "x", false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, null, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {"a": {"b": "c"}}, ["a", 1], true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, [], 0, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, {"a": "b"}, null, {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, 0, 0, true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, [], {"a": "b"}, {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", 0, 0, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], ["a", 1], {"a": {"b": "c"}}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], {}, null, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, "x", 0, true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], {}, {"a": "b"}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, "x", ["a", 1], true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, true, {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, 0, {}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [true, ["a", 1], [], true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": ["x", [], {"a": {"b": "c"}}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, {"a": "b"}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [[], 0, "x", false], "ok": null}
+{"fn": "summary_from_signals", "args": [true, {"a": "b"}, [], false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [null, "x", 0, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, {"a": {"b": "c"}}, null, true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": {"b": "c"}}, 0], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], {"a": {"b": "c"}}, ["a", 1], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {"a": "b"}, "x", true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [0, {"a": "b"}, "x"], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, "x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", {"a": {"b": "c"}}, "x", false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, [], {"a": "b"}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, "x", [], false], "ok": null}
+{"fn": "summary_from_signals", "args": [null, [], []], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], [], ["a", 1], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], "x", {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], {"a": "b"}, [], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], {"a": {"b": "c"}}, [], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": {"b": "c"}}, null, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", ["a", 1], "x", true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, ["a", 1], {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, true, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {}, ["a", 1], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, {"a": "b"}, [], true], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, 0, "x", true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, [], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {"a": "b"}, ["a", 1], false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [[], {"a": {"b": "c"}}, {"a": {"b": "c"}}], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", {"a": "b"}, {"a": {"b": "c"}}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, null, ["a", 1], false], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], "X", "x", false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, {}, {}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], ["a", 1], null, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [[], 0, null, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, 0, ["a", 1], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, true, true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [["a", 1], null, {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, "x", null], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, [], {"a": {"b": "c"}}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, ["a", 1], [], true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], true, {"a": {"b": "c"}}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, "x", true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, "x", {"a": {"b": "c"}}, {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [[], ["a", 1], {}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": {"b": "c"}}, ["a", 1], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, "x", {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], 0, true, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, true, "x"], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", "x", ["a", 1], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, ["a", 1], 0, true], "ok": null}
+{"fn": "summary_from_signals", "args": [[], [], {"a": {"b": "c"}}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [[], ["a", 1], "x"], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, 0, null, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], ["a", 1], {}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, null, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": ["x", "x", []], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [[], true, [], false], "ok": null}
+{"fn": "summary_from_signals", "args": [true, "x", null, false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [null, ["a", 1], true, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, [], "x"], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, [], ["a", 1], false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {}, null, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, true, 0, {"$undefined": true}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, true, 0, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, [], [], true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], {"a": {"b": "c"}}, {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, null, "x", false], "ok": null}
+{"fn": "summary_from_signals", "args": [[], {"a": "b"}, 0, false], "ok": null}
+{"fn": "summary_from_signals", "args": [null, {"a": {"b": "c"}}, {}, false], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", 0, ["a", 1], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {"a": {"b": "c"}}, ["a", 1], {"$undefined": true}], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [[], "x", {"a": "b"}], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, ["a", 1], {"a": "b"}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, null, {}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], {"a": {"b": "c"}}, [], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, ["a", 1], null, false], "ok": null}
+{"fn": "summary_from_signals", "args": [[], {"a": "b"}, ["a", 1]], "ok": null}
+{"fn": "summary_from_signals", "args": [["a", 1], [], 0, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, true, [], {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, 0, null, true], "ok": null}
+{"fn": "summary_from_signals", "args": [[], ["a", 1], {"a": {"b": "c"}}, false], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", 0, "x", false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [null, true, {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, ["a", 1], [], false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], {"a": {"b": "c"}}, true, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, true, null, true], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", 0, {}, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, [], {"a": {"b": "c"}}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, {"a": "b"}, 0, false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [true, {"a": "b"}, null, true], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [true, 0, ["a", 1], false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, "x", true, false], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{}, {"a": {"b": "c"}}, {}, false], "ok": null}
+{"fn": "summary_from_signals", "args": [{}, {"a": {"b": "c"}}, "x"], "ok": null}
+{"fn": "summary_from_signals", "args": [0, true, true, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_signals", "args": [[], {"a": "b"}, null], "ok": null}
+{"fn": "summary_from_signals", "args": ["x", {}, 0, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [0, {"a": "b"}, "x", true], "ok": null}
+{"fn": "summary_from_signals", "args": [0, {}, "x", false], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": {"b": "c"}}, true, true, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [["a", 1], true, 0, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [true, null, null, false], "error": "TypeError: 'bool' object is not iterable"}
+{"fn": "summary_from_signals", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, {"a": "b"}, {"a": "b"}, true], "error": "ValueError: too many values to unpack (expected 4)"}
+{"fn": "summary_from_signals", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, {"a": "b"}, {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [[3, 1, 2], {"a": "b"}, {"a": "b"}, true], "error": "TypeError: cannot unpack non-iterable int object"}
+{"fn": "summary_from_signals", "args": [{}, {"a": "b"}, {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, [3, 1, 2], {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {}, {"a": "b"}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, [3, 1, 2], true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, {}, true], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_signals", "args": [{"a": "b"}, {"a": "b"}, {"a": "b"}, {"$undefined": true}], "error": "ValueError: not enough values to unpack (expected 4, got 1)"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, 0, "x", true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 2.0, 0, null, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 1000000, "x", {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", -2.5, {"a": "b"}, null, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "NaN"}, {"a": "b"}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], {"$num": "-0"}, {"a": "b"}, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 0, true, {"a": "b"}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 1.0, true, {"a": "b"}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, 2.0, 0, {"a": "b"}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 2147483648.0, [], {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, {"$num": "NaN"}, "x", {"a": {"b": "c"}}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, 10.0, {"a": "b"}, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 2.0, "x", {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, -1.0, {"a": {"b": "c"}}, [], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "-Infinity"}, {"a": "b"}, {"a": {"b": "c"}}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "Infinity"}, 0, {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 9007199254740992.0, true, {"a": "b"}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 1.0, {"a": {"b": "c"}}, null, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 1000, 0, {}, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 1000.0, [], null], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 1000.0, {"a": "b"}, {"a": "b"}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, 3.0, [], {"a": {"b": "c"}}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, 100, {}, 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 3.0, true, true, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], {"$num": "NaN"}, true, [], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, -2.5, ["a", 1], ["a", 1], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], {"$num": "NaN"}, {}, {}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, {"$num": "NaN"}, true, {"a": {"b": "c"}}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 9007199254740992.0, null, [], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 9007199254740992.0, [], null, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 1000, 0, {"a": "b"}, false], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 2.0, 0, {"a": "b"}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, 1000000.0, {"a": {"b": "c"}}, [], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", {"$num": "Infinity"}, ["a", 1], 0], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 100, {"a": "b"}, {"a": {"b": "c"}}, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], {"$num": "-Infinity"}, {"a": {"b": "c"}}, {}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 0.5, null, 0, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 1000000.0, {}, "x", {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", {"$num": "-Infinity"}, {"a": "b"}, {}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 3.0, {"a": "b"}, 0, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, 2.0, 0, ["a", 1], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, -1.0, "x", {}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 2147483648, null, ["a", 1], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 1000000.0, 0, ["a", 1], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 1.0, {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 42.0, {"a": {"b": "c"}}, "x", true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, -1, "x", {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, -2.5, ["a", 1], null], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, 1.0, 0, "x", true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, 9007199254740992.0, {"a": "b"}, null, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 1000000, true, {"a": {"b": "c"}}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 100.0, "x", true, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, {"$num": "NaN"}, ["a", 1], null, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 2147483648.0, 0, {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, 0, {}, {}, true], "ok": "已分析True条群内成员消息。"}
+{"fn": "summary_from_aggregate", "args": ["x", 0.5, null, {"a": {"b": "c"}}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 9007199254740992.0, ["a", 1], "x", {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, "x", true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 1000000, [], {}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 2.0, "x", 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 100.0, {"a": "b"}, {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 42.0, "x", true, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 100, "x", 0, {"$undefined": true}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, -1.0, [], [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 2147483648.0, {}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 2147483648.0, [], true, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], {"$num": "Infinity"}, "x", {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, -2.5, null, {"a": {"b": "c"}}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 1000000.0, {}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 0.0, {"a": {"b": "c"}}, {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", 0, ["a", 1], {}, true], "error": "TypeError: list indices must be integers or slices, not str"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 1000000.0, {"a": "b"}, {"a": "b"}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", {"$num": "-0"}, 0, null, false], "ok": "已分析x条该联系人消息。"}
+{"fn": "summary_from_aggregate", "args": [true, 2.0, null, true, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 2147483648, {"a": "b"}, "x", {"$undefined": true}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", {"$num": "-0"}, 0, {}, false], "ok": "已分析x条该联系人消息。"}
+{"fn": "summary_from_aggregate", "args": [null, 2147483648.0, null, ["a", 1], true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, -1.0, ["a", 1], "x"], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 0.5, ["a", 1], {}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, 2.0, 0, null, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "-0"}, [], true, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], {"$num": "NaN"}, ["a", 1], ["a", 1], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 0, "x", {"a": {"b": "c"}}, false], "error": "TypeError: string indices must be integers, not 'str'"}
+{"fn": "summary_from_aggregate", "args": ["x", 3.0, [], true, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, 1.0, null, true, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", 0.0, true, {"a": {"b": "c"}}], "error": "TypeError: 'bool' object is not subscriptable"}
+{"fn": "summary_from_aggregate", "args": [[], 3, true, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 10.0, true, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 2.0, null, {"a": {"b": "c"}}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 100.0, true, 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 3, 0, 0, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 0.0, "x", {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 1000000.0, {}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 0.5, [], [], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 100, {"a": "b"}, 0], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", -2.5, "x", true, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 1.0, null, ["a", 1], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 42.0, {"a": "b"}, [], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 10, [], {}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, {"$num": "Infinity"}, "x", 0, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 0.0, null, {"a": {"b": "c"}}, false], "error": "KeyError: slice(None, 3, None)"}
+{"fn": "summary_from_aggregate", "args": [0, 1000.0, {"a": "b"}, {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], {"$num": "-Infinity"}, 0, ["a", 1], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "-0"}, 0, {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 2147483648.0, [], {"a": {"b": "c"}}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 0.5, [], null], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 10, null, 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, 42.0, true, {"a": {"b": "c"}}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 10.0, null, null], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, {"$num": "Infinity"}, null, true, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, {"$num": "-0"}, [], [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 3.0, ["a", 1], 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], {"$num": "-0"}, true, [], false], "error": "TypeError: 'bool' object is not subscriptable"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 2.0, {}, [], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 2147483648, 0, 0, {"$undefined": true}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, {"$num": "Infinity"}, {"a": {"b": "c"}}, {"a": "b"}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 1.0, ["a", 1], [], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, 1.0, ["a", 1], {}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, {"$num": "Infinity"}, {"a": "b"}, 0, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 100.0, 0, "x", true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, {"$num": "NaN"}, {"a": "b"}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 42.0, null, [], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 10, true, {}, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 100.0, "x", null, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", 2147483648.0, null, {"a": "b"}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 42.0, {"a": {"b": "c"}}, true, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "-0"}, [], [], {"$undefined": true}], "ok": "已分析{'a': {'b': 'c'}}条该联系人消息。"}
+{"fn": "summary_from_aggregate", "args": ["x", {"$num": "NaN"}, {}, {}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "Infinity"}, "x", ["a", 1], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, {"$num": "-Infinity"}, null, {"a": "b"}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], -2.5, {}, null, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 1000000.0, "x", null, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 2147483648.0, ["a", 1], "x", false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, -1.0, {}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 1000000, {"a": "b"}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 42.0, 0, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [true, 1.0, true, "x", {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 3.0, [], [], true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 1000000, {"a": "b"}, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 0.0, {"a": {"b": "c"}}, ["a", 1], true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "Infinity"}, {"a": {"b": "c"}}, {"a": {"b": "c"}}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], 2.0, {}, {"a": "b"}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, -2.5, null, null, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, {"$num": "-0"}, {"a": {"b": "c"}}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", 9007199254740992.0, 0, {}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 0.0, {}, {"a": {"b": "c"}}, false], "error": "KeyError: slice(None, 3, None)"}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 2147483648, 0, {"a": "b"}, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, 1000.0, true, ["a", 1], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 0.0, null, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, {"$num": "-Infinity"}, 0, 0, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 1000000, ["a", 1], {"a": "b"}, false], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 100.0, {"a": "b"}, ["a", 1], false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], {"$num": "Infinity"}, {"a": "b"}, 0], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "-0"}, true, {"a": "b"}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, -1, 0, [], true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, -2.5, {}, {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 9007199254740992.0, ["a", 1], {"a": {"b": "c"}}, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 0.0, [], 0, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 100, "x", {}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, -1.0, [], {}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "-0"}, {}, "x", true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, {"$num": "-0"}, true, 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "Infinity"}, "x", "x", true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 42.0, true, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 9007199254740992.0, {"a": {"b": "c"}}, {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, 2147483648.0, {"a": "b"}, ["a", 1], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[], {"$num": "Infinity"}, {"a": "b"}, ["a", 1], true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], -1.0, true, 0], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, {"$num": "Infinity"}, null, null, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 9007199254740992.0, [], null, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 2147483648, true, [], true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 42.0, {"a": "b"}, {}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, 9007199254740992.0, {"a": {"b": "c"}}, ["a", 1], {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 1000000.0, [], 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], 2, true, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, {"$num": "NaN"}, "x", {"a": "b"}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, 1.0, "x", {}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, -1.0, 0, {}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 2, {}, null, true], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 100.0, {}, {"a": "b"}, false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [0, {"$num": "Infinity"}, true, ["a", 1], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, -2.5, {"a": {"b": "c"}}, null], "ok": null}
+{"fn": "summary_from_aggregate", "args": [null, 3, {}, [], true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": "b"}, 1000.0, {"a": "b"}, {"a": "b"}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, 2.0, null, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{}, 0.0, 0, "x", false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], -1, true, ["a", 1], {"$undefined": true}], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 1.0, true, {"a": "b"}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [true, -1.0, {"a": "b"}, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 2.0, {"a": "b"}, {"a": {"b": "c"}}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, {"$num": "-Infinity"}, {}, 0, false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [[], {"$num": "Infinity"}, {"a": {"b": "c"}}, {"a": {"b": "c"}}, {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", 100.0, 0, "x", false], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [null, {"$num": "-0"}, true, {}, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [0, 42, {}, 0, true], "ok": null}
+{"fn": "summary_from_aggregate", "args": [["a", 1], 1000.0, ["a", 1], true, true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": ["x", 1000000.0, [], ["a", 1], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, 10.0, {"a": "b"}, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": ["x", {"$num": "-Infinity"}, true, ["a", 1], true], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, {"$num": "NaN"}, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, {"$num": "NaN"}, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [[3, 1, 2], {"$num": "NaN"}, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{}, {"$num": "NaN"}, {}, [], {"$undefined": true}], "ok": null}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, -7.5, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 0.1, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 0.30000000000000004, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 1e+21, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 1e-07, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 5e-324, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 1.7976931348623157e+308, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, 9007199254740992.0, {}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "-0"}, {}, [], {"$undefined": true}], "ok": "已分析{'a': {'b': 'c'}}条该联系人消息。"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, [3, 1, 2], [], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {}, {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {}, {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {}, [3, 1, 2], {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "summary_from_aggregate", "args": [{"a": {"b": "c"}}, {"$num": "NaN"}, {}, {}, {"$undefined": true}], "error": "AttributeError: 'float' object has no attribute 'get'"}
+{"fn": "validate_style_evidence", "args": [{"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}], "ok": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}}
+{"fn": "validate_style_evidence", "args": [null], "ok": null}
+{"fn": "validate_style_evidence", "args": [{"humor": 0.5}], "error": "RuntimeError: invalid style evidence axes"}
+{"fn": "historical_mood", "args": [[[1, {"emotion": [{"label": "happy", "rawLabel": "joy", "probability": 0.8}]}, null, null], [1, {"emotion": [{"label": "sad", "rawLabel": "sorrow", "probability": 0.4}]}, null, null]], {"joy": "^^"}], "ok": {"label": "happy", "rawLabel": "joy", "kaomoji": "^^", "sampleCount": 2, "scope": "analyzed-history"}}
+{"fn": "historical_mood", "args": [[[1, {}, null, null]], {}], "ok": null}
+{"fn": "style_traits", "args": [[[1, {"styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}}, null, null], [1, {"styleEvidence": {"socialEnergy": 0.5, "humor": 0.5, "composure": 0.5, "initiative": 0.5, "care": 0.5, "affection": 0.5}}, null, null]]], "ok": [{"key": "socialEnergy", "label": "表达活力", "val": 50, "sampleCount": 2}, {"key": "humor", "label": "幽默表达", "val": 50, "sampleCount": 2}, {"key": "composure", "label": "情绪平和", "val": 50, "sampleCount": 2}, {"key": "initiative", "label": "话题主动", "val": 50, "sampleCount": 2}, {"key": "care", "label": "关怀支持", "val": 50, "sampleCount": 2}, {"key": "affection", "label": "亲近表达", "val": 50, "sampleCount": 2}]}
+{"fn": "keyword_counts", "args": [["hello world hello", "world test"]], "ok": {"hello": 2, "world": 2, "test": 1}}
+{"fn": "keyword_counts", "args": [["hello", "abc def"]], "ok": {"hello": 1, "abc": 1, "def": 1}}
+{"fn": "keywords_from_counts", "args": [{"hello": 3, "world": 2, "test": 1}], "ok": [{"word": "hello", "count": 3}, {"word": "world", "count": 2}]}
+{"fn": "keywords_from_texts", "args": [["hello hello world", "hello world test"]], "ok": [{"word": "hello", "count": 3}, {"word": "world", "count": 2}]}
+{"fn": "summary_from_aggregate", "args": [3, {"chat": 0.6, "ask": 0.4}, {"label": "开心"}, [{"word": "hello", "count": 3}], false], "ok": "已分析3条该联系人消息，常见交流意图为chat，情绪信号以开心为主，常见用词有hello。"}
+{"fn": "summary_from_aggregate", "args": [0, {}, null, [], false], "ok": null}
+{"fn": "summary_from_aggregate", "args": [2, {}, {"label": "平静"}, [], true], "ok": "已分析2条群内成员消息，情绪信号以平静为主。"}
+{"fn": "summary_from_signals", "args": [[[1, {"intentBroad": [{"label": "chat", "probability": 0.5}]}, null, null], [1, {"intentBroad": [{"label": "chat", "probability": 0.3}]}, null, null]], {"label": "开心"}, [{"word": "hello", "count": 2}], false], "ok": "已分析2条该联系人消息，常见交流意图为chat，情绪信号以开心为主，常见用词有hello。"}

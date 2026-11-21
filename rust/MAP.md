@@ -37,7 +37,10 @@
 | 10 | `wr/service.py`（解密热循环 + 自由函数） | Python | ~140 | `rust/wr-service-core-rs` | **done** 22/22 差分；`NativeService` 类仍留在 Python |
 | 10b | `wr/service.py` → `NativeService`（fixture 模式） | Python | ~350 | `rust/wr-native-rs` | **done** 21/21 差分（含 read_incremental）；live 模式未移植 |
 | 10c | `wr/service.py` → `NativeService`（live 模式） | Python | ~313 | — | open —— 依赖活进程与窗口 |
-| 11 | `bridge/` | Python | 20,999 | — | open |
+| 11 | `bridge/message_contracts.py` | Python | 94 | `rust/bridge-message-contracts-rs` | **done** gate 通过，59/59 |
+| 11a | `bridge/message_results.py` | Python | 147 | `rust/bridge-message-results-rs` | **done** gate 通过，446/446 |
+| 11b | `bridge/profile_signals.py` | Python | 92 | `rust/bridge-profile-signals-rs` | **done** 595/595；gate 仅 size 启发式失败（5.3x，因逐条复刻 Python 容器/异常语义） |
+| 11c | `bridge/` 其余 | Python | ~20,600 | — | open |
 | 12 | `electron/laya/` | TS | 3,462 | — | open |
 | 13 | `electron/` | TS | 4,527 | — | open |
 | 14 | `shared/` + `src/lib/` | TS | 698 | — | open |
