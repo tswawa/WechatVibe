@@ -80,7 +80,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000111000,
-    "text": "普通消息 wxid_a #11",
+    "text": "普通 100 #11",
     "side": "unknown"
    },
    {
@@ -140,7 +140,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000107000,
-    "text": "普通消息 wxid_a #7",
+    "text": "普通 100 #7",
     "side": "unknown"
    }
   ]
@@ -162,7 +162,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -190,7 +190,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -209,7 +209,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -228,7 +228,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -247,7 +247,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -266,7 +266,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -285,7 +285,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    }
   ]
@@ -304,7 +304,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000100000,
-    "text": "压缩内容 wxid_a #0",
+    "text": "压缩 100 #0",
     "side": "self"
    },
    {
@@ -319,7 +319,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000101000,
-    "text": "普通消息 wxid_a #1",
+    "text": "普通 100 #1",
     "side": "other"
    },
    {
@@ -407,7 +407,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000105000,
-    "text": "普通消息 wxid_a #5",
+    "text": "普通 100 #5",
     "side": "other"
    }
   ]
@@ -456,7 +456,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000105000,
-    "text": "普通消息 wxid_a #5",
+    "text": "普通 100 #5",
     "side": "other"
    }
   ]
@@ -505,7 +505,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000105000,
-    "text": "普通消息 wxid_a #5",
+    "text": "普通 100 #5",
     "side": "other"
    }
   ]
@@ -554,7 +554,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000105000,
-    "text": "普通消息 wxid_a #5",
+    "text": "普通 100 #5",
     "side": "other"
    }
   ]
@@ -603,7 +603,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000105000,
-    "text": "普通消息 wxid_a #5",
+    "text": "普通 100 #5",
     "side": "other"
    }
   ]
@@ -652,13 +652,10 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000105000,
-    "text": "普通消息 wxid_a #5",
+    "text": "普通 100 #5",
     "side": "other"
    }
   ]
- },
- {
-  "ok": []
  },
  {
   "ok": 0
@@ -710,7 +707,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000211000,
-    "text": "普通消息 wxid_b #11",
+    "text": "普通 200 #11",
     "side": "unknown"
    },
    {
@@ -770,7 +767,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000207000,
-    "text": "普通消息 wxid_b #7",
+    "text": "普通 200 #7",
     "side": "unknown"
    }
   ]
@@ -839,9 +836,6 @@
   "ok": []
  },
  {
-  "ok": []
- },
- {
   "ok": 0
  },
  {
@@ -870,9 +864,6 @@
  },
  {
   "ok": null
- },
- {
-  "ok": []
  },
  {
   "ok": []
@@ -963,7 +954,7 @@
     "localType": 1,
     "kind": "text",
     "time": 1700000111000,
-    "text": "普通消息 wxid_a #11",
+    "text": "普通 100 #11",
     "side": "unknown"
    },
    {
@@ -997,5 +988,2068 @@
     "side": "unknown"
    }
   ]
+ },
+ {
+  "ok": "230d854999bb8d898225fd0eabd838a4"
+ },
+ {
+  "ok": "wxid_a"
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": [
+   {
+    "id": "230d854999bb8d898225fd0eabd838a4",
+    "accountId": "wxid_self_account",
+    "name": "wxid_a",
+    "kind": "friend",
+    "messageCount": 18,
+    "lastTime": 1700000111000
+   },
+   {
+    "id": "2c08204b29293383444bc2afd5d8fa03",
+    "accountId": "wxid_self_account",
+    "name": "wxid_b",
+    "kind": "friend",
+    "messageCount": 12,
+    "lastTime": 1700000211000
+   },
+   {
+    "id": "a7bd554c99d0889aea318185d170bb92",
+    "accountId": "wxid_self_account",
+    "name": "wxid_c",
+    "kind": "friend",
+    "messageCount": 12,
+    "lastTime": 1700000311000
+   }
+  ]
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 12
+ },
+ {
+  "ok": [
+   105,
+   "shard-2",
+   6
+  ]
+ },
+ {
+  "ok": 18
+ },
+ {
+  "ok": [
+   111,
+   "shard-1",
+   12
+  ]
+ },
+ {
+  "ok": 18
+ },
+ {
+  "ok": [
+   111,
+   "shard-1",
+   12
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "02ee0cc11cef7028d4a63b2d6fcdcffa",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "107",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000107000,
+    "text": "普通 100 #7",
+    "side": "unknown"
+   },
+   {
+    "id": "f694f315b83ac738e6d50bb38ff3ce0a",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "108",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000108000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩 100 #0",
+    "side": "self"
+   },
+   {
+    "id": "4f1fa7fadaf175d219b900643f43904a",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "2",
+    "serverId": "9001",
+    "sortSeq": "101",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000101000,
+    "text": "普通 100 #1",
+    "side": "other"
+   },
+   {
+    "id": "830b25e54bd3efa1cdb06f4bc466a600",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "3",
+    "serverId": "9002",
+    "sortSeq": "102",
+    "senderId": "3",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000102000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "7aa0abd90c28096ab4a8a1af4ffb749d",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "c184b8406f0f3e3d8f9b30499cb05414",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "78bb9b7baa6d80f87dff2aa8c2344252",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通 100 #5",
+    "side": "other"
+   },
+   {
+    "id": "4a4107cb6a35d9337b12ffb643a8e308",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "7",
+    "serverId": "9006",
+    "sortSeq": "106",
+    "senderId": "3",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000106000,
+    "text": "压缩 100 #6",
+    "side": "other"
+   },
+   {
+    "id": "02ee0cc11cef7028d4a63b2d6fcdcffa",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "107",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000107000,
+    "text": "普通 100 #7",
+    "side": "unknown"
+   },
+   {
+    "id": "f694f315b83ac738e6d50bb38ff3ce0a",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "108",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000108000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "b161f19e797d0728451a5ef1486428b9",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-1",
+     "localId": "1",
+     "serverId": "9000",
+     "sortSeq": "100",
+     "senderId": "1",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000100000,
+     "text": "压缩 100 #0",
+     "side": "self"
+    }
+   ],
+   "cursor": [
+    100,
+    "shard-1",
+    1
+   ],
+   "done": false
+  }
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "b161f19e797d0728451a5ef1486428b9",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-1",
+     "localId": "1",
+     "serverId": "9000",
+     "sortSeq": "100",
+     "senderId": "1",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000100000,
+     "text": "压缩 100 #0",
+     "side": "self"
+    },
+    {
+     "id": "4f1fa7fadaf175d219b900643f43904a",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-2",
+     "localId": "2",
+     "serverId": "9001",
+     "sortSeq": "101",
+     "senderId": "2",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000101000,
+     "text": "普通 100 #1",
+     "side": "other"
+    }
+   ],
+   "cursor": [
+    101,
+    "shard-2",
+    2
+   ],
+   "done": false
+  }
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "b161f19e797d0728451a5ef1486428b9",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-1",
+     "localId": "1",
+     "serverId": "9000",
+     "sortSeq": "100",
+     "senderId": "1",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000100000,
+     "text": "压缩 100 #0",
+     "side": "self"
+    },
+    {
+     "id": "4f1fa7fadaf175d219b900643f43904a",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-2",
+     "localId": "2",
+     "serverId": "9001",
+     "sortSeq": "101",
+     "senderId": "2",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000101000,
+     "text": "普通 100 #1",
+     "side": "other"
+    },
+    {
+     "id": "830b25e54bd3efa1cdb06f4bc466a600",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-2",
+     "localId": "3",
+     "serverId": "9002",
+     "sortSeq": "102",
+     "senderId": "3",
+     "localType": 3,
+     "kind": "nontext",
+     "time": 1700000102000,
+     "text": "",
+     "side": "unknown"
+    },
+    {
+     "id": "7aa0abd90c28096ab4a8a1af4ffb749d",
+     "accountId": "wxid_self_account",
+     "contactId": "230d854999bb8d898225fd0eabd838a4",
+     "shardId": "shard-2",
+     "localId": "4",
+     "serverId": "9003",
+     "sortSeq": "103",
+     "senderId": "99",
+     "localType": 49,
+     "kind": "nontext",
+     "time": 1700000103000,
+     "text": "",
+     "side": "unknown"
+    }
+   ],
+   "cursor": [
+    103,
+    "shard-2",
+    4
+   ],
+   "done": false
+  }
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "b161f19e797d0728451a5ef1486428b9",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "100",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000100000,
+    "text": "压缩 100 #0",
+    "side": "self"
+   },
+   {
+    "id": "4f1fa7fadaf175d219b900643f43904a",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "2",
+    "serverId": "9001",
+    "sortSeq": "101",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000101000,
+    "text": "普通 100 #1",
+    "side": "other"
+   },
+   {
+    "id": "830b25e54bd3efa1cdb06f4bc466a600",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "3",
+    "serverId": "9002",
+    "sortSeq": "102",
+    "senderId": "3",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000102000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "7aa0abd90c28096ab4a8a1af4ffb749d",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "103",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000103000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "c184b8406f0f3e3d8f9b30499cb05414",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "104",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000104000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "78bb9b7baa6d80f87dff2aa8c2344252",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-2",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "105",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000105000,
+    "text": "普通 100 #5",
+    "side": "other"
+   },
+   {
+    "id": "4a4107cb6a35d9337b12ffb643a8e308",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "7",
+    "serverId": "9006",
+    "sortSeq": "106",
+    "senderId": "3",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000106000,
+    "text": "压缩 100 #6",
+    "side": "other"
+   },
+   {
+    "id": "02ee0cc11cef7028d4a63b2d6fcdcffa",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "107",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000107000,
+    "text": "普通 100 #7",
+    "side": "unknown"
+   },
+   {
+    "id": "f694f315b83ac738e6d50bb38ff3ce0a",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "108",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000108000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "481c7b43d3c55c7e167d37b1f3700bde",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "109",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000109000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "f0c3e91ff99b92a8bf3f4754c7329f42",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "110",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000110000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "1ab776e0df3a40a1a6ab03a7926adb3c",
+    "accountId": "wxid_self_account",
+    "contactId": "230d854999bb8d898225fd0eabd838a4",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "111",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000111000,
+    "text": "普通 100 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 1
+ },
+ {
+  "ok": [
+   200,
+   "shard-1",
+   1
+  ]
+ },
+ {
+  "ok": 12
+ },
+ {
+  "ok": [
+   211,
+   "shard-1",
+   12
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "34bf122ebbf615d09b1f5507032f5310",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "207",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000207000,
+    "text": "普通 200 #7",
+    "side": "unknown"
+   },
+   {
+    "id": "fc68ef274a2c20aa9c6afab7f6b1c0b5",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "208",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000208000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "200",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000200000,
+    "text": "压缩 200 #0",
+    "side": "self"
+   },
+   {
+    "id": "a2643dde6c493a7a25f952c001196cdc",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "7",
+    "serverId": "9006",
+    "sortSeq": "206",
+    "senderId": "3",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000206000,
+    "text": "压缩 200 #6",
+    "side": "other"
+   },
+   {
+    "id": "34bf122ebbf615d09b1f5507032f5310",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "207",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000207000,
+    "text": "普通 200 #7",
+    "side": "unknown"
+   },
+   {
+    "id": "fc68ef274a2c20aa9c6afab7f6b1c0b5",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "208",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000208000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+     "accountId": "wxid_self_account",
+     "contactId": "2c08204b29293383444bc2afd5d8fa03",
+     "shardId": "shard-1",
+     "localId": "1",
+     "serverId": "9000",
+     "sortSeq": "200",
+     "senderId": "1",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000200000,
+     "text": "压缩 200 #0",
+     "side": "self"
+    }
+   ],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+     "accountId": "wxid_self_account",
+     "contactId": "2c08204b29293383444bc2afd5d8fa03",
+     "shardId": "shard-1",
+     "localId": "1",
+     "serverId": "9000",
+     "sortSeq": "200",
+     "senderId": "1",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000200000,
+     "text": "压缩 200 #0",
+     "side": "self"
+    }
+   ],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+     "accountId": "wxid_self_account",
+     "contactId": "2c08204b29293383444bc2afd5d8fa03",
+     "shardId": "shard-1",
+     "localId": "1",
+     "serverId": "9000",
+     "sortSeq": "200",
+     "senderId": "1",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000200000,
+     "text": "压缩 200 #0",
+     "side": "self"
+    }
+   ],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": [
+   {
+    "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "200",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000200000,
+    "text": "压缩 200 #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "200",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000200000,
+    "text": "压缩 200 #0",
+    "side": "self"
+   }
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": [
+   {
+    "id": "83a20526c9a1a97c9c36402eb9f9fc4b",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "1",
+    "serverId": "9000",
+    "sortSeq": "200",
+    "senderId": "1",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000200000,
+    "text": "压缩 200 #0",
+    "side": "self"
+   },
+   {
+    "id": "a2643dde6c493a7a25f952c001196cdc",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "7",
+    "serverId": "9006",
+    "sortSeq": "206",
+    "senderId": "3",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000206000,
+    "text": "压缩 200 #6",
+    "side": "other"
+   },
+   {
+    "id": "34bf122ebbf615d09b1f5507032f5310",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "8",
+    "serverId": "9007",
+    "sortSeq": "207",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000207000,
+    "text": "普通 200 #7",
+    "side": "unknown"
+   },
+   {
+    "id": "fc68ef274a2c20aa9c6afab7f6b1c0b5",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "9",
+    "serverId": "9008",
+    "sortSeq": "208",
+    "senderId": "1",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000208000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "7eeccebc1eb58759d8700fa769516bd8",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "10",
+    "serverId": "9009",
+    "sortSeq": "209",
+    "senderId": "2",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000209000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "d51dff412083cc3588782692172bff32",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "11",
+    "serverId": "9010",
+    "sortSeq": "210",
+    "senderId": "3",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000210000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "072a43b24c54385c5752e0f715235831",
+    "accountId": "wxid_self_account",
+    "contactId": "2c08204b29293383444bc2afd5d8fa03",
+    "shardId": "shard-1",
+    "localId": "12",
+    "serverId": "9011",
+    "sortSeq": "211",
+    "senderId": "99",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000211000,
+    "text": "普通 200 #11",
+    "side": "unknown"
+   }
+  ]
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 12
+ },
+ {
+  "ok": [
+   311,
+   "shard-2",
+   12
+  ]
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "aecc8255270bd6111a623f88531a3fa4",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "2",
+    "serverId": "9001",
+    "sortSeq": "301",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000301000,
+    "text": "普通 300 #1",
+    "side": "other"
+   },
+   {
+    "id": "c0e08471787535d6a1c079edf5de84af",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "3",
+    "serverId": "9002",
+    "sortSeq": "302",
+    "senderId": "3",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000302000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b58ad14d914e14e7c0d6ad008e80c949",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "303",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000303000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "355e5acb198aa0e6feb7445fa9a4d76d",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "304",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000304000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "ab9fa44fb7aec7369fecb59cd899ee09",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "305",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000305000,
+    "text": "普通 300 #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "aecc8255270bd6111a623f88531a3fa4",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "2",
+     "serverId": "9001",
+     "sortSeq": "301",
+     "senderId": "2",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000301000,
+     "text": "普通 300 #1",
+     "side": "other"
+    }
+   ],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "aecc8255270bd6111a623f88531a3fa4",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "2",
+     "serverId": "9001",
+     "sortSeq": "301",
+     "senderId": "2",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000301000,
+     "text": "普通 300 #1",
+     "side": "other"
+    },
+    {
+     "id": "c0e08471787535d6a1c079edf5de84af",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "3",
+     "serverId": "9002",
+     "sortSeq": "302",
+     "senderId": "3",
+     "localType": 3,
+     "kind": "nontext",
+     "time": 1700000302000,
+     "text": "",
+     "side": "unknown"
+    }
+   ],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": {
+   "rows": [
+    {
+     "id": "aecc8255270bd6111a623f88531a3fa4",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "2",
+     "serverId": "9001",
+     "sortSeq": "301",
+     "senderId": "2",
+     "localType": 1,
+     "kind": "text",
+     "time": 1700000301000,
+     "text": "普通 300 #1",
+     "side": "other"
+    },
+    {
+     "id": "c0e08471787535d6a1c079edf5de84af",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "3",
+     "serverId": "9002",
+     "sortSeq": "302",
+     "senderId": "3",
+     "localType": 3,
+     "kind": "nontext",
+     "time": 1700000302000,
+     "text": "",
+     "side": "unknown"
+    },
+    {
+     "id": "b58ad14d914e14e7c0d6ad008e80c949",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "4",
+     "serverId": "9003",
+     "sortSeq": "303",
+     "senderId": "99",
+     "localType": 49,
+     "kind": "nontext",
+     "time": 1700000303000,
+     "text": "",
+     "side": "unknown"
+    },
+    {
+     "id": "355e5acb198aa0e6feb7445fa9a4d76d",
+     "accountId": "wxid_self_account",
+     "contactId": "a7bd554c99d0889aea318185d170bb92",
+     "shardId": "shard-2",
+     "localId": "5",
+     "serverId": "9004",
+     "sortSeq": "304",
+     "senderId": "1",
+     "localType": 10000,
+     "kind": "system",
+     "time": 1700000304000,
+     "text": "",
+     "side": "unknown"
+    }
+   ],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": [
+   {
+    "id": "aecc8255270bd6111a623f88531a3fa4",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "2",
+    "serverId": "9001",
+    "sortSeq": "301",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000301000,
+    "text": "普通 300 #1",
+    "side": "other"
+   },
+   {
+    "id": "c0e08471787535d6a1c079edf5de84af",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "3",
+    "serverId": "9002",
+    "sortSeq": "302",
+    "senderId": "3",
+    "localType": 3,
+    "kind": "nontext",
+    "time": 1700000302000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "b58ad14d914e14e7c0d6ad008e80c949",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "4",
+    "serverId": "9003",
+    "sortSeq": "303",
+    "senderId": "99",
+    "localType": 49,
+    "kind": "nontext",
+    "time": 1700000303000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "355e5acb198aa0e6feb7445fa9a4d76d",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "5",
+    "serverId": "9004",
+    "sortSeq": "304",
+    "senderId": "1",
+    "localType": 10000,
+    "kind": "system",
+    "time": 1700000304000,
+    "text": "",
+    "side": "unknown"
+   },
+   {
+    "id": "ab9fa44fb7aec7369fecb59cd899ee09",
+    "accountId": "wxid_self_account",
+    "contactId": "a7bd554c99d0889aea318185d170bb92",
+    "shardId": "shard-2",
+    "localId": "6",
+    "serverId": "9005",
+    "sortSeq": "305",
+    "senderId": "2",
+    "localType": 1,
+    "kind": "text",
+    "time": 1700000305000,
+    "text": "普通 300 #5",
+    "side": "other"
+   }
+  ]
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": 0
+ },
+ {
+  "ok": null
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": {
+   "rows": [],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": {
+   "rows": [],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": {
+   "rows": [],
+   "cursor": null,
+   "done": true
+  }
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
+ },
+ {
+  "ok": []
  }
 ]

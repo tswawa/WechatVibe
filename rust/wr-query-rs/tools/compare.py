@@ -28,7 +28,8 @@ def main() -> int:
     actual = subprocess.run(
         [
             BINARY,
-            "--image", os.path.join(TESTDATA, "msg.db"),
+            "--image", os.path.join(TESTDATA, "msg-1.db"),
+            "--second-image", os.path.join(TESTDATA, "msg-2.db"),
             "--account", "wxid_self_account",
             "--self", "wxid_me",
             "--shard-id", "shard-1",

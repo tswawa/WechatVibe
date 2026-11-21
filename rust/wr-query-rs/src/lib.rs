@@ -25,6 +25,10 @@ const SYSTEM_TYPES: [i64; 2] = [10_000, 10_002];
 const ZSTD_MAGIC: [u8; 4] = [0x28, 0xB5, 0x2F, 0xFD];
 
 pub type PortError = (String, String);
+/// Composite keyset cursor: `(sortSeq, shardId, localId)`.
+pub type PageCursor = (i64, String, i64);
+/// `page()` returns its rows, the cursor to continue from, and whether this was the last page.
+pub type PageResult = (Vec<Value>, Option<PageCursor>, bool);
 
 fn protocol_error(code: &str, message: &str) -> PortError {
     (code.to_string(), message.to_string())
@@ -276,6 +280,11 @@ impl SqliteShard {
     }
 
     // -- contact helpers ---------------------------------------------------
+
+    /// This shard's id.
+    pub fn id(&self) -> &str {
+        &self.shard_id
+    }
 
     /// Port of `usernames`.
     pub fn usernames(&self) -> Vec<String> {
@@ -709,7 +718,493 @@ fn value_text(value: &Value) -> String {
     }
 }
 
+// ---------------------------------------------------------------------------- ContactStore
+
+/// Port of `ContactStore`: aggregates every shard of one account.
+pub struct ContactStore {
+    account_id: String,
+    shards: Vec<SqliteShard>,
+    usernames: IndexMap<String, Vec<usize>>,
+    server_shard: std::collections::HashMap<String, String>,
+}
+
+impl ContactStore {
+    /// Port of `ContactStore.__init__`.
+    pub fn new(account_id: &str, shards: Vec<SqliteShard>) -> Self {
+        let mut usernames: IndexMap<String, Vec<usize>> = IndexMap::new();
+        for (index, shard) in shards.iter().enumerate() {
+            for username in shard.usernames() {
+                usernames.entry(username).or_default().push(index);
+            }
+        }
+        ContactStore {
+            account_id: account_id.to_string(),
+            shards,
+            usernames,
+            server_shard: std::collections::HashMap::new(),
+        }
+    }
+
+    fn shards_for(&self, username: &str) -> &[usize] {
+        self.usernames
+            .get(username)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
+    /// Port of `contact_id_for` on the store (explicit ids win over the hash).
+    pub fn contact_id_for(&self, username: &str) -> String {
+        let basis = format!("{}\u{0}{username}", self.account_id);
+        let digest = Sha256::digest(basis.as_bytes());
+        let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+        hex[..32].to_string()
+    }
+
+    /// Port of `username_for`.
+    pub fn username_for(&self, contact_id: &str) -> Option<String> {
+        self.usernames
+            .keys()
+            .find(|username| self.contact_id_for(username) == contact_id)
+            .cloned()
+    }
+
+    /// Port of `_kind`.
+    fn kind(&self, username: &str) -> &'static str {
+        if username.ends_with("@chatroom") {
+            return "group";
+        }
+        if username.starts_with("gh_") {
+            return "service";
+        }
+        if username.is_empty() {
+            return "unknown";
+        }
+        "friend"
+    }
+
+    /// Port of `_dedupe`: drop a row whose nonzero server id already belongs to another shard.
+    fn dedupe(&mut self, rows: Vec<Value>) -> Vec<Value> {
+        let mut kept = Vec::with_capacity(rows.len());
+        for row in rows {
+            let server = text_field(&row, "serverId");
+            let shard = text_field(&row, "shardId");
+            if !server.is_empty() && server != "0" {
+                if let Some(owner) = self.server_shard.get(&server)
+                    && *owner != shard
+                {
+                    continue;
+                }
+                self.server_shard.insert(server, shard);
+            }
+            kept.push(row);
+        }
+        kept
+    }
+
+    /// Port of `contacts`.
+    pub fn contacts(&self) -> Result<Vec<Value>, PortError> {
+        let mut pairs: Vec<(&String, &Vec<usize>)> = self.usernames.iter().collect();
+        pairs.sort_by(|a, b| a.0.cmp(b.0));
+        let mut out = Vec::new();
+        for (username, shard_indices) in pairs {
+            let contact_id = self.contact_id_for(username);
+            let mut count = 0i64;
+            let mut latest: Option<i64> = None;
+            for index in shard_indices {
+                let shard = &self.shards[*index];
+                count += shard.count(username, 1 << 62)?;
+                let rows = shard.latest(username, &contact_id, 1)?;
+                if let Some(row) = rows.first() {
+                    let candidate = row.get("time").and_then(Value::as_i64).unwrap_or(0);
+                    if latest.is_none_or(|current| candidate > current) {
+                        latest = Some(candidate);
+                    }
+                }
+            }
+            if count <= 0 {
+                continue;
+            }
+            let mut entry = Map::new();
+            entry.insert("id".to_string(), Value::String(contact_id));
+            entry.insert(
+                "accountId".to_string(),
+                Value::String(self.account_id.clone()),
+            );
+            entry.insert("name".to_string(), Value::String(username.clone()));
+            entry.insert(
+                "kind".to_string(),
+                Value::String(self.kind(username).to_string()),
+            );
+            entry.insert("messageCount".to_string(), json!(count));
+            entry.insert(
+                "lastTime".to_string(),
+                match latest {
+                    Some(time) => json!(time),
+                    None => Value::Null,
+                },
+            );
+            out.push(Value::Object(entry));
+        }
+        Ok(out)
+    }
+
+    /// Port of `total`.
+    pub fn total(&self, username: &str, cutoff_ms: i64) -> Result<i64, PortError> {
+        let mut sum = 0i64;
+        for index in self.shards_for(username) {
+            sum += self.shards[*index].count(username, cutoff_ms)?;
+        }
+        Ok(sum)
+    }
+
+    /// Port of `page`: one merged, de-duplicated page plus the cursor to continue from.
+    pub fn page(
+        &mut self,
+        username: &str,
+        cutoff_ms: i64,
+        cursor: Option<(i64, String, i64)>,
+        limit: i64,
+    ) -> Result<PageResult, PortError> {
+        let contact_id = self.contact_id_for(username);
+        let indices: Vec<usize> = self.shards_for(username).to_vec();
+        let mut merged: Vec<Value> = Vec::new();
+        for index in indices {
+            merged.extend(self.shards[index].iter_keyset(
+                username,
+                &contact_id,
+                cutoff_ms,
+                cursor.clone(),
+                limit + 1,
+            )?);
+        }
+        merged.sort_by_key(row_key);
+
+        let mut rows: Vec<Value> = Vec::new();
+        let mut last_key: Option<(i64, String, i64)> = None;
+        let mut following: Option<Value> = None;
+        for row in merged {
+            let server = text_field(&row, "serverId");
+            let shard_id = text_field(&row, "shardId");
+            if !server.is_empty() && server != "0" {
+                if let Some(owner) = self.server_shard.get(&server)
+                    && *owner != shard_id
+                {
+                    continue;
+                }
+                self.server_shard.insert(server, shard_id.clone());
+            }
+            if rows.len() as i64 >= limit {
+                following = Some(row);
+                break;
+            }
+            last_key = Some(row_key(&row));
+            rows.push(row);
+        }
+        if following.is_none() {
+            return Ok((rows, None, true));
+        }
+        Ok((rows, last_key, false))
+    }
+
+    /// Port of `rows`, bounded by `limit` rows.
+    pub fn rows(&mut self, username: &str, limit: i64) -> Result<Vec<Value>, PortError> {
+        let mut collected: Vec<Value> = Vec::new();
+        let mut cursor: Option<(i64, String, i64)> = None;
+        while (collected.len() as i64) < limit {
+            let (batch, next, done) = self.page(username, 1 << 62, cursor, 200)?;
+            if batch.is_empty() && done {
+                break;
+            }
+            collected.extend(batch);
+            if done {
+                break;
+            }
+            cursor = next;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        collected.truncate(limit.max(0) as usize);
+        Ok(collected)
+    }
+
+    /// Port of `context_before`.
+    pub fn context_before(
+        &mut self,
+        username: &str,
+        cutoff_ms: i64,
+        cursor: (i64, String, i64),
+        limit: i64,
+        inclusive: bool,
+    ) -> Result<Vec<Value>, PortError> {
+        if limit <= 0 {
+            return Ok(Vec::new());
+        }
+        let contact_id = self.contact_id_for(username);
+        let indices: Vec<usize> = self.shards_for(username).to_vec();
+        let mut gathered: Vec<Value> = Vec::new();
+        for index in indices {
+            gathered.extend(self.shards[index].iter_before(
+                username,
+                &contact_id,
+                cutoff_ms,
+                cursor.clone(),
+                limit,
+                inclusive,
+            )?);
+        }
+        gathered.sort_by_key(row_key);
+        let mut deduped = self.dedupe(gathered);
+        if deduped.len() as i64 > limit {
+            deduped = deduped.split_off(deduped.len() - limit as usize);
+        }
+        Ok(deduped)
+    }
+
+    /// Port of `latest`.
+    pub fn latest(&mut self, username: &str, limit: i64) -> Result<Vec<Value>, PortError> {
+        let contact_id = self.contact_id_for(username);
+        let indices: Vec<usize> = self.shards_for(username).to_vec();
+        let mut gathered: Vec<Value> = Vec::new();
+        for index in indices {
+            gathered.extend(self.shards[index].latest(username, &contact_id, limit)?);
+        }
+        gathered.sort_by_key(row_key);
+        let mut deduped = self.dedupe(gathered);
+        if deduped.len() as i64 > limit {
+            deduped = deduped.split_off(deduped.len() - limit as usize);
+        }
+        Ok(deduped)
+    }
+
+    /// Port of `last_key`.
+    pub fn last_key(
+        &self,
+        username: &str,
+        cutoff_ms: i64,
+    ) -> Result<Option<(i64, String, i64)>, PortError> {
+        let mut best: Option<(i64, String, i64)> = None;
+        for index in self.shards_for(username) {
+            let shard = &self.shards[*index];
+            let Some((sort_seq, local_id)) = shard.last_key(username, cutoff_ms)? else {
+                continue;
+            };
+            let candidate = (sort_seq, shard.id().to_string(), local_id);
+            if best.as_ref().is_none_or(|current| candidate > *current) {
+                best = Some(candidate);
+            }
+        }
+        Ok(best)
+    }
+}
+
+/// `(sortSeq, shardId, localId)` — the composite order every merged list uses.
+fn row_key(row: &Value) -> (i64, String, i64) {
+    let number = |key: &str| -> i64 {
+        row.get(key)
+            .map(|v| match v {
+                Value::String(s) => s.parse::<i64>().unwrap_or(0),
+                other => other.as_i64().unwrap_or(0),
+            })
+            .unwrap_or(0)
+    };
+    (
+        number("sortSeq"),
+        text_field(row, "shardId"),
+        number("localId"),
+    )
+}
+
+fn text_field(row: &Value, key: &str) -> String {
+    match row.get(key) {
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Null) | None => String::new(),
+        Some(other) => other.to_string(),
+    }
+}
+
 // ---------------------------------------------------------------------------- op dispatch
+
+/// Owns the fixture shards and the store, and answers one op at a time.
+pub struct Runner {
+    account: String,
+    self_username: Option<String>,
+    first_image: Vec<u8>,
+    second_image: Vec<u8>,
+    shard: SqliteShard,
+    store: Option<ContactStore>,
+}
+
+impl Runner {
+    pub fn new(
+        shard_id: &str,
+        first: &[u8],
+        second: &[u8],
+        account: &str,
+        self_username: Option<&str>,
+    ) -> Result<Self, PortError> {
+        Ok(Runner {
+            account: account.to_string(),
+            self_username: self_username.map(str::to_string),
+            first_image: first.to_vec(),
+            second_image: second.to_vec(),
+            shard: SqliteShard::new(shard_id, first, account, self_username)?,
+            store: None,
+        })
+    }
+
+    fn ensure_store(&mut self) -> Result<&mut ContactStore, PortError> {
+        if self.store.is_none() {
+            let first = SqliteShard::new(
+                "shard-1",
+                &self.first_image,
+                &self.account,
+                self.self_username.as_deref(),
+            )?;
+            let second = SqliteShard::new(
+                "shard-2",
+                &self.second_image,
+                &self.account,
+                self.self_username.as_deref(),
+            )?;
+            self.store = Some(ContactStore::new(&self.account, vec![first, second]));
+        }
+        Ok(self.store.as_mut().expect("store built above"))
+    }
+
+    /// Answers one op. `target` picks the shard layer or the store layer.
+    pub fn run(&mut self, op: &Value) -> Value {
+        let target = op.get("target").and_then(Value::as_str).unwrap_or("shard");
+        let outcome = if target == "store" {
+            self.run_store(op)
+        } else {
+            self.run_shard(op)
+        };
+        match outcome {
+            Ok(value) => json!({ "ok": value }),
+            Err((code, message)) => {
+                json!({ "error": format!("ProtocolError({code}): {message}") })
+            }
+        }
+    }
+
+    fn run_store(&mut self, op: &Value) -> Result<Value, PortError> {
+        let name = op.get("op").and_then(Value::as_str).unwrap_or_default();
+        let username = string_of(op, "username").unwrap_or_default();
+        let limit = i64_of(op, "limit");
+        let cutoff = i64_of(op, "cutoff_ms");
+        let store = self.ensure_store()?;
+        match name {
+            "contact_id_for" => Ok(Value::String(store.contact_id_for(&username))),
+            "username_for" => Ok(
+                match store.username_for(&string_of(op, "contact_id").unwrap_or_default()) {
+                    Some(found) => Value::String(found),
+                    None => Value::Null,
+                },
+            ),
+            "contacts" => store.contacts().map(|rows| json!(rows)),
+            "total" => store.total(&username, cutoff).map(|n| json!(n)),
+            "store_last_key" => store.last_key(&username, cutoff).map(|key| match key {
+                None => Value::Null,
+                Some((sort, shard, local)) => json!([sort, shard, local]),
+            }),
+            "store_latest" => store.latest(&username, limit).map(|rows| json!(rows)),
+            "page" => {
+                store
+                    .page(&username, cutoff, cursor_of(op), limit)
+                    .map(|(rows, cursor, done)| {
+                        json!({
+                            "rows": rows,
+                            "cursor": match cursor {
+                                None => Value::Null,
+                                Some((sort, shard, local)) => json!([sort, shard, local]),
+                            },
+                            "done": done,
+                        })
+                    })
+            }
+            "context_before" => {
+                let Some(cursor) = cursor_of(op) else {
+                    return Ok(Value::Null);
+                };
+                store
+                    .context_before(
+                        &username,
+                        cutoff,
+                        cursor,
+                        limit,
+                        op.get("inclusive").and_then(Value::as_bool).unwrap_or(true),
+                    )
+                    .map(|rows| json!(rows))
+            }
+            "rows" => store.rows(&username, limit).map(|rows| json!(rows)),
+            other => Ok(json!({ "error": format!("unknown store op {other}") })),
+        }
+    }
+
+    fn run_shard(&mut self, op: &Value) -> Result<Value, PortError> {
+        let name = op.get("op").and_then(Value::as_str).unwrap_or_default();
+        let shard = &mut self.shard;
+        match name {
+            "usernames" => Ok(json!(shard.usernames())),
+            "known_usernames" => Ok(json!(shard.known_usernames())),
+            "contact_metadata" => shard.contact_metadata(),
+            "has_table" => Ok(json!(
+                shard.has_table(&string_of(op, "username").unwrap_or_default())
+            )),
+            "set_self_username" => Ok(json!(
+                shard.set_self_username(string_of(op, "username").as_deref())
+            )),
+            "count" => shard
+                .count(
+                    &string_of(op, "username").unwrap_or_default(),
+                    i64_of(op, "cutoff_ms"),
+                )
+                .map(|n| json!(n)),
+            "last_key" => shard
+                .last_key(
+                    &string_of(op, "username").unwrap_or_default(),
+                    i64_of(op, "cutoff_ms"),
+                )
+                .map(|key| match key {
+                    None => Value::Null,
+                    Some((sort, local)) => json!([sort, local]),
+                }),
+            "latest" => shard
+                .latest(
+                    &string_of(op, "username").unwrap_or_default(),
+                    &string_of(op, "contact_id").unwrap_or_default(),
+                    i64_of(op, "limit"),
+                )
+                .map(|rows| json!(rows)),
+            "iter_keyset" => shard
+                .iter_keyset(
+                    &string_of(op, "username").unwrap_or_default(),
+                    &string_of(op, "contact_id").unwrap_or_default(),
+                    i64_of(op, "cutoff_ms"),
+                    cursor_of(op),
+                    i64_of(op, "limit"),
+                )
+                .map(|rows| json!(rows)),
+            "iter_before" => {
+                let Some(cursor) = cursor_of(op) else {
+                    return Ok(Value::Null);
+                };
+                shard
+                    .iter_before(
+                        &string_of(op, "username").unwrap_or_default(),
+                        &string_of(op, "contact_id").unwrap_or_default(),
+                        i64_of(op, "cutoff_ms"),
+                        cursor,
+                        i64_of(op, "limit"),
+                        op.get("inclusive").and_then(Value::as_bool).unwrap_or(true),
+                    )
+                    .map(|rows| json!(rows))
+            }
+            other => Ok(json!({ "error": format!("unknown op {other}") })),
+        }
+    }
+}
 
 fn string_of(op: &Value, key: &str) -> Option<String> {
     op.get(key).and_then(Value::as_str).map(str::to_string)
@@ -730,70 +1225,4 @@ fn cursor_of(op: &Value) -> Option<(i64, String, i64)> {
         items.get(1)?.as_str()?.to_string(),
         items.get(2)?.as_i64()?,
     ))
-}
-
-pub fn run_op(shard: &mut SqliteShard, op: &Value) -> Value {
-    let name = op.get("op").and_then(Value::as_str).unwrap_or_default();
-    let outcome: Result<Value, (String, String)> = match name {
-        "usernames" => Ok(json!(shard.usernames())),
-        "known_usernames" => Ok(json!(shard.known_usernames())),
-        "contact_metadata" => shard.contact_metadata(),
-        "has_table" => Ok(json!(
-            shard.has_table(&string_of(op, "username").unwrap_or_default())
-        )),
-        "set_self_username" => Ok(json!(
-            shard.set_self_username(string_of(op, "username").as_deref())
-        )),
-        "count" => shard
-            .count(
-                &string_of(op, "username").unwrap_or_default(),
-                i64_of(op, "cutoff_ms"),
-            )
-            .map(|n| json!(n)),
-        "last_key" => shard
-            .last_key(
-                &string_of(op, "username").unwrap_or_default(),
-                i64_of(op, "cutoff_ms"),
-            )
-            .map(|key| match key {
-                None => Value::Null,
-                Some((sort, local)) => json!([sort, local]),
-            }),
-        "latest" => shard
-            .latest(
-                &string_of(op, "username").unwrap_or_default(),
-                &string_of(op, "contact_id").unwrap_or_default(),
-                i64_of(op, "limit"),
-            )
-            .map(|rows| json!(rows)),
-        "iter_keyset" => shard
-            .iter_keyset(
-                &string_of(op, "username").unwrap_or_default(),
-                &string_of(op, "contact_id").unwrap_or_default(),
-                i64_of(op, "cutoff_ms"),
-                cursor_of(op),
-                i64_of(op, "limit"),
-            )
-            .map(|rows| json!(rows)),
-        "iter_before" => {
-            let Some(cursor) = cursor_of(op) else {
-                return json!({"error": "missing cursor"});
-            };
-            shard
-                .iter_before(
-                    &string_of(op, "username").unwrap_or_default(),
-                    &string_of(op, "contact_id").unwrap_or_default(),
-                    i64_of(op, "cutoff_ms"),
-                    cursor,
-                    i64_of(op, "limit"),
-                    op.get("inclusive").and_then(Value::as_bool).unwrap_or(true),
-                )
-                .map(|rows| json!(rows))
-        }
-        other => return json!({"error": format!("unknown op {other}")}),
-    };
-    match outcome {
-        Ok(value) => json!({ "ok": value }),
-        Err((code, message)) => json!({ "error": format!("ProtocolError({code}): {message}") }),
-    }
 }
