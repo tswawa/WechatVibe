@@ -1,0 +1,4 @@
+target/
+testdata/py/
+testdata/rs/
+testdata/snapshot-ops.json

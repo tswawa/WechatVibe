@@ -17,7 +17,7 @@
 
 ## 单元状态
 
-`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 1 个独立 crate（201 条金标准操作）全绿。
+`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 2 个独立 crate（201 条金标准操作 + 30 项双目录差分）全绿。
 
 | # | 单元 | 语言 | 行数 | crate | 状态 |
 | ---: | --- | --- | ---: | --- | --- |
@@ -25,7 +25,7 @@
 | 2 | `wr/wal.py` | Python | 147 | `rust/wr-wal-rs` | **done** gate 通过，621/621 |
 | 3 | `wr/png_encode.py` | Python | 47 | `rust/wr-png_encode-rs` | **done** gate 通过，232/232 |
 | 4 | `wr/protocol.py` | Python | 65 | `rust/wr-protocol-rs` | **done** gate 通过，692/692（`read_request`/`write_message` 保留 Python） |
-| 5 | `wr/snapshot.py` | Python | 154 | — | open —— 文件系统为主，需要 fixture 目录才能 replay |
+| 5 | `wr/snapshot.py` | Python | 155 | `rust/wr-snapshot-rs` | **done** 双目录差分 30/30（22 响应 + 8 文件），`cargo test` 2/2 |
 | 6 | `wr/fixture.py` | Python | 70 | `rust/wr-fixture-rs` | **done** gate 通过，224/224（只读，testdata 目录随 crate 提交） |
 | 7 | `wr/database.py`（自由函数） | Python | 571 | `rust/wr-database-rs` | **done** gate 通过，1121/1121 |
 | 7b | `wr/database.py` → `SqliteShard` + `ContactStore` | Python | 495 | `rust/wr-query-rs` | **done** 201/201 金标准操作，`cargo test` 固化 |

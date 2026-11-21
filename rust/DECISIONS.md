@@ -188,3 +188,21 @@ Python 侧也从 `op[...]` 读，不许在驱动代码里硬编码。
 
 Consequences: 这条约束已经写进 `tools/build-golden.py`：page 的 `cutoff_ms` 现在随 op 传递。
 代价是 op JSON 略微冗长，换来的是"两边真的在比较同一件事"。
+
+## ADR-013: 会写文件的模块用「双目录差分」证明
+
+Status: accepted (2026-11-21)
+
+Context: `snapshot.py` 会创建、覆盖、删除文件，不能像 `fixture.py` 那样只读重放；
+`create_snapshot` 还用 `uuid4()` 生成随机 id，两次运行必然不同。
+
+Decision: `tools/compare.py` 用双目录差分：
+1. 同一份初始目录复制成两份，Python 与 Rust 各跑同一批 22 个操作。
+2. 比对所有返回值，以及跑完之后整棵目录树的**文件名和字节**。
+3. 随机 uuid 按创建顺序映射成 `snap0` / `snap1` 再比 —— 不能直接全替换成一个占位符，
+   否则两个快照文件名会撞成同一个 key，等于少比了文件（确实踩过，30/30 变成假的 29/29）。
+4. Python 侧 `json.dumps` 的默认分隔符是 `", "` / `": "`，Rust 侧手写同款序列化，
+   否则元数据文件的字节会不同。
+
+Consequences: 结果 30/30（22 个响应 + 8 个文件）一致。代价是每个写操作都要在 op 里显式编码，
+不能靠录制器自动生成。

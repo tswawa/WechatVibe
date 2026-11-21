@@ -1,0 +1,26 @@
+[package]
+name = "wr-snapshot"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+description = "Rust port of wr/snapshot.py's filesystem snapshot store"
+
+[lib]
+name = "wr_snapshot"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wr-snapshot"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+
+[profile.release]
+lto = true
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
