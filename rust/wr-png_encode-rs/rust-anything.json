@@ -1,0 +1,42 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\native-reader",
+  "unit": "wr/png_encode.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "png-encode-rs",
+  "exports": [
+    {
+      "name": "encode_png_rgb",
+      "file": "wr/png_encode.py",
+      "line": 23,
+      "params": [
+        {
+          "name": "width",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "height",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "rgb",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": []
+}

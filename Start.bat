@@ -1,129 +1,224 @@
 @echo off
-chcp 65001 >nul
+rem ±¾ÎÄ¼şÒÔ GBK(CP936) ±£´æ¡£ÖĞÎÄ Windows ÏÂ cmd.exe °´µ±Ç°´úÂëÒ³·Ö¿é¶ÁÈ¡Åú´¦Àí£¬
+rem ´æ³É UTF-8 »áÔÚ¿é±ß½ç°Ñ¶à×Ö½Ú×Ö·û½Ø¶Ï£¬µ¼ÖÂĞĞ±»ÍÌµô»òµ±³ÉÃüÁîÖ´ĞĞ¡£
+chcp 936 >nul
 rem ============================================================================
-rem  WechatVibe æºç ä¸€é”®å¯åŠ¨ï¼ˆWindowsï¼‰
+rem  WechatVibe Ô´ÂëÒ»¼üÆô¶¯£¨Windows£©
 rem
-rem  ä½œç”¨ï¼šæ£€æŸ¥ Node/Python ç¯å¢ƒ -> è¡¥é½ä¾èµ– -> å¯åŠ¨ Electron æ¡Œé¢å®¢æˆ·ç«¯ã€‚
-rem  é¦–æ¬¡è¿è¡Œä¼šè‡ªåŠ¨æ‰§è¡Œ npm ciã€åˆ›å»º .venv å¹¶å®‰è£… Python ä¾èµ–ï¼Œä¹‹åå¯åŠ¨åªåšæ ¡éªŒã€‚
+rem  ×÷ÓÃ£ºÑ¡Ò»ÌõÔËĞĞÊ±Â·¾¶Æô¶¯×ÀÃæ¿Í»§¶Ë¡£
+rem    1. ÕÒµ½ Rust ¿ÉÖ´ĞĞÎÄ¼ş£¨rust\app\target\release\£©¾ÍÆô¶¯Ëü ¡ª¡ª ÕâÌõÂ·¾¶
+rem       ²»ĞèÒª Node£¬Ò²²»ĞèÒª Python¡£
+rem    2. ·ñÔò»ØÂäµ½Ô­ÓĞ Electron + Python Á´Â·£ºĞ£Ñé Node/Python »·¾³¡¢²¹ÆëÒÀÀµ
+rem       ºóÆô¶¯ Electron¡£
 rem
-rem  ç”¨æ³•ï¼šåŒå‡»æœ¬æ–‡ä»¶ï¼Œæˆ–åœ¨ PowerShell ä¸­æ‰§è¡Œ .\Start.bat
-rem  é€€å‡ºï¼šå…³é—­ WechatVibe çª—å£å³ç»“æŸæœ¬è¿›ç¨‹ã€‚
+rem  ÓÃ·¨£º
+rem    Start.bat                ×Ô¶¯Ñ¡Ôñ£¨ÓÅÏÈ Rust£¬Ã»ÓĞÔò Electron£©
+rem    Start.bat --rust         Ç¿ÖÆ×ß Rust£¬ÕÒ²»µ½²úÎïÖ±½Ó±¨´í
+rem    Start.bat --electron     Ç¿ÖÆ×ß Electron
+rem    Start.bat --check        Ö»×ö»·¾³×Ô¼ì£¬²»Æô¶¯
+rem    Start.bat --no-pause     ½áÊøÊ±²»µÈ´ı°´¼ü£¨½Å±¾ / CI µ÷ÓÃ£©
+rem    Start.bat --help         ÏÔÊ¾ÓÃ·¨
+rem
+rem  ÍË³öÂë£º0 Õı³££¬1 »·¾³»òÆô¶¯Ê§°Ü¡£
+rem  ÍË³ö£º¹Ø±Õ WechatVibe ´°¿Ú¼´½áÊø±¾½ø³Ì¡£
 rem ============================================================================
 
-setlocal EnableExtensions
+setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0"
 
+set "MODE=run"
+set "FORCE="
+set "NOPAUSE="
+set "HELP="
+set "EXIT_CODE=0"
 set "VENV_DIR=%CD%\.venv"
 set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
-set "LOCK_FILE=python-requirements.lock.txt"
+set "LOCK_FILE=%CD%\python-requirements.lock.txt"
+set "RUST_BIN="
+
+rem ---------------------------------------------------------------- ²ÎÊı½âÎö
+rem ÏÈ½âÎöÍêÈ«²¿²ÎÊıÔÙ¶¯×÷£¬·ñÔò --help --no-pause ÕâÀà×éºÏ»áÒòÎªÌáÇ° goto ¶ªµôºóÃæµÄ¿ª¹Ø¡£
+:parse_args
+if "%~1"=="" goto :args_done
+if /i "%~1"=="--check"    set "MODE=check"
+if /i "%~1"=="--rust"     set "FORCE=rust"
+if /i "%~1"=="--electron" set "FORCE=electron"
+if /i "%~1"=="--no-pause" set "NOPAUSE=1"
+if /i "%~1"=="-h"         set "HELP=1"
+if /i "%~1"=="--help"     set "HELP=1"
+if /i "%~1"=="/?"         set "HELP=1"
+shift
+goto :parse_args
+
+:args_done
+if defined HELP goto :usage
 
 echo.
 echo ============================================================
-echo   WechatVibe æºç å¯åŠ¨
-echo   å·¥ä½œç›®å½•ï¼š%CD%
+echo   WechatVibe Ô´ÂëÆô¶¯
+echo   ¹¤×÷Ä¿Â¼£º%CD%
 echo ============================================================
 echo.
+goto :runtime_select
 
-rem ---------------------------------------------------------------- 1. Node
-rem One spawn instead of three: `node -v` + `node -p` + two `where` calls cost ~1 s here.
+:usage
+echo ÓÃ·¨: Start.bat [--rust ^| --electron] [--check] [--no-pause]
+echo.
+echo   --rust       Ç¿ÖÆÆô¶¯ Rust °æ£¨rust\app\target\release\£©
+echo   --electron   Ç¿ÖÆÆô¶¯ Electron + Python °æ
+echo   --check      Ö»×ö»·¾³×Ô¼ì£¬²»Æô¶¯
+echo   --no-pause   ½áÊøÊ±²»µÈ´ı°´¼ü
+echo   -h, --help   ÏÔÊ¾±¾°ïÖú
+set "EXIT_CODE=0"
+goto :finish
+
+rem ------------------------------------------------------------ Ñ¡ÔñÔËĞĞÊ±Â·¾¶
+:runtime_select
+rem ÏÔÊ½Ö¸¶¨µÄÓÅÏÈ£ºWECHATVIBE_RUST_BIN »·¾³±äÁ¿£¬Æä´Î³£¹æ¹¹½¨²úÎïÎ»ÖÃ¡£
+if defined WECHATVIBE_RUST_BIN if exist "%WECHATVIBE_RUST_BIN%" set "RUST_BIN=%WECHATVIBE_RUST_BIN%"
+if not defined RUST_BIN if exist "rust\app\target\release\wechatvibe.exe" set "RUST_BIN=%CD%\rust\app\target\release\wechatvibe.exe"
+if not defined RUST_BIN if exist "rust\app\target\release\wechatvibe-desktop.exe" set "RUST_BIN=%CD%\rust\app\target\release\wechatvibe-desktop.exe"
+
+if /i "%FORCE%"=="electron" (
+  set "RUST_BIN="
+  echo [Â·¾¶] °´ÒªÇóÊ¹ÓÃ Electron + Python
+  goto :node_checks
+)
+if /i "%FORCE%"=="rust" if not defined RUST_BIN goto :no_rust_bin
+if defined RUST_BIN goto :rust_checks
+
+echo [Â·¾¶] Î´ÕÒµ½ Rust ¹¹½¨²úÎï£¬»ØÂäµ½ Electron + Python
+goto :node_checks
+
+rem ========================================================== Â·¾¶ A£ºRust
+:rust_checks
+echo [1/1] Rust ¿ÉÖ´ĞĞÎÄ¼ş£º%RUST_BIN%
+if /i "%MODE%"=="check" goto :check_done
+goto :launch_rust
+
+:launch_rust
+echo.
+echo ÕıÔÚÆô¶¯ WechatVibe£¨Rust£©...
+echo ¹Ø±ÕÓ¦ÓÃ´°¿Ú¼´½áÊø±¾½Å±¾¡£
+echo.
+"%RUST_BIN%"
+set "EXIT_CODE=%ERRORLEVEL%"
+if not "%EXIT_CODE%"=="0" (
+  echo.
+  echo [Æô¶¯Òì³£] Rust ¿Í»§¶ËÍË³öÂë£º%EXIT_CODE%
+  goto :finish
+)
+echo ¿Í»§¶ËÒÑÍË³ö¡£
+goto :finish
+
+rem ================================================= Â·¾¶ B£ºElectron + Python
+:node_checks
+rem Ò»´Î node µ÷ÓÃÍ¬Ê±È¡°æ±¾ºÅºÍÖ÷°æ±¾ºÅ£¬Ê¡µô node -v ÓëÁ½´Î where µÄÆô¶¯¿ªÏú¡£
+set "NODE_VERSION="
+set "NODE_MAJOR_RAW="
 for /f "usebackq tokens=1,2" %%a in (`node -p "process.versions.node + ' ' + process.versions.node.split('.')[0]" 2^>nul`) do (
   set "NODE_VERSION=%%a"
-  set "NODE_MAJOR=%%b"
+  set "NODE_MAJOR_RAW=%%b"
 )
 if not defined NODE_VERSION goto :no_node
-echo [1/4] Node.js %NODE_VERSION% å·²å°±ç»ª
-if defined NODE_MAJOR if %NODE_MAJOR% LSS 24 echo       [è­¦å‘Š] é¡¹ç›®è¦æ±‚ Node.js 24.11.1ï¼Œå½“å‰ä¸º %NODE_VERSION%ï¼Œå¯èƒ½å‡ºç°å¼‚å¸¸ã€‚
 
-rem --------------------------------------------------------- 2. Node ä¾èµ–
+rem Ö»ÓĞ½âÎö³öµÄÖ÷°æ±¾È·ÊµÊÇ¸öÊı×Ö²Å²ÎÓë±È½Ï£»·ñÔò°´ 0 ´¦Àí£¬Ìø¹ı¸æ¾¯¶ø²»ÊÇÈÃ if ±¨Óï·¨´í¡£
+set "NODE_MAJOR=0"
+if defined NODE_MAJOR_RAW set /a NODE_MAJOR=NODE_MAJOR_RAW >nul 2>nul
+echo [1/4] Node.js %NODE_VERSION% ÒÑ¾ÍĞ÷
+if %NODE_MAJOR% LSS 24 if not "%NODE_MAJOR%"=="0" echo       [¾¯¸æ] ÏîÄ¿ÒªÇó Node.js 24.11.1£¬µ±Ç°Îª %NODE_VERSION%£¬¿ÉÄÜ³öÏÖÒì³£¡£
+
+rem ------------------------------------------------------------ 2. Node ÒÀÀµ
 if exist "node_modules\" goto :node_modules_ok
 where npm >nul 2>nul
 if errorlevel 1 goto :no_npm
-echo [2/4] æœªæ£€æµ‹åˆ° node_modulesï¼Œæ­£åœ¨æ‰§è¡Œ npm ciï¼ˆé¦–æ¬¡è¿è¡Œçº¦éœ€æ•°åˆ†é’Ÿï¼‰...
+echo [2/4] Î´¼ì²âµ½ node_modules£¬ÕıÔÚÖ´ĞĞ npm ci£¨Ê×´ÎÔËĞĞÔ¼ĞèÊı·ÖÖÓ£©...
 call npm ci
-if errorlevel 1 goto :npm_failed
+if errorlevel 1 goto :npm_cleanup
 :node_modules_ok
 if exist "node_modules\electron\dist\electron.exe" goto :electron_ok
-echo       æ­£åœ¨è¡¥å…¨ Electron è¿è¡Œæ—¶ï¼ˆnpm run setup:electronï¼‰...
+echo       ÕıÔÚ²¹È« Electron ÔËĞĞÊ±£¨npm run setup:electron£©...
 call npm run setup:electron
 if errorlevel 1 goto :npm_failed
 :electron_ok
-echo [2/4] Node ä¾èµ–å·²å°±ç»ª
+echo [2/4] Node ÒÀÀµÒÑ¾ÍĞ÷
+goto :python_checks
 
-rem ------------------------------------------------------------ 3. Python
+:npm_cleanup
+rem node_modules ÔÚ±¾´ÎÔËĞĞÇ°²»´æÔÚ£¬ÀïÃæµÄ¶«Î÷¶¼ÊÇÕâ´Î npm ci ×°ÁËÒ»°ëµÄ£¬¿ÉÒÔÕû¸öÇåµô¡£
+if not exist "node_modules\" goto :npm_failed
+echo       ÇåÀí npm ci ÁôÏÂµÄ°ë³ÉÆ· node_modules ...
+rd /s /q "node_modules" 2>nul
+goto :npm_failed
+
+rem ---------------------------------------------------------------- 3. Python
+:python_checks
+if not exist "%LOCK_FILE%" goto :no_lockfile
 if exist "%VENV_PY%" goto :venv_ok
-echo [3/4] æœªæ£€æµ‹åˆ° .venvï¼Œæ­£åœ¨åˆ›å»º Python è™šæ‹Ÿç¯å¢ƒ...
-py -3.14 -c "import sys" >nul 2>nul && goto :venv_py314
-py -3.13 -c "import sys" >nul 2>nul && goto :venv_py313
-py -3.12 -c "import sys" >nul 2>nul && goto :venv_py312
-py -3 -c "import sys" >nul 2>nul && goto :venv_py3
-python -c "import sys" >nul 2>nul && goto :venv_python
-goto :no_python
+echo [3/4] Î´¼ì²âµ½ .venv£¬ÕıÔÚ´´½¨ Python ĞéÄâ»·¾³...
+set "PY_LAUNCH="
+py -3.14 -c "import sys" >nul 2>nul && set "PY_LAUNCH=py -3.14"
+if not defined PY_LAUNCH (
+  py -3.13 -c "import sys" >nul 2>nul && set "PY_LAUNCH=py -3.13"
+)
+if not defined PY_LAUNCH (
+  py -3.12 -c "import sys" >nul 2>nul && set "PY_LAUNCH=py -3.12"
+)
+if not defined PY_LAUNCH (
+  py -3 -c "import sys" >nul 2>nul && set "PY_LAUNCH=py -3"
+)
+if not defined PY_LAUNCH (
+  python -c "import sys" >nul 2>nul && set "PY_LAUNCH=python"
+)
+if not defined PY_LAUNCH goto :no_python
 
-:venv_py314
-set "PY_LAUNCH=py -3.14"
-goto :venv_create
-:venv_py313
-set "PY_LAUNCH=py -3.13"
-goto :venv_create
-:venv_py312
-set "PY_LAUNCH=py -3.12"
-goto :venv_create
-:venv_py3
-set "PY_LAUNCH=py -3"
-goto :venv_create
-:venv_python
-set "PY_LAUNCH=python"
-goto :venv_create
-
-:venv_create
 %PY_LAUNCH% -m venv "%VENV_DIR%"
 if errorlevel 1 goto :venv_failed
-echo       å·²ç”¨ %PY_LAUNCH% åˆ›å»º .venv
+echo       ÒÑÓÃ %PY_LAUNCH% ´´½¨ .venv
 
 :venv_ok
-rem å›ºå®šä½¿ç”¨é¡¹ç›®è™šæ‹Ÿç¯å¢ƒï¼Œé¿å…æµ‹è¯•ä¸æ„å»ºè¯¯ç”¨ç³»ç»Ÿ Python
+rem ¹Ì¶¨Ê¹ÓÃÏîÄ¿ĞéÄâ»·¾³£¬±ÜÃâ²âÊÔÓë¹¹½¨ÎóÓÃÏµÍ³ Python¡£
 set "WECHATVIBE_PYTHON=%VENV_PY%"
 set "PATH=%VENV_DIR%\Scripts;%PATH%"
-rem One interpreter start for both the version line and the dependency probe. find_spec()
-rem checks that the packages are importable without paying numpy's import cost on every start.
+rem Ò»´ÎÌ½²â¡£ÍË³öÂëÊÇ¾«È·Æ¥ÅäµÄ£¬²»ÊÇ if errorlevel µÄ¡¸´óÓÚµÈÓÚ¡¹£º3 ±íÊ¾È±°ü£¬
+rem ÆäÓà·ÇÁã±íÊ¾½âÊÍÆ÷±¾ÉíÅÜ²»ÆğÀ´¡£
 "%VENV_PY%" -c "import sys,importlib.util as u;print('       Python','.'.join(map(str,sys.version_info[:3])),'(.venv)');sys.exit(0 if all(u.find_spec(m) for m in ('cffi','numpy','wechatauto')) else 3)"
-if errorlevel 3 goto :pip_install
-if errorlevel 1 goto :venv_broken
-goto :deps_ok
+set "PROBE=%ERRORLEVEL%"
+if "%PROBE%"=="0" goto :deps_ok
+if "%PROBE%"=="3" goto :pip_install
+goto :venv_broken
 
 :pip_install
-echo       æ­£åœ¨å®‰è£… Python ä¾èµ–ï¼ˆpip install --no-deps -r %LOCK_FILE%ï¼‰...
+echo       ÕıÔÚ°²×° Python ÒÀÀµ£¨pip install --no-deps -r python-requirements.lock.txt£©...
 "%VENV_PY%" -m pip install --no-deps -r "%LOCK_FILE%"
 if errorlevel 1 goto :pip_failed
-:deps_ok
-echo [3/4] Python ç¯å¢ƒå·²å°±ç»ª
 
-rem ---------------------------------------------------- 4. æ¨¡å‹ç›®å½•ä¸å¯åŠ¨
+:deps_ok
+echo [3/4] Python »·¾³ÒÑ¾ÍĞ÷
+
+rem ---------------------------------------------------- 4. Ä£ĞÍÄ¿Â¼ÓëÆô¶¯
+if defined LAYA_MODEL_DIR goto :model_env
 if exist ".models\laya\" goto :model_ok
-if defined LAYA_MODEL_DIR goto :model_ok
-echo [4/4] æœªæ£€æµ‹åˆ°æœ¬åœ° Laya æ¨¡å‹ï¼ˆ.models\layaï¼‰
-echo       æœ¬åœ°åˆ†æéœ€è¦æ¨¡å‹ï¼šå¯å…ˆæ‰§è¡Œ npm run setup:models ä¸‹è½½ï¼Œ
-echo       æˆ–å¯åŠ¨ååœ¨ã€Œè®¾ç½® â†’ æœ¬åœ°éƒ¨ç½²ã€ä¸‹è½½ï¼›åªç”¨ API æ¨¡å¼å¯è·³è¿‡ã€‚
+echo [4/4] Î´¼ì²âµ½±¾µØ Laya Ä£ĞÍ£¨.models\laya£©
+echo       ±¾µØ·ÖÎöĞèÒªÄ£ĞÍ£º¿ÉÏÈÖ´ĞĞ npm run setup:models ÏÂÔØ£¬
+echo       »òÆô¶¯ºóÔÚ¡¸ÉèÖÃ ¡ú ±¾µØ²¿Êğ¡¹ÏÂÔØ£»Ö»ÓÃ API Ä£Ê½¿ÉÌø¹ı¡£
+goto :model_ready
+
+:model_env
+echo [4/4] Ê¹ÓÃ LAYA_MODEL_DIR Ö¸¶¨µÄÄ£ĞÍÄ¿Â¼£º%LAYA_MODEL_DIR%
 goto :model_ready
 
 :model_ok
-if defined LAYA_MODEL_DIR (
-  echo [4/4] ä½¿ç”¨ LAYA_MODEL_DIR æŒ‡å®šçš„æ¨¡å‹ç›®å½•ï¼š%LAYA_MODEL_DIR%
-) else (
-  echo [4/4] æœ¬åœ° Laya æ¨¡å‹ç›®å½•ï¼š%CD%\.models\laya
-)
+echo [4/4] ±¾µØ Laya Ä£ĞÍÄ¿Â¼£º%CD%\.models\laya
 
 :model_ready
-rem è‡ªæ£€æ¨¡å¼ï¼šåªæ£€æŸ¥ç¯å¢ƒï¼Œä¸å¯åŠ¨å®¢æˆ·ç«¯ï¼ˆStart.bat --checkï¼‰
-if /i "%~1"=="--check" goto :check_only
+if /i "%MODE%"=="check" goto :check_done
 
-:launch
 echo.
-echo æ­£åœ¨å¯åŠ¨ WechatVibe...
-echo å…³é—­åº”ç”¨çª—å£å³ç»“æŸæœ¬è„šæœ¬ã€‚
+echo ÕıÔÚÆô¶¯ WechatVibe...
+echo ¹Ø±ÕÓ¦ÓÃ´°¿Ú¼´½áÊø±¾½Å±¾¡£
 echo.
-rem Launch the Electron binary directly: the npm wrapper alone costs ~4 s on this machine
-rem (npm.cmd shim + CLI bootstrap) before Electron even starts.
+rem Ö±½ÓÆô¶¯ Electron ¿ÉÖ´ĞĞÎÄ¼ş£º×ß npm °ü×°²ã¹â shim ºÍ CLI Òıµ¼¾ÍÒª¶à»¨Ô¼ 4 Ãë¡£
 if not exist "node_modules\electron\dist\electron.exe" goto :launch_npm
 "node_modules\electron\dist\electron.exe" .
 set "EXIT_CODE=%ERRORLEVEL%"
@@ -134,58 +229,76 @@ where npm >nul 2>nul
 if errorlevel 1 goto :no_npm
 call npm start
 set "EXIT_CODE=%ERRORLEVEL%"
+
 :launch_done
 echo.
 if not "%EXIT_CODE%"=="0" (
-  echo [å¯åŠ¨å¼‚å¸¸] å®¢æˆ·ç«¯é€€å‡ºç ï¼š%EXIT_CODE%
-  echo å¯å°è¯•ï¼šnpm run start:service -- --no-open å•ç‹¬å¯åŠ¨æœ¬åœ°æœåŠ¡æŸ¥çœ‹æ—¥å¿—ã€‚
+  echo [Æô¶¯Òì³£] ¿Í»§¶ËÍË³öÂë£º%EXIT_CODE%
+  echo ¿É³¢ÊÔ£ºnpm run start:service -- --no-open µ¥¶ÀÆô¶¯±¾µØ·şÎñ²é¿´ÈÕÖ¾¡£
   goto :finish
 )
-echo å®¢æˆ·ç«¯å·²é€€å‡ºã€‚
+echo ¿Í»§¶ËÒÑÍË³ö¡£
 goto :finish
 
-:check_only
-echo ç¯å¢ƒè‡ªæ£€é€šè¿‡ï¼Œæœªå¯åŠ¨å®¢æˆ·ç«¯ï¼ˆStart.bat --checkï¼‰ã€‚
+:check_done
+echo »·¾³×Ô¼ìÍ¨¹ı£¬Î´Æô¶¯¿Í»§¶Ë¡£
 
+rem ------------------------------------------------------------------ ÊÕÎ²
 :finish
 echo.
+if defined NOPAUSE goto :no_pause
+if /i "%MODE%"=="check" goto :no_pause
 pause
-endlocal
-exit /b 0
+:no_pause
+endlocal & exit /b %EXIT_CODE%
 
-rem ---------------------------------------------------------------- å¤±è´¥åˆ†æ”¯
+rem ---------------------------------------------------------------- Ê§°Ü·ÖÖ§
+:no_rust_bin
+echo [´íÎó] Ö¸¶¨ÁË --rust£¬µ«Ã»ÓĞÕÒµ½ Rust ¿ÉÖ´ĞĞÎÄ¼ş¡£
+echo        Ô¤ÆÚÎ»ÖÃ£ºrust\app\target\release\wechatvibe.exe
+echo        ÏÈ¹¹½¨£ºcargo build --release --manifest-path rust\app\Cargo.toml
+echo        »òÉèÖÃ»·¾³±äÁ¿ WECHATVIBE_RUST_BIN Ö¸ÏòÒÑÓĞ²úÎï¡£
+set "EXIT_CODE=1"
+goto :finish
+
 :no_node
-echo [é”™è¯¯] æœªæ‰¾åˆ° Node.jsã€‚è¯·å®‰è£… Node.js 24.11.1 x64 åé‡è¯•ï¼šhttps://nodejs.org/
-goto :abort
+echo [´íÎó] Î´ÕÒµ½ Node.js¡£Çë°²×° Node.js 24.11.1 x64 ºóÖØÊÔ£ºhttps://nodejs.org/
+set "EXIT_CODE=1"
+goto :finish
 
 :no_npm
-echo [é”™è¯¯] æœªæ‰¾åˆ° npmã€‚è¯·é‡æ–°å®‰è£… Node.jsï¼ˆè‡ªå¸¦ npmï¼‰åé‡è¯•ã€‚
-goto :abort
+echo [´íÎó] Î´ÕÒµ½ npm¡£ÇëÖØĞÂ°²×° Node.js£¨×Ô´ø npm£©ºóÖØÊÔ¡£
+set "EXIT_CODE=1"
+goto :finish
 
 :npm_failed
-echo [é”™è¯¯] Node ä¾èµ–å®‰è£…å¤±è´¥ã€‚å¯æ‰‹åŠ¨æ‰§è¡Œ npm ci æŸ¥çœ‹è¯¦ç»†æŠ¥é”™ã€‚
-goto :abort
+echo [´íÎó] Node ÒÀÀµ°²×°Ê§°Ü¡£¿ÉÊÖ¶¯Ö´ĞĞ npm ci ²é¿´ÏêÏ¸±¨´í¡£
+set "EXIT_CODE=1"
+goto :finish
+
+:no_lockfile
+echo [´íÎó] Î´ÕÒµ½ python-requirements.lock.txt£¬ÎŞ·¨Ğ£Ñé Python ÒÀÀµ¡£
+set "EXIT_CODE=1"
+goto :finish
 
 :no_python
-echo [é”™è¯¯] æœªæ‰¾åˆ° Pythonã€‚è¯·å®‰è£… Python 3.14ï¼ˆ3.13 äº¦å¯è¿è¡Œï¼‰å¹¶å‹¾é€‰ Add to PATHï¼š
+echo [´íÎó] Î´ÕÒµ½ Python¡£Çë°²×° Python 3.14£¨3.13 Òà¿ÉÔËĞĞ£©²¢¹´Ñ¡ Add to PATH£º
 echo        https://www.python.org/downloads/windows/
-goto :abort
+set "EXIT_CODE=1"
+goto :finish
 
 :venv_failed
-echo [é”™è¯¯] åˆ›å»º .venv å¤±è´¥ã€‚
-goto :abort
+echo [´íÎó] ´´½¨ .venv Ê§°Ü¡£
+set "EXIT_CODE=1"
+goto :finish
 
 :venv_broken
-echo [é”™è¯¯] .venv\Scripts\python.exe æ— æ³•æ‰§è¡Œï¼Œè¯·åˆ é™¤ .venv ç›®å½•åé‡æ–°è¿è¡Œæœ¬è„šæœ¬ã€‚
-goto :abort
+echo [´íÎó] .venv\Scripts\python.exe ÎŞ·¨Ö´ĞĞ£¬ÇëÉ¾³ı .venv Ä¿Â¼ºóÖØĞÂÔËĞĞ±¾½Å±¾¡£
+set "EXIT_CODE=1"
+goto :finish
 
 :pip_failed
-echo [é”™è¯¯] Python ä¾èµ–å®‰è£…å¤±è´¥ã€‚å¯æ‰‹åŠ¨æ‰§è¡Œï¼š
-echo        .\.venv\Scripts\python.exe -m pip install --no-deps -r %LOCK_FILE%
-goto :abort
-
-:abort
-echo.
-pause
-endlocal
-exit /b 1
+echo [´íÎó] Python ÒÀÀµ°²×°Ê§°Ü¡£¿ÉÊÖ¶¯Ö´ĞĞ£º
+echo        .\.venv\Scripts\python.exe -m pip install --no-deps -r python-requirements.lock.txt
+set "EXIT_CODE=1"
+goto :finish

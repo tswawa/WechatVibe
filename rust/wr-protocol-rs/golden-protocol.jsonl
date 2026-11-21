@@ -1,0 +1,25 @@
+{"fn": "validate_request", "args": [{"id": "req-1", "method": "status", "params": {}}]}
+{"fn": "validate_request", "args": [{"id": "a", "method": "m", "params": {"x": 1}}]}
+{"fn": "validate_request", "args": [{"id": "idididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididid", "method": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"}]}
+{"fn": "validate_request", "args": [{"id": "req-2", "method": "discover"}]}
+{"fn": "validate_request", "args": [{"id": "req-3", "method": "discover", "params": null}]}
+{"fn": "validate_request", "args": [{"id": "req-4", "method": "snapshot", "params": {"account": "a"}}]}
+{"fn": "validate_request", "args": [{}]}
+{"fn": "validate_request", "args": [{"id": "", "method": "m"}]}
+{"fn": "validate_request", "args": [{"id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "method": "m"}]}
+{"fn": "validate_request", "args": [{"id": 1, "method": "m"}]}
+{"fn": "validate_request", "args": [{"id": "i", "method": ""}]}
+{"fn": "validate_request", "args": [{"id": "i", "method": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"}]}
+{"fn": "validate_request", "args": [{"id": "i", "method": 7}]}
+{"fn": "validate_request", "args": [{"id": "i", "method": "m", "params": []}]}
+{"fn": "validate_request", "args": [{"id": "i", "method": "m", "params": "x"}]}
+{"fn": "validate_request", "args": [[]]}
+{"fn": "validate_request", "args": ["x"]}
+{"fn": "validate_request", "args": [null]}
+{"fn": "ok", "args": ["req-1", {"a": 1}]}
+{"fn": "ok", "args": ["req-2", null]}
+{"fn": "ok", "args": ["req-3", [1, 2, 3]]}
+{"fn": "ok", "args": ["", {}]}
+{"fn": "fail", "args": ["req-1", "bad_request", "boom"]}
+{"fn": "fail", "args": ["req-2", "key_unavailable", ""]}
+{"fn": "fail", "args": ["", "internal", "x"]}

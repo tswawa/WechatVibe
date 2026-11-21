@@ -1,0 +1,97 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\native-reader",
+  "unit": "wr/protocol.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "protocol-rs",
+  "exports": [
+    {
+      "name": "validate_request",
+      "file": "wr/protocol.py",
+      "line": 38,
+      "params": [
+        {
+          "name": "request",
+          "ts_type": "Record<string, unknown>",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "tuple",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "ok",
+      "file": "wr/protocol.py",
+      "line": 59,
+      "params": [
+        {
+          "name": "request_id",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "result",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Record<string, unknown>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "fail",
+      "file": "wr/protocol.py",
+      "line": 63,
+      "params": [
+        {
+          "name": "request_id",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "code",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "message",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "Record<string, unknown>",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "read_request",
+      "file": "wr/protocol.py",
+      "line": 19,
+      "reason": "kept on request"
+    },
+    {
+      "name": "write_message",
+      "file": "wr/protocol.py",
+      "line": 53,
+      "reason": "kept on request"
+    }
+  ]
+}

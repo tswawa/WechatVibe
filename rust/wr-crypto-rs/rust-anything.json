@@ -1,0 +1,229 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\native-reader",
+  "unit": "wr/crypto.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "crypto-rs",
+  "exports": [
+    {
+      "name": "derive_hmac_key",
+      "file": "wr/crypto.py",
+      "line": 51,
+      "params": [
+        {
+          "name": "key",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "make_page_key",
+      "file": "wr/crypto.py",
+      "line": 56,
+      "params": [
+        {
+          "name": "raw_key",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "PageKey",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "derive_key_from_passphrase",
+      "file": "wr/crypto.py",
+      "line": 64,
+      "params": [
+        {
+          "name": "passphrase",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "decrypt_page",
+      "file": "wr/crypto.py",
+      "line": 80,
+      "params": [
+        {
+          "name": "raw",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page_key",
+          "ts_type": "PageKey",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page_number",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "main_page_one",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "encrypt_page",
+      "file": "wr/crypto.py",
+      "line": 101,
+      "params": [
+        {
+          "name": "usable",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page_key",
+          "ts_type": "PageKey",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page_number",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "main_page_one",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "is_valid_sqlite_page_one",
+      "file": "wr/crypto.py",
+      "line": 116,
+      "params": [
+        {
+          "name": "usable",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "boolean",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "validate_key",
+      "file": "wr/crypto.py",
+      "line": 125,
+      "params": [
+        {
+          "name": "raw_key",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page_one_ciphertext",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "PageKey | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "looks_like_key",
+      "file": "wr/crypto.py",
+      "line": 137,
+      "params": [
+        {
+          "name": "hex_text",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "bytes | undefined",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "PageKey",
+      "file": "wr/crypto.py",
+      "line": 39,
+      "reason": "class: decorated with `@dataclass`, public class attribute `hmac_key`, public class attribute `key`, public class attribute `salt`"
+    }
+  ]
+}

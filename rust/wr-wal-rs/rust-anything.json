@@ -1,0 +1,165 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\native-reader",
+  "unit": "wr/wal.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "wal-rs",
+  "exports": [
+    {
+      "name": "parse_wal",
+      "file": "wr/wal.py",
+      "line": 35,
+      "params": [
+        {
+          "name": "data",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WalParseResult",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "parse_committed_frames",
+      "file": "wr/wal.py",
+      "line": 90,
+      "params": [
+        {
+          "name": "data",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "WalFrame[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "build_wal_header",
+      "file": "wr/wal.py",
+      "line": 142,
+      "params": [
+        {
+          "name": "page_size",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt1",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt2",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "little_endian",
+          "ts_type": "boolean",
+          "optional": true,
+          "rest": false,
+          "default": "False"
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "build_frame",
+      "file": "wr/wal.py",
+      "line": 157,
+      "params": [
+        {
+          "name": "page_number",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "page",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt1",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "salt2",
+          "ts_type": "bytes",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "s0",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "s1",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "commit",
+          "ts_type": "boolean",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "db_size_after",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "little_endian",
+          "ts_type": "boolean",
+          "optional": true,
+          "rest": false,
+          "default": "False"
+        }
+      ],
+      "returns": "tuple",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "WalFrame",
+      "file": "wr/wal.py",
+      "line": 22,
+      "reason": "class: decorated with `@dataclass`, public class attribute `page_number`, public class attribute `page`"
+    },
+    {
+      "name": "WalParseResult",
+      "file": "wr/wal.py",
+      "line": 28,
+      "reason": "class: decorated with `@dataclass`, public class attribute `commit_db_size`, public class attribute `corrupt_before_commit`, public class attribute `frames`, public class attribute `header_ok`"
+    }
+  ]
+}

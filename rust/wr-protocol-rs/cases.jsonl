@@ -1,0 +1,692 @@
+{"fn": "validate_request", "args": [{}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": [], "a": {"a": {"b": "c"}}, "title": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": true, "ünï": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": 0, "2": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": true, "a": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {"a": "b"}, "😀": ["a", 1], "a": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {"a": {"b": "c"}}, "a.b": 0, "title": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": "x", "nav": "x", "😀": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [[]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [{"a": true, "a.b": 0, "title": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": [], "title": {}, "b": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": "x", "b": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [["a", 1]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [{"a.b": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {}, "a": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": ["a", 1], "b": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": [], "10": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [0], "error": "AttributeError: 'int' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [{"nav": ["a", 1], "a.b": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": 0, "2": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": null, "nav": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {"a": "b"}, "2": ["a", 1], "a": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": "x", "ünï": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": true, "b": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": "x", "home": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": "b"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": "x", "ünï": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": {"b": "c"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {}, "10": "x", "nav": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": true, "a": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": true, "10": {"a": {"b": "c"}}, "title": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": ["a", 1], "home": {"a": {"b": "c"}}, "a.b": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": "x", "title": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {}, "a": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": true, "2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": ["a", 1], "😀": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": 0, "2": {"a": {"b": "c"}}, "a.b": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {}, "nav": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": ["a", 1], "10": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": [], "b": {}, "a.b": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": ["x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [{"b": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": {"a": {"b": "c"}}, "title": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": [], "2": "x", "nav": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": null, "2": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [true], "error": "AttributeError: 'bool' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [{"2": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": 0, "10": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": "x", "a.b": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {"a": {"b": "c"}}, "nav": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": null, "a": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": {"a": "b"}, "nav": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {"a": {"b": "c"}}, "a.b": {"a": "b"}, "ünï": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": {"a": "b"}, "nav": {}, "ünï": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": ["a", 1], "😀": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": {"a": "b"}, "b": {"a": "b"}, "2": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": {"a": {"b": "c"}}, "😀": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": [], "home": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": null, "b": "x", "😀": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": [], "2": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": {}, "nav": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [{"a": {"a": "b"}, "10": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": ["a", 1], "10": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {}, "home": 0, "title": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": 0, "title": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {"a": "b"}, "a": 0, "home": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": null, "2": {}, "nav": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": "x", "2": 0, "ünï": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": true, "b": {"a": "b"}, "😀": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {"a": {"b": "c"}}, "2": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": [], "ünï": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": {"a": {"b": "c"}}, "ünï": {"a": {"b": "c"}}, "title": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": true, "10": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": {"a": "b"}, "2": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": null, "b": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": "x", "home": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": "x", "10": ["a", 1], "a": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": ["a", 1], "nav": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": "x", "ünï": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {"a": {"b": "c"}}, "nav": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": "x", "home": true, "title": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": {"a": "b"}, "a.b": {}, "2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": true, "b": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": "x", "2": ["a", 1], "ünï": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": 0, "ünï": "x", "nav": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": [], "home": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": null, "title": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": null, "2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": [], "2": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": ["a", 1], "2": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": {"a": "b"}, "b": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": [], "2": true, "home": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": [], "2": {}, "b": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": 0, "a": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": null, "😀": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": 0, "title": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {}, "😀": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": "x", "home": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {"a": {"b": "c"}}, "ünï": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": "x", "title": ["a", 1], "b": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": 0, "title": true, "2": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": 0, "title": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": true, "b": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": true, "home": {"a": "b"}, "title": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": [], "ünï": {}, "2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": 0, "nav": ["a", 1], "b": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": null, "title": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": "x", "nav": ["a", 1], "2": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": [], "ünï": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": 0, "home": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": 0, "a": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": ["a", 1], "title": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": "x", "home": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": ["a", 1], "nav": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": {"a": "b"}, "a": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": [], "title": {"a": "b"}, "😀": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": ["a", 1], "a": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": {}, "a.b": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": {}, "😀": true, "ünï": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {"a": "b"}, "a.b": [], "title": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": ["a", 1], "b": {}, "nav": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": [], "home": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {}, "a.b": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {"a": "b"}, "nav": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {"a": "b"}, "ünï": "x", "2": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": "x", "😀": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": 0, "2": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": {}, "a.b": {"a": "b"}, "title": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": true, "b": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": [], "ünï": {"a": "b"}, "a": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": {"a": {"b": "c"}}, "a": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {"a": "b"}, "b": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": "x", "b": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": {"a": "b"}, "😀": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": 0, "ünï": {"a": "b"}, "home": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"home": null, "10": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": true, "nav": true}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": 0, "a": ["a", 1], "10": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": [], "a.b": 0}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"b": {}, "2": "x", "nav": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": ["a", 1], "ünï": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"10": "x", "ünï": null, "b": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": {}, "2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"nav": [], "2": {}, "home": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a.b": {"a": {"b": "c"}}, "2": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": []}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": {"a": {"b": "c"}}, "😀": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": 0, "nav": null, "😀": {"a": {"b": "c"}}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"title": ["a", 1], "a": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"😀": {}, "a": ["a", 1]}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"a": "x", "home": "x"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": {}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"ünï": null, "a.b": {"a": "b"}}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"2": [], "home": null}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "ok", "args": ["line1\nline2", null], "ok": {"id": "line1\nline2", "ok": true, "result": null}}
+{"fn": "ok", "args": ["{name} has {count} items", ["a", 1]], "ok": {"id": "{name} has {count} items", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["é", {}], "ok": {"id": "é", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["", {"a": "b"}], "ok": {"id": "", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["tab\tseparatedns:key.path", ["a", 1]], "ok": {"id": "tab\tseparatedns:key.path", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["a😀b😀c", {"a": "b"}], "ok": {"id": "a😀b😀c", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["ns:key.path", 0], "ok": {"id": "ns:key.path", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["trailing.", {"a": {"b": "c"}}], "ok": {"id": "trailing.", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["tab\tseparated", []], "ok": {"id": "tab\tseparated", "ok": true, "result": []}}
+{"fn": "ok", "args": ["😀", true], "ok": {"id": "😀", "ok": true, "result": true}}
+{"fn": "ok", "args": ["key_name-1", {"a": "b"}], "ok": {"id": "key_name-1", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["İstanbul", {"a": "b"}], "ok": {"id": "İstanbul", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["HELLO", 0], "ok": {"id": "HELLO", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", "x"], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["😀", {"a": "b"}], "ok": {"id": "😀", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["a😀b😀c{name} has {count} items", {"a": {"b": "c"}}], "ok": {"id": "a😀b😀c{name} has {count} items", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["日本語のテキストhello world", []], "ok": {"id": "日本語のテキストhello world", "ok": true, "result": []}}
+{"fn": "ok", "args": ["ünïcödé", 0], "ok": {"id": "ünïcödé", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["ab", {}], "ok": {"id": "ab", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["a..b", 0], "ok": {"id": "a..b", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["😀", null], "ok": {"id": "😀", "ok": true, "result": null}}
+{"fn": "ok", "args": ["Hello World", null], "ok": {"id": "Hello World", "ok": true, "result": null}}
+{"fn": "ok", "args": ["key_name-1", null], "ok": {"id": "key_name-1", "ok": true, "result": null}}
+{"fn": "ok", "args": ["key_name-1", []], "ok": {"id": "key_name-1", "ok": true, "result": []}}
+{"fn": "ok", "args": ["﻿bom", null], "ok": {"id": "﻿bom", "ok": true, "result": null}}
+{"fn": "ok", "args": ["  padded  ", {"a": {"b": "c"}}], "ok": {"id": "  padded  ", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["a", "x"], "ok": {"id": "a", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["straße", []], "ok": {"id": "straße", "ok": true, "result": []}}
+{"fn": "ok", "args": ["İstanbul", 0], "ok": {"id": "İstanbul", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["a:b:c:", {}], "ok": {"id": "a:b:c:", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["{name} has {count} items", {}], "ok": {"id": "{name} has {count} items", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["İstanbul😀", []], "ok": {"id": "İstanbul😀", "ok": true, "result": []}}
+{"fn": "ok", "args": ["  padded  emoji 👍🏽 mix", 0], "ok": {"id": "  padded  emoji 👍🏽 mix", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["  padded  ", true], "ok": {"id": "  padded  ", "ok": true, "result": true}}
+{"fn": "ok", "args": ["a:b:c", {"a": "b"}], "ok": {"id": "a:b:c", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["tab\tseparated", null], "ok": {"id": "tab\tseparated", "ok": true, "result": null}}
+{"fn": "ok", "args": ["hello worldabc", ["a", 1]], "ok": {"id": "hello worldabc", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["{name} has {count} items", {"a": {"b": "c"}}], "ok": {"id": "{name} has {count} items", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["{name} has {count} itemsünïcödé", []], "ok": {"id": "{name} has {count} itemsünïcödé", "ok": true, "result": []}}
+{"fn": "ok", "args": ["HELLO.leading", []], "ok": {"id": "HELLO.leading", "ok": true, "result": []}}
+{"fn": "ok", "args": ["😀", {"a": {"b": "c"}}], "ok": {"id": "😀", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["Hello World", true], "ok": {"id": "Hello World", "ok": true, "result": true}}
+{"fn": "ok", "args": ["﻿bom", {}], "ok": {"id": "﻿bom", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["  padded  ", null], "ok": {"id": "  padded  ", "ok": true, "result": null}}
+{"fn": "ok", "args": ["hello world日本語のテキスト", {}], "ok": {"id": "hello world日本語のテキスト", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["日本語のテキスト", {"a": "b"}], "ok": {"id": "日本語のテキスト", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", {"a": {"b": "c"}}], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["ΣΊΣΥΦΟΣ", {"a": "b"}], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": [":", "x"], "ok": {"id": ":", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["line1\nline2", {"a": {"b": "c"}}], "ok": {"id": "line1\nline2", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["tab\tseparated", true], "ok": {"id": "tab\tseparated", "ok": true, "result": true}}
+{"fn": "ok", "args": ["line1\nline2", {}], "ok": {"id": "line1\nline2", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["line1\nline2a:b:c", null], "ok": {"id": "line1\nline2a:b:c", "ok": true, "result": null}}
+{"fn": "ok", "args": ["HELLO", {"a": {"b": "c"}}], "ok": {"id": "HELLO", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["hello worldİstanbul", {}], "ok": {"id": "hello worldİstanbul", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["tab\tseparated", {}], "ok": {"id": "tab\tseparated", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["line1\nline2", []], "ok": {"id": "line1\nline2", "ok": true, "result": []}}
+{"fn": "ok", "args": ["Hello World", "x"], "ok": {"id": "Hello World", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["Hello World", {"a": {"b": "c"}}], "ok": {"id": "Hello World", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["ΣΊΣΥΦΟΣ", null], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a:b:c", []], "ok": {"id": "a:b:c", "ok": true, "result": []}}
+{"fn": "ok", "args": ["a..b", ["a", 1]], "ok": {"id": "a..b", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["HELLO", {}], "ok": {"id": "HELLO", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["x", "x"], "ok": {"id": "x", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["HELLO", {"a": "b"}], "ok": {"id": "HELLO", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["a😀b😀c", []], "ok": {"id": "a😀b😀c", "ok": true, "result": []}}
+{"fn": "ok", "args": ["key_name-1", "x"], "ok": {"id": "key_name-1", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["hello world", []], "ok": {"id": "hello world", "ok": true, "result": []}}
+{"fn": "ok", "args": ["日本語のテキスト", true], "ok": {"id": "日本語のテキスト", "ok": true, "result": true}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", {}], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["ab", "x"], "ok": {"id": "ab", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["trailing.", null], "ok": {"id": "trailing.", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a😀b😀c", true], "ok": {"id": "a😀b😀c", "ok": true, "result": true}}
+{"fn": "ok", "args": ["hello world", {"a": {"b": "c"}}], "ok": {"id": "hello world", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["  padded  😀", 0], "ok": {"id": "  padded  😀", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["ab", 0], "ok": {"id": "ab", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["ünïcödé", {"a": {"b": "c"}}], "ok": {"id": "ünïcödé", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["key_name-1", {}], "ok": {"id": "key_name-1", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["abc", true], "ok": {"id": "abc", "ok": true, "result": true}}
+{"fn": "ok", "args": ["a:b:c{name} has {count} items", []], "ok": {"id": "a:b:c{name} has {count} items", "ok": true, "result": []}}
+{"fn": "ok", "args": ["a😀b😀c", 0], "ok": {"id": "a😀b😀c", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["X", "x"], "ok": {"id": "X", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["ünïcödéé", {"a": "b"}], "ok": {"id": "ünïcödéé", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["a.b.c", null], "ok": {"id": "a.b.c", "ok": true, "result": null}}
+{"fn": "ok", "args": ["./x/**/*.json", 0], "ok": {"id": "./x/**/*.json", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["﻿bom", true], "ok": {"id": "﻿bom", "ok": true, "result": true}}
+{"fn": "ok", "args": ["a😀b😀c{name} has {count} items", 0], "ok": {"id": "a😀b😀c{name} has {count} items", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["é", null], "ok": {"id": "é", "ok": true, "result": null}}
+{"fn": "ok", "args": ["﻿bomtrailing.", null], "ok": {"id": "﻿bomtrailing.", "ok": true, "result": null}}
+{"fn": "ok", "args": ["hello world", {}], "ok": {"id": "hello world", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["trailing.", []], "ok": {"id": "trailing.", "ok": true, "result": []}}
+{"fn": "ok", "args": ["hello world", {"a": "b"}], "ok": {"id": "hello world", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["a..b", {"a": {"b": "c"}}], "ok": {"id": "a..b", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["😀", []], "ok": {"id": "😀", "ok": true, "result": []}}
+{"fn": "ok", "args": ["./x/**/*.json", ["a", 1]], "ok": {"id": "./x/**/*.json", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["a:b:ca😀b😀c", {"a": {"b": "c"}}], "ok": {"id": "a:b:ca😀b😀c", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["ab", ["a", 1]], "ok": {"id": "ab", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["İstanbul", []], "ok": {"id": "İstanbul", "ok": true, "result": []}}
+{"fn": "ok", "args": ["ünïcödé", {"a": "b"}], "ok": {"id": "ünïcödé", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", ["a", 1]], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["ab", {"a": "b"}], "ok": {"id": "ab", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["a:b:c", 0], "ok": {"id": "a:b:c", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["aemoji 👍🏽 mix", {}], "ok": {"id": "aemoji 👍🏽 mix", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["straße", 0], "ok": {"id": "straße", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["a.b.c", {}], "ok": {"id": "a.b.c", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["trailing.😀", {}], "ok": {"id": "trailing.😀", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["straße", "x"], "ok": {"id": "straße", "ok": true, "result": "x"}}
+{"fn": "ok", "args": [":", {}], "ok": {"id": ":", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["a..b", {"a": "b"}], "ok": {"id": "a..b", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["trailing.", 0], "ok": {"id": "trailing.", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["line1\nline2", {"a": "b"}], "ok": {"id": "line1\nline2", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["hello", null], "ok": {"id": "hello", "ok": true, "result": null}}
+{"fn": "ok", "args": [".leadingtrailing.", ["a", 1]], "ok": {"id": ".leadingtrailing.", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": [".leading", true], "ok": {"id": ".leading", "ok": true, "result": true}}
+{"fn": "ok", "args": ["trailing.", ["a", 1]], "ok": {"id": "trailing.", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["straße", true], "ok": {"id": "straße", "ok": true, "result": true}}
+{"fn": "ok", "args": ["  padded  ", []], "ok": {"id": "  padded  ", "ok": true, "result": []}}
+{"fn": "ok", "args": ["a..b", []], "ok": {"id": "a..b", "ok": true, "result": []}}
+{"fn": "ok", "args": ["", ["a", 1]], "ok": {"id": "", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["﻿bom", []], "ok": {"id": "﻿bom", "ok": true, "result": []}}
+{"fn": "ok", "args": ["é:", {}], "ok": {"id": "é:", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["ns:key.path", {"a": "b"}], "ok": {"id": "ns:key.path", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["﻿bom😀", "x"], "ok": {"id": "﻿bom😀", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["{name} has {count} items", {"a": "b"}], "ok": {"id": "{name} has {count} items", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["hello worldtrailing.", null], "ok": {"id": "hello worldtrailing.", "ok": true, "result": null}}
+{"fn": "ok", "args": ["Hello World", {"a": "b"}], "ok": {"id": "Hello World", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["{name} has {count} items", []], "ok": {"id": "{name} has {count} items", "ok": true, "result": []}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", 0], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["ns:key.path", []], "ok": {"id": "ns:key.path", "ok": true, "result": []}}
+{"fn": "ok", "args": ["line1\nline2", true], "ok": {"id": "line1\nline2", "ok": true, "result": true}}
+{"fn": "ok", "args": ["{name} has {count} items", null], "ok": {"id": "{name} has {count} items", "ok": true, "result": null}}
+{"fn": "ok", "args": ["straßeHello World", 0], "ok": {"id": "straßeHello World", "ok": true, "result": 0}}
+{"fn": "ok", "args": [".leading./x/**/*.json", {"a": {"b": "c"}}], "ok": {"id": ".leading./x/**/*.json", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["a.b.c", ["a", 1]], "ok": {"id": "a.b.c", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["ns:key.path", ["a", 1]], "ok": {"id": "ns:key.path", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["HELLO", []], "ok": {"id": "HELLO", "ok": true, "result": []}}
+{"fn": "ok", "args": [":", true], "ok": {"id": ":", "ok": true, "result": true}}
+{"fn": "ok", "args": ["a😀b😀cHello World", null], "ok": {"id": "a😀b😀cHello World", "ok": true, "result": null}}
+{"fn": "ok", "args": ["abc", {}], "ok": {"id": "abc", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["./x/**/*.json", "x"], "ok": {"id": "./x/**/*.json", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["", true], "ok": {"id": "", "ok": true, "result": true}}
+{"fn": "ok", "args": ["absrc/a/b.ts", {"a": "b"}], "ok": {"id": "absrc/a/b.ts", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": [".leading", null], "ok": {"id": ".leading", "ok": true, "result": null}}
+{"fn": "ok", "args": ["hello", "x"], "ok": {"id": "hello", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["src/a/b.ts", {}], "ok": {"id": "src/a/b.ts", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["src/a/b.ts", []], "ok": {"id": "src/a/b.ts", "ok": true, "result": []}}
+{"fn": "ok", "args": ["é", 0], "ok": {"id": "é", "ok": true, "result": 0}}
+{"fn": "ok", "args": [":", null], "ok": {"id": ":", "ok": true, "result": null}}
+{"fn": "ok", "args": ["straße", null], "ok": {"id": "straße", "ok": true, "result": null}}
+{"fn": "ok", "args": ["  padded  line1\nline2", 0], "ok": {"id": "  padded  line1\nline2", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["abctrailing.", {"a": "b"}], "ok": {"id": "abctrailing.", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["hello", {}], "ok": {"id": "hello", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", null], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": null}}
+{"fn": "ok", "args": ["İstanbul", {}], "ok": {"id": "İstanbul", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["HELLO:", null], "ok": {"id": "HELLO:", "ok": true, "result": null}}
+{"fn": "ok", "args": ["  padded  ünïcödé", ["a", 1]], "ok": {"id": "  padded  ünïcödé", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["src/a/b.tsa..b", []], "ok": {"id": "src/a/b.tsa..b", "ok": true, "result": []}}
+{"fn": "ok", "args": ["line1\nline2a..b", {"a": {"b": "c"}}], "ok": {"id": "line1\nline2a..b", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["trailing.", {"a": "b"}], "ok": {"id": "trailing.", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["HELLOline1\nline2", {}], "ok": {"id": "HELLOline1\nline2", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["a..b", "x"], "ok": {"id": "a..b", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["emoji 👍🏽 mix", {"a": "b"}], "ok": {"id": "emoji 👍🏽 mix", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": [":", []], "ok": {"id": ":", "ok": true, "result": []}}
+{"fn": "ok", "args": ["ΣΊΣΥΦΟΣ", 0], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["./x/**/*.json", "O"], "ok": {"id": "./x/**/*.json", "ok": true, "result": "O"}}
+{"fn": "ok", "args": ["src/a/b.tsa😀b😀c", ["a", 1]], "ok": {"id": "src/a/b.tsa😀b😀c", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["ns:key.path", "x"], "ok": {"id": "ns:key.path", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["ΣΊΣΥΦΟΣ", ["a", 1]], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["ünïcödéabc", []], "ok": {"id": "ünïcödéabc", "ok": true, "result": []}}
+{"fn": "ok", "args": ["日本語のテキストa.b.c", true], "ok": {"id": "日本語のテキストa.b.c", "ok": true, "result": true}}
+{"fn": "ok", "args": ["hello", []], "ok": {"id": "hello", "ok": true, "result": []}}
+{"fn": "ok", "args": ["a:b:cns:key.path", "x"], "ok": {"id": "a:b:cns:key.path", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["line1\nline2ünïcödé", ["a", 1]], "ok": {"id": "line1\nline2ünïcödé", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": ["﻿bom", {"a": {"b": "c"}}], "ok": {"id": "﻿bom", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["abc", 0], "ok": {"id": "abc", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["Hello World", []], "ok": {"id": "Hello World", "ok": true, "result": []}}
+{"fn": "ok", "args": ["straße", {}], "ok": {"id": "straße", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["a", null], "ok": {"id": "a", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a", {"a": "b"}], "ok": {"id": "a", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": [":", {"a": "b"}], "ok": {"id": ":", "ok": true, "result": {"a": "b"}}}
+{"fn": "ok", "args": ["a😀b😀c", {}], "ok": {"id": "a😀b😀c", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["ünïcödé", true], "ok": {"id": "ünïcödé", "ok": true, "result": true}}
+{"fn": "ok", "args": ["日本語のテキスト", 0], "ok": {"id": "日本語のテキスト", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["{name} has {count} itemsemoji 👍🏽 mix", true], "ok": {"id": "{name} has {count} itemsemoji 👍🏽 mix", "ok": true, "result": true}}
+{"fn": "ok", "args": ["日本語のテキスト", null], "ok": {"id": "日本語のテキスト", "ok": true, "result": null}}
+{"fn": "ok", "args": ["ns:key.path", null], "ok": {"id": "ns:key.path", "ok": true, "result": null}}
+{"fn": "ok", "args": ["src/a/b.ts", "x"], "ok": {"id": "src/a/b.ts", "ok": true, "result": "x"}}
+{"fn": "ok", "args": ["line1\nline2key_name-1", ["a", 1]], "ok": {"id": "line1\nline2key_name-1", "ok": true, "result": ["a", 1]}}
+{"fn": "ok", "args": [".leading", []], "ok": {"id": ".leading", "ok": true, "result": []}}
+{"fn": "ok", "args": ["tab\tseparatedΣΊΣΥΦΟΣ", true], "ok": {"id": "tab\tseparatedΣΊΣΥΦΟΣ", "ok": true, "result": true}}
+{"fn": "ok", "args": ["ΣΊΣΥΦΟΣ", "ΣΥΦ"], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": true, "result": "ΣΥΦ"}}
+{"fn": "ok", "args": ["éΣΊΣΥΦΟΣ", null], "ok": {"id": "éΣΊΣΥΦΟΣ", "ok": true, "result": null}}
+{"fn": "ok", "args": ["hello worldstraße", true], "ok": {"id": "hello worldstraße", "ok": true, "result": true}}
+{"fn": "ok", "args": ["a:b:c", {}], "ok": {"id": "a:b:c", "ok": true, "result": {}}}
+{"fn": "ok", "args": ["{name} has {count} items.leading", true], "ok": {"id": "{name} has {count} items.leading", "ok": true, "result": true}}
+{"fn": "ok", "args": ["line1\nline2", 0], "ok": {"id": "line1\nline2", "ok": true, "result": 0}}
+{"fn": "ok", "args": ["hello world", true], "ok": {"id": "hello world", "ok": true, "result": true}}
+{"fn": "ok", "args": ["./x/**/*.json", {"a": {"b": "c"}}], "ok": {"id": "./x/**/*.json", "ok": true, "result": {"a": {"b": "c"}}}}
+{"fn": "ok", "args": ["{name} has {count} items", "ite"], "ok": {"id": "{name} has {count} items", "ok": true, "result": "ite"}}
+{"fn": "ok", "args": ["hello", true], "ok": {"id": "hello", "ok": true, "result": true}}
+{"fn": "ok", "args": ["héllo wörld", null], "ok": {"id": "héllo wörld", "ok": true, "result": null}}
+{"fn": "ok", "args": ["👍🏽 thumbs", null], "ok": {"id": "👍🏽 thumbs", "ok": true, "result": null}}
+{"fn": "ok", "args": ["日本語", null], "ok": {"id": "日本語", "ok": true, "result": null}}
+{"fn": "ok", "args": ["", null], "ok": {"id": "", "ok": true, "result": null}}
+{"fn": "ok", "args": ["İstanbul", null], "ok": {"id": "İstanbul", "ok": true, "result": null}}
+{"fn": "ok", "args": ["ılık ırmak", null], "ok": {"id": "ılık ırmak", "ok": true, "result": null}}
+{"fn": "ok", "args": ["👨‍👩‍👧 family", null], "ok": {"id": "👨‍👩‍👧 family", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a b", null], "ok": {"id": "a b", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a😀b", null], "ok": {"id": "a😀b", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a²b x½ y①", null], "ok": {"id": "a²b x½ y①", "ok": true, "result": null}}
+{"fn": "ok", "args": ["aⅠb Ⅻ", null], "ok": {"id": "aⅠb Ⅻ", "ok": true, "result": null}}
+{"fn": "ok", "args": ["a𐐀b 𝐀bc", null], "ok": {"id": "a𐐀b 𝐀bc", "ok": true, "result": null}}
+{"fn": "ok", "args": ["कि ٣٤", null], "ok": {"id": "कि ٣٤", "ok": true, "result": null}}
+{"fn": "ok", "args": ["line1\nline2", {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": {"id": "line1\nline2", "ok": true, "result": {"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}}}
+{"fn": "ok", "args": ["line1\nline2", {"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": {"id": "line1\nline2", "ok": true, "result": {"n": {"$int": "9007199254740993"}, "f": {"$float": "1e+21"}, "t": 0.1, "neg": -7}}}
+{"fn": "ok", "args": ["line1\nline2", [3, 1, 2]], "ok": {"id": "line1\nline2", "ok": true, "result": [3, 1, 2]}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["😀", "日本語のテキストİstanbul", "tab\tseparated"], "ok": {"id": "😀", "ok": false, "error": {"code": "日本語のテキストİstanbul", "message": "tab\tseparated"}}}
+{"fn": "fail", "args": [".leadingünïcödé", ".leading", "line1\nline2é"], "ok": {"id": ".leadingünïcödé", "ok": false, "error": {"code": ".leading", "message": "line1\nline2é"}}}
+{"fn": "fail", "args": ["Hello World", "llo Wor", "trailing.hello"], "ok": {"id": "Hello World", "ok": false, "error": {"code": "llo Wor", "message": "trailing.hello"}}}
+{"fn": "fail", "args": ["a😀b😀c", "😀b😀c", "a..b"], "ok": {"id": "a😀b😀c", "ok": false, "error": {"code": "😀b😀c", "message": "a..b"}}}
+{"fn": "fail", "args": ["﻿bom", "éhello", "İstanbul"], "ok": {"id": "﻿bom", "ok": false, "error": {"code": "éhello", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["a", "日本語のテキスト.leading", "ns:key.path"], "ok": {"id": "a", "ok": false, "error": {"code": "日本語のテキスト.leading", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["a..b", "  padded  a..b", "İstanbul"], "ok": {"id": "a..b", "ok": false, "error": {"code": "  padded  a..b", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["a😀b😀cHELLO", "O", "a"], "ok": {"id": "a😀b😀cHELLO", "ok": false, "error": {"code": "O", "message": "a"}}}
+{"fn": "fail", "args": ["abc", "a..b", "hello world"], "ok": {"id": "abc", "ok": false, "error": {"code": "a..b", "message": "hello world"}}}
+{"fn": "fail", "args": ["A", "a", "hello world"], "ok": {"id": "A", "ok": false, "error": {"code": "a", "message": "hello world"}}}
+{"fn": "fail", "args": ["ΣΊΣΥΦΟΣabc", "ΣΊΣΥΦΟΣ", "tab\tseparatedünïcödé"], "ok": {"id": "ΣΊΣΥΦΟΣabc", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "tab\tseparatedünïcödé"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "hello world", "ünïcödé"], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "hello world", "message": "ünïcödé"}}}
+{"fn": "fail", "args": ["tab\tseparated", "hello", "ell"], "ok": {"id": "tab\tseparated", "ok": false, "error": {"code": "hello", "message": "ell"}}}
+{"fn": "fail", "args": ["./x/**/*.json", "a", "a"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": "a", "message": "a"}}}
+{"fn": "fail", "args": ["a", "abc", "a"], "ok": {"id": "a", "ok": false, "error": {"code": "abc", "message": "a"}}}
+{"fn": "fail", "args": ["a", ":", "emoji 👍🏽 mix"], "ok": {"id": "a", "ok": false, "error": {"code": ":", "message": "emoji 👍🏽 mix"}}}
+{"fn": "fail", "args": ["a:b:c", "", "aa:b:c"], "ok": {"id": "a:b:c", "ok": false, "error": {"code": "", "message": "aa:b:c"}}}
+{"fn": "fail", "args": ["abc", "straßeİstanbul", "﻿bom"], "ok": {"id": "abc", "ok": false, "error": {"code": "straßeİstanbul", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["ΣΊΣΥΦΟΣstraße", "tab\tseparated", "ΊΣΥΦΟΣst"], "ok": {"id": "ΣΊΣΥΦΟΣstraße", "ok": false, "error": {"code": "tab\tseparated", "message": "ΊΣΥΦΟΣst"}}}
+{"fn": "fail", "args": ["a:b:c", "trailing.﻿bom", "  padded  ab"], "ok": {"id": "a:b:c", "ok": false, "error": {"code": "trailing.﻿bom", "message": "  padded  ab"}}}
+{"fn": "fail", "args": ["ΣΊΣΥΦΟΣsrc/a/b.ts", "key_name-1", "key"], "ok": {"id": "ΣΊΣΥΦΟΣsrc/a/b.ts", "ok": false, "error": {"code": "key_name-1", "message": "key"}}}
+{"fn": "fail", "args": ["ünïcödé", "a.b.cHELLO", "{name} has {count} items"], "ok": {"id": "ünïcödé", "ok": false, "error": {"code": "a.b.cHELLO", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["  padded  ", "emoji 👍🏽 mix", "  padded  "], "ok": {"id": "  padded  ", "ok": false, "error": {"code": "emoji 👍🏽 mix", "message": "  padded  "}}}
+{"fn": "fail", "args": ["ab", "ab", ""], "ok": {"id": "ab", "ok": false, "error": {"code": "ab", "message": ""}}}
+{"fn": "fail", "args": ["  padded  ", "İstanbul", "日本語のテキストa..b"], "ok": {"id": "  padded  ", "ok": false, "error": {"code": "İstanbul", "message": "日本語のテキストa..b"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "テキスト", "trailing."], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "テキスト", "message": "trailing."}}}
+{"fn": "fail", "args": ["ab", "a..b", "b"], "ok": {"id": "ab", "ok": false, "error": {"code": "a..b", "message": "b"}}}
+{"fn": "fail", "args": ["RAILIN", "trailing.", "ns:key.path"], "ok": {"id": "RAILIN", "ok": false, "error": {"code": "trailing.", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["hello", "key_name-1", "ababc"], "ok": {"id": "hello", "ok": false, "error": {"code": "key_name-1", "message": "ababc"}}}
+{"fn": "fail", "args": ["A:B:C", "a:b:c", "hello world"], "ok": {"id": "A:B:C", "ok": false, "error": {"code": "a:b:c", "message": "hello world"}}}
+{"fn": "fail", "args": ["hello", "ns:key.path", ""], "ok": {"id": "hello", "ok": false, "error": {"code": "ns:key.path", "message": ""}}}
+{"fn": "fail", "args": ["İstanbul", "straße", "abc.leading"], "ok": {"id": "İstanbul", "ok": false, "error": {"code": "straße", "message": "abc.leading"}}}
+{"fn": "fail", "args": ["a:b:c", "ul", "İstanbul"], "ok": {"id": "a:b:c", "ok": false, "error": {"code": "ul", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["src/a/b.ts", "İstanbul", "tab\tseparated"], "ok": {"id": "src/a/b.ts", "ok": false, "error": {"code": "İstanbul", "message": "tab\tseparated"}}}
+{"fn": "fail", "args": ["EY", "tab\tseparated", "key_name-1"], "ok": {"id": "EY", "ok": false, "error": {"code": "tab\tseparated", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["./x/**/*.json", ":", "Hello World"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": ":", "message": "Hello World"}}}
+{"fn": "fail", "args": ["Hello World", "日本語のテキスト", "straße"], "ok": {"id": "Hello World", "ok": false, "error": {"code": "日本語のテキスト", "message": "straße"}}}
+{"fn": "fail", "args": ["emoji 👍🏽 mix", "😀", ""], "ok": {"id": "emoji 👍🏽 mix", "ok": false, "error": {"code": "😀", "message": ""}}}
+{"fn": "fail", "args": ["Hello World", "./x/**/*.json", "d"], "ok": {"id": "Hello World", "ok": false, "error": {"code": "./x/**/*.json", "message": "d"}}}
+{"fn": "fail", "args": ["ab", "😀", "😀"], "ok": {"id": "ab", "ok": false, "error": {"code": "😀", "message": "😀"}}}
+{"fn": "fail", "args": ["m", "﻿bom", ":"], "ok": {"id": "m", "ok": false, "error": {"code": "﻿bom", "message": ":"}}}
+{"fn": "fail", "args": ["abc", "日本語のテキスト", "語のテ"], "ok": {"id": "abc", "ok": false, "error": {"code": "日本語のテキスト", "message": "語のテ"}}}
+{"fn": "fail", "args": ["ΣΊΣΥΦΟΣ", "hellons:key.path", "ns:key.path"], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": false, "error": {"code": "hellons:key.path", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["abc", "﻿bom", "a😀b😀ca..b"], "ok": {"id": "abc", "ok": false, "error": {"code": "﻿bom", "message": "a😀b😀ca..b"}}}
+{"fn": "fail", "args": ["😀ünïcödé", "hello", "trailing."], "ok": {"id": "😀ünïcödé", "ok": false, "error": {"code": "hello", "message": "trailing."}}}
+{"fn": "fail", "args": [":", ":", "a:b:c"], "ok": {"id": ":", "ok": false, "error": {"code": ":", "message": "a:b:c"}}}
+{"fn": "fail", "args": ["src/a/b.tstrailing.", "é😀", "﻿bom"], "ok": {"id": "src/a/b.tstrailing.", "ok": false, "error": {"code": "é😀", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["a..b", "{name} has {count} itemssrc/a/b.ts", "straße"], "ok": {"id": "a..b", "ok": false, "error": {"code": "{name} has {count} itemssrc/a/b.ts", "message": "straße"}}}
+{"fn": "fail", "args": ["key_name-1", "ns:key.path", "P"], "ok": {"id": "key_name-1", "ok": false, "error": {"code": "ns:key.path", "message": "P"}}}
+{"fn": "fail", "args": ["straße:", "has {cou", "{name} has {count} items"], "ok": {"id": "straße:", "ok": false, "error": {"code": "has {cou", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["é", "src/a/b.ts", ":"], "ok": {"id": "é", "ok": false, "error": {"code": "src/a/b.ts", "message": ":"}}}
+{"fn": "fail", "args": ["line1\nline2", "ne2", "src/a/b.ts"], "ok": {"id": "line1\nline2", "ok": false, "error": {"code": "ne2", "message": "src/a/b.ts"}}}
+{"fn": "fail", "args": ["ab", "HELLOstraße", ""], "ok": {"id": "ab", "ok": false, "error": {"code": "HELLOstraße", "message": ""}}}
+{"fn": "fail", "args": ["/*.", "hello", "./x/**/*.json"], "ok": {"id": "/*.", "ok": false, "error": {"code": "hello", "message": "./x/**/*.json"}}}
+{"fn": "fail", "args": ["é", "hello", "İstanbul"], "ok": {"id": "é", "ok": false, "error": {"code": "hello", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["ésrc/a/b.ts", "{name} has {count} items", "{name} has {count} itemsünïcödé"], "ok": {"id": "ésrc/a/b.ts", "ok": false, "error": {"code": "{name} has {count} items", "message": "{name} has {count} itemsünïcödé"}}}
+{"fn": "fail", "args": ["hello world", "﻿bom", "l"], "ok": {"id": "hello world", "ok": false, "error": {"code": "﻿bom", "message": "l"}}}
+{"fn": "fail", "args": ["﻿boma..b", "😀", "ünïcödé"], "ok": {"id": "﻿boma..b", "ok": false, "error": {"code": "😀", "message": "ünïcödé"}}}
+{"fn": "fail", "args": ["ΣΊΣΥΦΟΣ", "😀", "hello"], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": false, "error": {"code": "😀", "message": "hello"}}}
+{"fn": "fail", "args": ["a", "abc", "  padded  "], "ok": {"id": "a", "ok": false, "error": {"code": "abc", "message": "  padded  "}}}
+{"fn": "fail", "args": ["abc", "ünïcödé", "﻿bom"], "ok": {"id": "abc", "ok": false, "error": {"code": "ünïcödé", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["a😀b😀c", "﻿bom", "ΣΊΣΥΦΟΣns:key.path"], "ok": {"id": "a😀b😀c", "ok": false, "error": {"code": "﻿bom", "message": "ΣΊΣΥΦΟΣns:key.path"}}}
+{"fn": "fail", "args": ["", "ΣΊΣΥΦΟΣİstanbul", "İstanbul"], "ok": {"id": "", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣİstanbul", "message": "İstanbul"}}}
+{"fn": "fail", "args": [".", "./x/**/*.json", ""], "ok": {"id": ".", "ok": false, "error": {"code": "./x/**/*.json", "message": ""}}}
+{"fn": "fail", "args": ["ab", "emoji 👍🏽 mixa..b", "ünïcödéHELLO"], "ok": {"id": "ab", "ok": false, "error": {"code": "emoji 👍🏽 mixa..b", "message": "ünïcödéHELLO"}}}
+{"fn": "fail", "args": ["İstanbulkey_name-1", "日本語のテキスト{name} has {count} items", "src/a/b.ts"], "ok": {"id": "İstanbulkey_name-1", "ok": false, "error": {"code": "日本語のテキスト{name} has {count} items", "message": "src/a/b.ts"}}}
+{"fn": "fail", "args": [":", "a", "HELLO"], "ok": {"id": ":", "ok": false, "error": {"code": "a", "message": "HELLO"}}}
+{"fn": "fail", "args": [".leading", "a😀b😀c", "abc"], "ok": {"id": ".leading", "ok": false, "error": {"code": "a😀b😀c", "message": "abc"}}}
+{"fn": "fail", "args": ["Hello World", "straße", "a.b.c"], "ok": {"id": "Hello World", "ok": false, "error": {"code": "straße", "message": "a.b.c"}}}
+{"fn": "fail", "args": ["ab", "hello", "straße"], "ok": {"id": "ab", "ok": false, "error": {"code": "hello", "message": "straße"}}}
+{"fn": "fail", "args": ["ns:key.path", "HELLO", ":"], "ok": {"id": "ns:key.path", "ok": false, "error": {"code": "HELLO", "message": ":"}}}
+{"fn": "fail", "args": [":ns:key.path", "ab", "İstanbul"], "ok": {"id": ":ns:key.path", "ok": false, "error": {"code": "ab", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["a..b", "a", "HELLO"], "ok": {"id": "a..b", "ok": false, "error": {"code": "a", "message": "HELLO"}}}
+{"fn": "fail", "args": ["a", "hello", "ll"], "ok": {"id": "a", "ok": false, "error": {"code": "hello", "message": "ll"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "a:b:c", "HELLOtrailing."], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "a:b:c", "message": "HELLOtrailing."}}}
+{"fn": "fail", "args": ["ab", "emoji 👍🏽 mix", "ésrc/a/b.ts"], "ok": {"id": "ab", "ok": false, "error": {"code": "emoji 👍🏽 mix", "message": "ésrc/a/b.ts"}}}
+{"fn": "fail", "args": ["{name} has {count} items", "src/a/b.ts", "HELLO"], "ok": {"id": "{name} has {count} items", "ok": false, "error": {"code": "src/a/b.ts", "message": "HELLO"}}}
+{"fn": "fail", "args": ["src/a/b.ts", "abc", "straßeab"], "ok": {"id": "src/a/b.ts", "ok": false, "error": {"code": "abc", "message": "straßeab"}}}
+{"fn": "fail", "args": ["./x/**/*.json", "a..b", "abc"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": "a..b", "message": "abc"}}}
+{"fn": "fail", "args": ["a", "ns:key.path{name} has {count} items", "a:b:c"], "ok": {"id": "a", "ok": false, "error": {"code": "ns:key.path{name} has {count} items", "message": "a:b:c"}}}
+{"fn": "fail", "args": ["﻿bomstraße", "ns:key.path", "a.b.c"], "ok": {"id": "﻿bomstraße", "ok": false, "error": {"code": "ns:key.path", "message": "a.b.c"}}}
+{"fn": "fail", "args": ["abc", "ünïcödé", "straße"], "ok": {"id": "abc", "ok": false, "error": {"code": "ünïcödé", "message": "straße"}}}
+{"fn": "fail", "args": ["hello", ".leadingHello World", "a..b"], "ok": {"id": "hello", "ok": false, "error": {"code": ".leadingHello World", "message": "a..b"}}}
+{"fn": "fail", "args": ["ab", "a", "a"], "ok": {"id": "ab", "ok": false, "error": {"code": "a", "message": "a"}}}
+{"fn": "fail", "args": ["a..b", "straße", "line1\nline2"], "ok": {"id": "a..b", "ok": false, "error": {"code": "straße", "message": "line1\nline2"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "ΣΊΣΥΦΟΣ", "trailing."], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "trailing."}}}
+{"fn": "fail", "args": ["a", "HELLO", ""], "ok": {"id": "a", "ok": false, "error": {"code": "HELLO", "message": ""}}}
+{"fn": "fail", "args": ["./x/**/*.json", "﻿bom", "j"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": "﻿bom", "message": "j"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "a.b.c", "{name} has {count} itemshello world"], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "a.b.c", "message": "{name} has {count} itemshello world"}}}
+{"fn": "fail", "args": ["  padded  ", "straßeHELLO", "key_name-1"], "ok": {"id": "  padded  ", "ok": false, "error": {"code": "straßeHELLO", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["Hello World", "ΣΊΣΥΦΟΣ", "straße"], "ok": {"id": "Hello World", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "straße"}}}
+{"fn": "fail", "args": ["a😀b😀c", "hello", "éΣΊΣΥΦΟΣ"], "ok": {"id": "a😀b😀c", "ok": false, "error": {"code": "hello", "message": "éΣΊΣΥΦΟΣ"}}}
+{"fn": "fail", "args": ["a:b:c", "abc", "ns:key.path"], "ok": {"id": "a:b:c", "ok": false, "error": {"code": "abc", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["straße", "hello", "ns:key.path"], "ok": {"id": "straße", "ok": false, "error": {"code": "hello", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["key_name-1é", "trailing.", "abc"], "ok": {"id": "key_name-1é", "ok": false, "error": {"code": "trailing.", "message": "abc"}}}
+{"fn": "fail", "args": ["emoji 👍🏽 mix", "日本語のテキスト", "ab"], "ok": {"id": "emoji 👍🏽 mix", "ok": false, "error": {"code": "日本語のテキスト", "message": "ab"}}}
+{"fn": "fail", "args": ["c", "hello", "a😀b😀c"], "ok": {"id": "c", "ok": false, "error": {"code": "hello", "message": "a😀b😀c"}}}
+{"fn": "fail", "args": ["  padded  line1\nline2", "straße", "a..b"], "ok": {"id": "  padded  line1\nline2", "ok": false, "error": {"code": "straße", "message": "a..b"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "abtab\tseparated", "キス"], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "abtab\tseparated", "message": "キス"}}}
+{"fn": "fail", "args": ["./x/**/*.json", "ns:key.path", "./x/**/*.json"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": "ns:key.path", "message": "./x/**/*.json"}}}
+{"fn": "fail", "args": ["a😀b😀c", ":", "abc"], "ok": {"id": "a😀b😀c", "ok": false, "error": {"code": ":", "message": "abc"}}}
+{"fn": "fail", "args": ["", "a:b:c", "tab\tseparated{name} has {count} items"], "ok": {"id": "", "ok": false, "error": {"code": "a:b:c", "message": "tab\tseparated{name} has {count} items"}}}
+{"fn": "fail", "args": ["a😀b😀cé", "Worlda:b", "Hello Worlda:b:c"], "ok": {"id": "a😀b😀cé", "ok": false, "error": {"code": "Worlda:b", "message": "Hello Worlda:b:c"}}}
+{"fn": "fail", "args": ["a..b", "日本語のテキスト", "ab"], "ok": {"id": "a..b", "ok": false, "error": {"code": "日本語のテキスト", "message": "ab"}}}
+{"fn": "fail", "args": [":a..b", "😀", "{name} has {count} items"], "ok": {"id": ":a..b", "ok": false, "error": {"code": "😀", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["key_name-1", "日本語のテキスト", "emoji 👍🏽 mix"], "ok": {"id": "key_name-1", "ok": false, "error": {"code": "日本語のテキスト", "message": "emoji 👍🏽 mix"}}}
+{"fn": "fail", "args": ["key_name-1﻿bom", "trailing..leading", "emoji 👍🏽 mix"], "ok": {"id": "key_name-1﻿bom", "ok": false, "error": {"code": "trailing..leading", "message": "emoji 👍🏽 mix"}}}
+{"fn": "fail", "args": ["emoji 👍🏽 mixtrailing.", "HELLO", "./x/**/*.json:"], "ok": {"id": "emoji 👍🏽 mixtrailing.", "ok": false, "error": {"code": "HELLO", "message": "./x/**/*.json:"}}}
+{"fn": "fail", "args": ["a", "./x/**/*.json", "😀"], "ok": {"id": "a", "ok": false, "error": {"code": "./x/**/*.json", "message": "😀"}}}
+{"fn": "fail", "args": ["  padded  ", "ns:key.path", "ns:key.pa"], "ok": {"id": "  padded  ", "ok": false, "error": {"code": "ns:key.path", "message": "ns:key.pa"}}}
+{"fn": "fail", "args": ["mi", "hello world", "emoji 👍🏽 mixa😀b😀c"], "ok": {"id": "mi", "ok": false, "error": {"code": "hello world", "message": "emoji 👍🏽 mixa😀b😀c"}}}
+{"fn": "fail", "args": ["hello", "LLO", "HELLO"], "ok": {"id": "hello", "ok": false, "error": {"code": "LLO", "message": "HELLO"}}}
+{"fn": "fail", "args": ["a😀b😀c日本語のテキスト", "ΣΊΣΥΦΟΣ", "a..b"], "ok": {"id": "a😀b😀c日本語のテキスト", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "a..b"}}}
+{"fn": "fail", "args": ["./x/**/*.json", "a:b:c﻿bom", "hello world"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": "a:b:c﻿bom", "message": "hello world"}}}
+{"fn": "fail", "args": ["ünïcödé", "ÜNÏCÖD", "a.b.c"], "ok": {"id": "ünïcödé", "ok": false, "error": {"code": "ÜNÏCÖD", "message": "a.b.c"}}}
+{"fn": "fail", "args": ["", "  ", "  padded  "], "ok": {"id": "", "ok": false, "error": {"code": "  ", "message": "  padded  "}}}
+{"fn": "fail", "args": ["🏽 MIXΣΊΣΥ", "straße", "emoji 👍🏽 mixΣΊΣΥΦΟΣ"], "ok": {"id": "🏽 MIXΣΊΣΥ", "ok": false, "error": {"code": "straße", "message": "emoji 👍🏽 mixΣΊΣΥΦΟΣ"}}}
+{"fn": "fail", "args": ["a..bab", "İstanbulİstanbul", "lİsta"], "ok": {"id": "a..bab", "ok": false, "error": {"code": "İstanbulİstanbul", "message": "lİsta"}}}
+{"fn": "fail", "args": ["src/a/b.ts", "ünïcödéline1\nline2", "Hello World"], "ok": {"id": "src/a/b.ts", "ok": false, "error": {"code": "ünïcödéline1\nline2", "message": "Hello World"}}}
+{"fn": "fail", "args": ["😀", "😀", "😀"], "ok": {"id": "😀", "ok": false, "error": {"code": "😀", "message": "😀"}}}
+{"fn": "fail", "args": [":", "line1\n", "line1\nline2"], "ok": {"id": ":", "ok": false, "error": {"code": "line1\n", "message": "line1\nline2"}}}
+{"fn": "fail", "args": ["llo", "é", "Hello Worldemoji 👍🏽 mix"], "ok": {"id": "llo", "ok": false, "error": {"code": "é", "message": "Hello Worldemoji 👍🏽 mix"}}}
+{"fn": "fail", "args": ["a.b.c", ".b.", "﻿bom"], "ok": {"id": "a.b.c", "ok": false, "error": {"code": ".b.", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["İstanbul", "emoji 👍🏽 mix  padded  ", ":"], "ok": {"id": "İstanbul", "ok": false, "error": {"code": "emoji 👍🏽 mix  padded  ", "message": ":"}}}
+{"fn": "fail", "args": ["hello", "./x/**/*.json", "日本語のテキストünïcödé"], "ok": {"id": "hello", "ok": false, "error": {"code": "./x/**/*.json", "message": "日本語のテキストünïcödé"}}}
+{"fn": "fail", "args": ["Hello Worldkey_name-1", ".leading", "﻿bom"], "ok": {"id": "Hello Worldkey_name-1", "ok": false, "error": {"code": ".leading", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["hello world", "ΣΊΣΥΦΟΣ﻿bom", "ab"], "ok": {"id": "hello world", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ﻿bom", "message": "ab"}}}
+{"fn": "fail", "args": ["tab\tseparated", "line1\nline2", "tab\tseparated"], "ok": {"id": "tab\tseparated", "ok": false, "error": {"code": "line1\nline2", "message": "tab\tseparated"}}}
+{"fn": "fail", "args": ["hello worldhello", "hello world", "hello world"], "ok": {"id": "hello worldhello", "ok": false, "error": {"code": "hello world", "message": "hello world"}}}
+{"fn": "fail", "args": ["HELLO", "a..bhello world", "a"], "ok": {"id": "HELLO", "ok": false, "error": {"code": "a..bhello world", "message": "a"}}}
+{"fn": "fail", "args": ["", "trailing.", "trailing."], "ok": {"id": "", "ok": false, "error": {"code": "trailing.", "message": "trailing."}}}
+{"fn": "fail", "args": ["a", "hello", "abc"], "ok": {"id": "a", "ok": false, "error": {"code": "hello", "message": "abc"}}}
+{"fn": "fail", "args": ["key_name-1", "Hello World", "hello"], "ok": {"id": "key_name-1", "ok": false, "error": {"code": "Hello World", "message": "hello"}}}
+{"fn": "fail", "args": ["", "a😀b😀c", "hello world"], "ok": {"id": "", "ok": false, "error": {"code": "a😀b😀c", "message": "hello world"}}}
+{"fn": "fail", "args": ["HELLO", "hello worlda", "a😀b😀c"], "ok": {"id": "HELLO", "ok": false, "error": {"code": "hello worlda", "message": "a😀b😀c"}}}
+{"fn": "fail", "args": ["日本語のテキスト", ":", "{name} has {count} items"], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": ":", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["a😀b😀c", "İstanbul", "TA"], "ok": {"id": "a😀b😀c", "ok": false, "error": {"code": "İstanbul", "message": "TA"}}}
+{"fn": "fail", "args": ["hello", "😀", "😀"], "ok": {"id": "hello", "ok": false, "error": {"code": "😀", "message": "😀"}}}
+{"fn": "fail", "args": ["  padded  key_name-1", "straße", "key_name-1"], "ok": {"id": "  padded  key_name-1", "ok": false, "error": {"code": "straße", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["line1\nline2", ":", "tab\tseparated"], "ok": {"id": "line1\nline2", "ok": false, "error": {"code": ":", "message": "tab\tseparated"}}}
+{"fn": "fail", "args": [".leading", "src/a/b.ts", ".leading"], "ok": {"id": ".leading", "ok": false, "error": {"code": "src/a/b.ts", "message": ".leading"}}}
+{"fn": "fail", "args": [".leading", "i", "key_name-1"], "ok": {"id": ".leading", "ok": false, "error": {"code": "i", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["😀key_name-1", "emoji 👍🏽 mix", "line1\nline2"], "ok": {"id": "😀key_name-1", "ok": false, "error": {"code": "emoji 👍🏽 mix", "message": "line1\nline2"}}}
+{"fn": "fail", "args": ["a", "ünïcödé:", "a"], "ok": {"id": "a", "ok": false, "error": {"code": "ünïcödé:", "message": "a"}}}
+{"fn": "fail", "args": [".leading", "İstanbul﻿bom", "{name} has {count} items"], "ok": {"id": ".leading", "ok": false, "error": {"code": "İstanbul﻿bom", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["./x/**/*.json", "ΣΊΣΥΦΟΣ﻿bom", "日本語のテキスト"], "ok": {"id": "./x/**/*.json", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ﻿bom", "message": "日本語のテキスト"}}}
+{"fn": "fail", "args": ["a😀b😀c", "ΣΊΣΥΦΟΣ", "{name} has {count} items"], "ok": {"id": "a😀b😀c", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ab", "src/a/b.ts", "ΣΊΣΥΦΟΣ"], "ok": {"id": "ab", "ok": false, "error": {"code": "src/a/b.ts", "message": "ΣΊΣΥΦΟΣ"}}}
+{"fn": "fail", "args": ["﻿bom", "hello world", "a"], "ok": {"id": "﻿bom", "ok": false, "error": {"code": "hello world", "message": "a"}}}
+{"fn": "fail", "args": ["abc", "é", "é"], "ok": {"id": "abc", "ok": false, "error": {"code": "é", "message": "é"}}}
+{"fn": "fail", "args": ["a.b.c", "😀", "key_name-1"], "ok": {"id": "a.b.c", "ok": false, "error": {"code": "😀", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["a:b:c", "abc", "a:b"], "ok": {"id": "a:b:c", "ok": false, "error": {"code": "abc", "message": "a:b"}}}
+{"fn": "fail", "args": ["😀", "a.b.c", "src/a/b.ts"], "ok": {"id": "😀", "ok": false, "error": {"code": "a.b.c", "message": "src/a/b.ts"}}}
+{"fn": "fail", "args": ["日本語のテキスト{name} has {count} items", "a..b", "ΣΊΣΥΦΟΣhello world"], "ok": {"id": "日本語のテキスト{name} has {count} items", "ok": false, "error": {"code": "a..b", "message": "ΣΊΣΥΦΟΣhello world"}}}
+{"fn": "fail", "args": ["line1\nline2", ":", "trailing."], "ok": {"id": "line1\nline2", "ok": false, "error": {"code": ":", "message": "trailing."}}}
+{"fn": "fail", "args": ["key_name-1", ".leading", "ME-1"], "ok": {"id": "key_name-1", "ok": false, "error": {"code": ".leading", "message": "ME-1"}}}
+{"fn": "fail", "args": ["hello world.leading", "straße", "ns:key.pathns:key.path"], "ok": {"id": "hello world.leading", "ok": false, "error": {"code": "straße", "message": "ns:key.pathns:key.path"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "﻿bom﻿bom", "  padded  "], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "﻿bom﻿bom", "message": "  padded  "}}}
+{"fn": "fail", "args": ["a..b", ":", "é"], "ok": {"id": "a..b", "ok": false, "error": {"code": ":", "message": "é"}}}
+{"fn": "fail", "args": ["ns:key.pathünïcödé", "HELLO", ".leadingab"], "ok": {"id": "ns:key.pathünïcödé", "ok": false, "error": {"code": "HELLO", "message": ".leadingab"}}}
+{"fn": "fail", "args": ["./x/**/*.json./x/**/*.json", "ΣΊΣΥΦΟΣ", "tab\tseparated"], "ok": {"id": "./x/**/*.json./x/**/*.json", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "tab\tseparated"}}}
+{"fn": "fail", "args": ["abc", "hello world", "line1\nline2"], "ok": {"id": "abc", "ok": false, "error": {"code": "hello world", "message": "line1\nline2"}}}
+{"fn": "fail", "args": ["abc", "é", "straße"], "ok": {"id": "abc", "ok": false, "error": {"code": "é", "message": "straße"}}}
+{"fn": "fail", "args": ["é", "ΣΊΣΥΦΟΣtrailing.", "İstanbul"], "ok": {"id": "é", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣtrailing.", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["hello", "trailing.ab", "abc"], "ok": {"id": "hello", "ok": false, "error": {"code": "trailing.ab", "message": "abc"}}}
+{"fn": "fail", "args": ["é", "é日本語のテキスト", "src/a/b.ts"], "ok": {"id": "é", "ok": false, "error": {"code": "é日本語のテキスト", "message": "src/a/b.ts"}}}
+{"fn": "fail", "args": ["", "key_name-1", "😀"], "ok": {"id": "", "ok": false, "error": {"code": "key_name-1", "message": "😀"}}}
+{"fn": "fail", "args": ["😀", "a😀b😀c", ".leading"], "ok": {"id": "😀", "ok": false, "error": {"code": "a😀b😀c", "message": ".leading"}}}
+{"fn": "fail", "args": ["́trail", "a.b.cHello World", "étrailing."], "ok": {"id": "́trail", "ok": false, "error": {"code": "a.b.cHello World", "message": "étrailing."}}}
+{"fn": "fail", "args": ["emoji 👍🏽 mix", "a..b", "ns:key.path"], "ok": {"id": "emoji 👍🏽 mix", "ok": false, "error": {"code": "a..b", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["a..b", "a..", "HELLO"], "ok": {"id": "a..b", "ok": false, "error": {"code": "a..", "message": "HELLO"}}}
+{"fn": "fail", "args": ["İstanbul", "a.leading", ".leading"], "ok": {"id": "İstanbul", "ok": false, "error": {"code": "a.leading", "message": ".leading"}}}
+{"fn": "fail", "args": ["  padded  ", "ünïcödé", "a.b.c"], "ok": {"id": "  padded  ", "ok": false, "error": {"code": "ünïcödé", "message": "a.b.c"}}}
+{"fn": "fail", "args": ["tab\tseparated", "", "é"], "ok": {"id": "tab\tseparated", "ok": false, "error": {"code": "", "message": "é"}}}
+{"fn": "fail", "args": ["hello", "HEL", "﻿bom"], "ok": {"id": "hello", "ok": false, "error": {"code": "HEL", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["hello worldé", "﻿bom", "a..b"], "ok": {"id": "hello worldé", "ok": false, "error": {"code": "﻿bom", "message": "a..b"}}}
+{"fn": "fail", "args": ["  padded  ", "key_name-1.leading", "﻿bom"], "ok": {"id": "  padded  ", "ok": false, "error": {"code": "key_name-1.leading", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["öd", "Hello World", "ünïcödé"], "ok": {"id": "öd", "ok": false, "error": {"code": "Hello World", "message": "ünïcödé"}}}
+{"fn": "fail", "args": ["́", "é", "İstanbul"], "ok": {"id": "́", "ok": false, "error": {"code": "é", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["hello world", ".leading", "abtrailing."], "ok": {"id": "hello world", "ok": false, "error": {"code": ".leading", "message": "abtrailing."}}}
+{"fn": "fail", "args": [":", "a..babc", "a"], "ok": {"id": ":", "ok": false, "error": {"code": "a..babc", "message": "a"}}}
+{"fn": "fail", "args": ["a..b", "trailing.ΣΊΣΥΦΟΣ", "hello"], "ok": {"id": "a..b", "ok": false, "error": {"code": "trailing.ΣΊΣΥΦΟΣ", "message": "hello"}}}
+{"fn": "fail", "args": ["ab", "ΣΊΣΥΦΟΣ", "tab\tseparated"], "ok": {"id": "ab", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "tab\tseparated"}}}
+{"fn": "fail", "args": ["", "a..b", "key_name-1"], "ok": {"id": "", "ok": false, "error": {"code": "a..b", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["a:b:ca:b:c", "emoji 👍🏽 mix", "ab"], "ok": {"id": "a:b:ca:b:c", "ok": false, "error": {"code": "emoji 👍🏽 mix", "message": "ab"}}}
+{"fn": "fail", "args": ["key_name-1", "ünïcödé", "key_name-1"], "ok": {"id": "key_name-1", "ok": false, "error": {"code": "ünïcödé", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["😀", "a.b.c", ""], "ok": {"id": "😀", "ok": false, "error": {"code": "a.b.c", "message": ""}}}
+{"fn": "fail", "args": ["hello", "-", "ΣΊΣΥΦΟΣkey_name-1"], "ok": {"id": "hello", "ok": false, "error": {"code": "-", "message": "ΣΊΣΥΦΟΣkey_name-1"}}}
+{"fn": "fail", "args": [" w", "İstanbul", "hello world"], "ok": {"id": " w", "ok": false, "error": {"code": "İstanbul", "message": "hello world"}}}
+{"fn": "fail", "args": ["emoji 👍🏽 mix", "ünïcödé", "ΣΊΣΥΦΟΣhello"], "ok": {"id": "emoji 👍🏽 mix", "ok": false, "error": {"code": "ünïcödé", "message": "ΣΊΣΥΦΟΣhello"}}}
+{"fn": "fail", "args": [":", "ab", "b"], "ok": {"id": ":", "ok": false, "error": {"code": "ab", "message": "b"}}}
+{"fn": "fail", "args": ["hello world", "key_name-1", "ünïcödé{name} has {count} items"], "ok": {"id": "hello world", "ok": false, "error": {"code": "key_name-1", "message": "ünïcödé{name} has {count} items"}}}
+{"fn": "fail", "args": ["Ο", "ΣΊΣΥΦΟΣa", "emoji 👍🏽 mix"], "ok": {"id": "Ο", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣa", "message": "emoji 👍🏽 mix"}}}
+{"fn": "fail", "args": ["a.leading", "{name} has {count} items", "key_name-1"], "ok": {"id": "a.leading", "ok": false, "error": {"code": "{name} has {count} items", "message": "key_name-1"}}}
+{"fn": "fail", "args": ["日本語のテキスト", "é", "./x/**/*.json"], "ok": {"id": "日本語のテキスト", "ok": false, "error": {"code": "é", "message": "./x/**/*.json"}}}
+{"fn": "fail", "args": ["a..b", "..", "ns:key.path"], "ok": {"id": "a..b", "ok": false, "error": {"code": "..", "message": "ns:key.path"}}}
+{"fn": "fail", "args": ["a..b", "😀", "trailing."], "ok": {"id": "a..b", "ok": false, "error": {"code": "😀", "message": "trailing."}}}
+{"fn": "fail", "args": ["src/a/b.ts", "é", "é"], "ok": {"id": "src/a/b.ts", "ok": false, "error": {"code": "é", "message": "é"}}}
+{"fn": "fail", "args": ["straßeünïcödé", "a.b.c", "./x/**/*.json"], "ok": {"id": "straßeünïcödé", "ok": false, "error": {"code": "a.b.c", "message": "./x/**/*.json"}}}
+{"fn": "fail", "args": ["héllo wörld", "ns:key.path", "{name} has {count} items"], "ok": {"id": "héllo wörld", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["👍🏽 thumbs", "ns:key.path", "{name} has {count} items"], "ok": {"id": "👍🏽 thumbs", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["日本語", "ns:key.path", "{name} has {count} items"], "ok": {"id": "日本語", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["", "ns:key.path", "{name} has {count} items"], "ok": {"id": "", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["é", "ns:key.path", "{name} has {count} items"], "ok": {"id": "é", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["İstanbul", "ns:key.path", "{name} has {count} items"], "ok": {"id": "İstanbul", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["straße", "ns:key.path", "{name} has {count} items"], "ok": {"id": "straße", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ılık ırmak", "ns:key.path", "{name} has {count} items"], "ok": {"id": "ılık ırmak", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["👨‍👩‍👧 family", "ns:key.path", "{name} has {count} items"], "ok": {"id": "👨‍👩‍👧 family", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["a b", "ns:key.path", "{name} has {count} items"], "ok": {"id": "a b", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ΣΊΣΥΦΟΣ", "ns:key.path", "{name} has {count} items"], "ok": {"id": "ΣΊΣΥΦΟΣ", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["a😀b", "ns:key.path", "{name} has {count} items"], "ok": {"id": "a😀b", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["﻿bom", "ns:key.path", "{name} has {count} items"], "ok": {"id": "﻿bom", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["a²b x½ y①", "ns:key.path", "{name} has {count} items"], "ok": {"id": "a²b x½ y①", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["aⅠb Ⅻ", "ns:key.path", "{name} has {count} items"], "ok": {"id": "aⅠb Ⅻ", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["a𐐀b 𝐀bc", "ns:key.path", "{name} has {count} items"], "ok": {"id": "a𐐀b 𝐀bc", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["कि ٣٤", "ns:key.path", "{name} has {count} items"], "ok": {"id": "कि ٣٤", "ok": false, "error": {"code": "ns:key.path", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "héllo wörld", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "héllo wörld", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "👍🏽 thumbs", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "👍🏽 thumbs", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "日本語", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "日本語", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "é", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "é", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "İstanbul", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "İstanbul", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "straße", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "straße", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ılık ırmak", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ılık ırmak", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "👨‍👩‍👧 family", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "👨‍👩‍👧 family", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "a b", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "a b", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ΣΊΣΥΦΟΣ", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ΣΊΣΥΦΟΣ", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "a😀b", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "a😀b", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "﻿bom", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "﻿bom", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "a²b x½ y①", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "a²b x½ y①", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "aⅠb Ⅻ", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "aⅠb Ⅻ", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "a𐐀b 𝐀bc", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "a𐐀b 𝐀bc", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "कि ٣٤", "{name} has {count} items"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "कि ٣٤", "message": "{name} has {count} items"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "héllo wörld"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "héllo wörld"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "👍🏽 thumbs"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "👍🏽 thumbs"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "日本語"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "日本語"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", ""], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": ""}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "é"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "é"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "İstanbul"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "İstanbul"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "straße"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "straße"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "ılık ırmak"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "ılık ırmak"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "👨‍👩‍👧 family"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "👨‍👩‍👧 family"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "a b"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "a b"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "ΣΊΣΥΦΟΣ"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "ΣΊΣΥΦΟΣ"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "a😀b"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "a😀b"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "﻿bom"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "﻿bom"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "a²b x½ y①"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "a²b x½ y①"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "aⅠb Ⅻ"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "aⅠb Ⅻ"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "a𐐀b 𝐀bc"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "a𐐀b 𝐀bc"}}}
+{"fn": "fail", "args": ["ns:key.pathline1\nline2", "ns:key.path", "कि ٣٤"], "ok": {"id": "ns:key.pathline1\nline2", "ok": false, "error": {"code": "ns:key.path", "message": "कि ٣٤"}}}
+{"fn": "validate_request", "args": [{"id": "req-1", "method": "status", "params": {}}], "ok": {"$tuple": ["req-1", "status", {}]}}
+{"fn": "validate_request", "args": [{"id": "a", "method": "m", "params": {"x": 1}}], "ok": {"$tuple": ["a", "m", {"x": 1}]}}
+{"fn": "validate_request", "args": [{"id": "idididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididid", "method": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"}], "ok": {"$tuple": ["idididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididididid", "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm", {}]}}
+{"fn": "validate_request", "args": [{"id": "req-2", "method": "discover"}], "ok": {"$tuple": ["req-2", "discover", {}]}}
+{"fn": "validate_request", "args": [{"id": "req-3", "method": "discover", "params": null}], "ok": {"$tuple": ["req-3", "discover", {}]}}
+{"fn": "validate_request", "args": [{"id": "req-4", "method": "snapshot", "params": {"account": "a"}}], "ok": {"$tuple": ["req-4", "snapshot", {"account": "a"}]}}
+{"fn": "validate_request", "args": [{}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"id": "", "method": "m"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "method": "m"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"id": 1, "method": "m"}], "error": "ProtocolError: id must be a 1..256 string"}
+{"fn": "validate_request", "args": [{"id": "i", "method": ""}], "error": "ProtocolError: method must be a 1..64 string"}
+{"fn": "validate_request", "args": [{"id": "i", "method": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"}], "error": "ProtocolError: method must be a 1..64 string"}
+{"fn": "validate_request", "args": [{"id": "i", "method": 7}], "error": "ProtocolError: method must be a 1..64 string"}
+{"fn": "validate_request", "args": [{"id": "i", "method": "m", "params": []}], "error": "ProtocolError: params must be an object"}
+{"fn": "validate_request", "args": [{"id": "i", "method": "m", "params": "x"}], "error": "ProtocolError: params must be an object"}
+{"fn": "validate_request", "args": [[]], "error": "AttributeError: 'list' object has no attribute 'get'"}
+{"fn": "validate_request", "args": ["x"], "error": "AttributeError: 'str' object has no attribute 'get'"}
+{"fn": "validate_request", "args": [null], "error": "AttributeError: 'NoneType' object has no attribute 'get'"}
+{"fn": "ok", "args": ["req-1", {"a": 1}], "ok": {"id": "req-1", "ok": true, "result": {"a": 1}}}
+{"fn": "ok", "args": ["req-2", null], "ok": {"id": "req-2", "ok": true, "result": null}}
+{"fn": "ok", "args": ["req-3", [1, 2, 3]], "ok": {"id": "req-3", "ok": true, "result": [1, 2, 3]}}
+{"fn": "ok", "args": ["", {}], "ok": {"id": "", "ok": true, "result": {}}}
+{"fn": "fail", "args": ["req-1", "bad_request", "boom"], "ok": {"id": "req-1", "ok": false, "error": {"code": "bad_request", "message": "boom"}}}
+{"fn": "fail", "args": ["req-2", "key_unavailable", ""], "ok": {"id": "req-2", "ok": false, "error": {"code": "key_unavailable", "message": ""}}}
+{"fn": "fail", "args": ["", "internal", "x"], "ok": {"id": "", "ok": false, "error": {"code": "internal", "message": "x"}}}
