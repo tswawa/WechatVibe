@@ -172,7 +172,18 @@ def public_mappings(source: Path, models: Path) -> list[tuple[Path, Path, Path]]
     mappings = [(source / relative, relative, source) for relative in project_files]
     mappings += [(models / Path(name), Path(".models/laya") / name, models)
                  for name in MODEL_FILES]
-    return mappings
+    # Several allowlist entries appear in more than one group (e.g. payload_crypto.py in
+    # BRIDGE and NATIVE-adjacent lists). A path only needs to be staged once; otherwise the
+    # collision guard rejects an otherwise valid release build.
+    seen: set[str] = set()
+    unique = []
+    for item in mappings:
+        key = item[1].as_posix().casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
 
 
 def stage_public(source: Path, models: Path, output: Path) -> dict:

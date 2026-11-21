@@ -1,6 +1,6 @@
 {
   "name": "wechatvibe",
-  "version": "1.3.6",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "description": "WechatVibe 本机只读微信会话分析桌面客户端",
