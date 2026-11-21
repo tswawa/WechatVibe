@@ -1,0 +1,1 @@
+{"version": 1, "accounts": [{"id": "acct-1", "name": "主账号", "username": "wxid_main", "contacts": [{"id": "c1", "username": "wxid_a", "name": "阿甲", "kind": "friend"}, {"username": "wxid_b"}], "shards": [{"id": "s1", "path": "shard1.bin"}]}, {"id": "acct-2", "username": null, "contacts": [], "shards": [{"id": 2, "path": "shard2.bin"}, {"id": "s3", "path": "empty.bin"}]}]}

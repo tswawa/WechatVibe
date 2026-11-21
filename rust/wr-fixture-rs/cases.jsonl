@@ -1,0 +1,224 @@
+{"fn": "load_fixture", "args": ["日本語のテキスト"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leading"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿bom"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mix"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [""], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["İstanbul"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.json"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a:b:c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.cHELLO"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["é"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a./x/**/*.json"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["{name} has {count} items.leading"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.ts"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["日本語のテキストΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["{name} has {count} itemsΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOhello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["tab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLO"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["trailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödéΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["😀key_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ab"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1tab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["helloHELLO"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..ba:b:c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  tab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.jsona😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2a.b.c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ns:key.path日本語のテキスト"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.jsonİstanbul"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["Hello World"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣhello"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀chello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["trailing.ünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["{name} has {count} items:"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.tshello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leadinga:b:c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["helloünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["İstanbula"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ns:key.pathHello World"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["straße"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOa.b.c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  hello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  src/a/b.ts"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":﻿bom"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿boma"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..bé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["tab\tseparated:"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mixhello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..btrailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["😀ΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀c.leading"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["tab\tseparated./x/**/*.json"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿bom{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mix.leading"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["helloHello World"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["İstanbul.leading"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.ts  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.tsΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödésrc/a/b.ts"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödéns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.cab"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello worldns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿boma😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2abc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["éns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1ünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ns:key.path😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello world{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":emoji 👍🏽 mix"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["aİstanbul"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.jsonΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2a"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello﻿bom"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödé  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abc./x/**/*.json"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..bHello World"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..ba.b.c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..b  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["atrailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["trailing.é"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leading😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mixİstanbul"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀ckey_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mixa..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mix:"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOkey_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀ca.b.c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.tstrailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["😀HELLO"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOİstanbul"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leadingkey_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿bomHELLO"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.c😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a:b:ca..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["İstanbulhello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..ba"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["aba😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  a😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hellotrailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a:b:ckey_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["éline1\nline2"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abcsrc/a/b.ts"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  a..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leading.leading"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  hello"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a..ba..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["tab\tseparateda.b.c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["日本語のテキスト😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2straße"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello worldtab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.json﻿bom"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abchello"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿bomemoji 👍🏽 mix"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["straßeünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["  padded  Hello World"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abcemoji 👍🏽 mix"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["İstanbula..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello worldünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a日本語のテキスト"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":hello world"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1a😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello world  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.tsab"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello worldabc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.jsona"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödé﻿bom"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOa"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["./x/**/*.json./x/**/*.json"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["tab\tseparatedabc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["src/a/b.tsns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀ca😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.cns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leadinga..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a:b:c日本語のテキスト"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abc  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣ日本語のテキスト"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["İstanbulns:key.path"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":trailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["Hello World{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.c日本語のテキスト"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["Hello Worldünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀cline1\nline2"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["日本語のテキスト{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mixa:b:c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["éab"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leadinghello"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1trailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["HELLOtrailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hellotab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ns:key.path  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣa"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣa..b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["😀a😀b😀c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ΣΊΣΥΦΟΣsrc/a/b.ts"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [":😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["trailing.Hello World"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mix  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": [".leading{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abcünïcödé"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["﻿bomsrc/a/b.ts"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a:b:cline1\nline2"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["abc😀"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1  padded  "], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["Hello Worldkey_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2HELLO"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["emoji 👍🏽 mix{name} has {count} items"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2İstanbul"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["trailing.abc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["日本語のテキストtab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["line1\nline2é"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["tab\tseparatedtrailing."], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["key_name-1a:b:c"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["hello worldΣΊΣΥΦΟΣ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ünïcödéabc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["atab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a:b:ctab\tseparated"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a.b.ckey_name-1"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b😀cemoji 👍🏽 mix"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["héllo wörld"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["👍🏽 thumbs"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["日本語"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["ılık ırmak"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["👨‍👩‍👧 family"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a😀b"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a²b x½ y①"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["aⅠb Ⅻ"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["a𐐀b 𝐀bc"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["कि ٣٤"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\manifest.json"], "ok": [{"$object": "FixtureAccount", "attrs": {"id": "acct-1", "name": "主账号", "username": "wxid_main", "contacts": [{"$object": "FixtureContact", "attrs": {"id": "c1", "username": "wxid_a", "name": "阿甲", "kind": "friend"}}, {"$object": "FixtureContact", "attrs": {"id": "wxid_b", "username": "wxid_b", "name": "wxid_b", "kind": "friend"}}], "shards": [{"$object": "FixtureShard", "attrs": {"id": "s1", "image": {"$bytes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]}}}]}}, {"$object": "FixtureAccount", "attrs": {"id": "acct-2", "name": "acct-2", "username": null, "contacts": [], "shards": [{"$object": "FixtureShard", "attrs": {"id": "2", "image": {"$bytes": [0, 1, 2]}}}, {"$object": "FixtureShard", "attrs": {"id": "s3", "image": {"$bytes": []}}}]}}]}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\empty-accounts.json"], "ok": []}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\v2.json"], "error": "ProtocolError: unsupported fixture manifest version"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\array.json"], "error": "ProtocolError: unsupported fixture manifest version"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\no-version.json"], "error": "ProtocolError: unsupported fixture manifest version"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\bool-version.json"], "ok": [{"$object": "FixtureAccount", "attrs": {"id": "t", "name": "t", "username": null, "contacts": [], "shards": []}}]}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\missing-shard.json"], "error": "ProtocolError: fixture shard unreadable"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\shard-no-path.json"], "error": "KeyError: 'path'"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\account-no-id.json"], "error": "KeyError: 'id'"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\contact-no-username.json"], "error": "KeyError: 'username'"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\broken.json"], "error": "ProtocolError: fixture manifest unreadable"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata\\does-not-exist.json"], "error": "ProtocolError: fixture manifest not found"}
+{"fn": "load_fixture", "args": ["D:\\project\\weixinAnalyzer\\rust\\wr-fixture-rs\\testdata"], "error": "ProtocolError: fixture manifest not found"}

@@ -1,0 +1,49 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "D:\\project\\weixinAnalyzer\\native-reader",
+  "unit": "wr/fixture.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "fixture-rs",
+  "exports": [
+    {
+      "name": "load_fixture",
+      "file": "wr/fixture.py",
+      "line": 40,
+      "params": [
+        {
+          "name": "manifest_path",
+          "ts_type": "string",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "FixtureAccount[]",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "FixtureShard",
+      "file": "wr/fixture.py",
+      "line": 18,
+      "reason": "class: decorated with `@dataclass`, public class attribute `id`, public class attribute `image`"
+    },
+    {
+      "name": "FixtureContact",
+      "file": "wr/fixture.py",
+      "line": 24,
+      "reason": "class: decorated with `@dataclass`, public class attribute `id`, public class attribute `kind`, public class attribute `name`, public class attribute `username`"
+    },
+    {
+      "name": "FixtureAccount",
+      "file": "wr/fixture.py",
+      "line": 32,
+      "reason": "class: decorated with `@dataclass`, public class attribute `contacts`, public class attribute `id`, public class attribute `name`, public class attribute `shards`, public class attribute `username`"
+    }
+  ]
+}
