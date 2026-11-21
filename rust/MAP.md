@@ -17,7 +17,7 @@
 
 ## 单元状态
 
-`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 4 个独立 crate（201 条金标准操作 + 30 项双目录差分 + 26 项 discovery 差分）全绿。
+`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 5 个独立 crate（201 条金标准 + 30 项双目录差分 + 26 项 discovery 差分 + 22 项解密差分）全绿。
 
 | # | 单元 | 语言 | 行数 | crate | 状态 |
 | ---: | --- | --- | ---: | --- | --- |
@@ -32,7 +32,8 @@
 | 8 | `wr/discovery.py`（路径/配置部分） | Python | ~240 | `rust/wr-discovery-rs` | **done** 26/26 差分；进程扫描与内存扫描未移植 |
 | 8b | `wr/discovery.py`（进程/内存扫描） | Python | ~248 | — | open —— ctypes/Win32，依赖活进程 |
 | 9 | `wr/window.py` / `window_uia.py` / `window_capture.py` | Python | 755 | — | open —— Win32 + UIA |
-| 10 | `wr/service.py` | Python | 803 | — | open —— 编排层，依赖上面全部 |
+| 10 | `wr/service.py`（解密热循环 + 自由函数） | Python | ~140 | `rust/wr-service-core-rs` | **done** 22/22 差分；`NativeService` 类仍留在 Python |
+| 10b | `wr/service.py` → `NativeService` | Python | ~663 | — | open —— 编排层，依赖活进程与窗口 |
 | 11 | `bridge/` | Python | 20,999 | — | open |
 | 12 | `electron/laya/` | TS | 3,462 | — | open |
 | 13 | `electron/` | TS | 4,527 | — | open |

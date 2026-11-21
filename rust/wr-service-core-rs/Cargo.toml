@@ -1,0 +1,31 @@
+[package]
+name = "wr-service-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+description = "Rust port of wr/service.py's shard decryption hot loop"
+
+[lib]
+name = "wr_service_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wr-service-core"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+hmac = "0.12"
+sha2 = "0.10"
+pbkdf2 = "0.12"
+subtle = "2"
+
+[profile.release]
+lto = true
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+too_many_arguments = "allow"

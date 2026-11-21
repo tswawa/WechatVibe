@@ -220,3 +220,22 @@ Decision: `rust/wr-discovery-rs` 只移植前者：`opaque_account_id`、`_is_un
 
 Consequences: 未来接 `service.py` 时，进程信息只能由 Rust 侧用 `windows` crate 重新实现，
 并单独设计自测；不能声称和原版做过输入输出比对。
+
+## ADR-015: 解密热循环按「一次调用一个分片」落地
+
+Status: accepted (2026-11-21)
+
+Context: ADR-006 的 bench 结论是逐页跨桥比 Python 慢（0.37x）。`_decrypt_shard_pages` 在一次调用里
+处理整个分片的所有 4096 字节页 + 已提交 WAL 帧，才值得做成 Rust。
+
+Decision: `rust/wr-service-core-rs` 把该函数连同 `_decrypt_shard_image` 和 4 个自由函数一起移植。
+crypto / wal 的已证明实现直接复制进这个 crate 作为 `mod`，避免 pyo3 extension-module 的链接问题。
+22 个操作用合成 SQLCipher 分片差分，成功路径确实跑到了：3 页主库 + 1 个 WAL 帧 → 3+1 页，
+commit_pages=2，最终镜像 8192 字节且带 SQLite 头。
+
+踩到的两个坑：
+1. WAL 头/帧的盐是 **4 字节**，和 SQLCipher 第 1 页的 16 字节盐不是一回事。传错会让头长从 32 变 56，
+   `parse_wal` 直接判为 corrupt（4 个用例全落在错误分支，差点假绿）。
+2. crypto 的 port 已经把错误编码成 `ProtocolError(code): msg`，外层再包一次会变成双前缀。
+
+Consequences: 22/22 一致，`cargo test` 3/3。`NativeService` 仍是 Python，它依赖活进程与窗口状态。
