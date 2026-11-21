@@ -160,12 +160,27 @@ fn run(root: &Path) -> i32 {
 
     let electron = root.join("node_modules/electron/dist/electron.exe");
     let shell = root.join("scripts/real-client-shell.cjs");
-    let mut child = match Command::new(&electron)
+    // The Electron shell refuses to start without the installation's instance id; the
+    // Python launcher normally injects it, but this binary starts the shell directly.
+    let instance_id = text_field(&started, "instanceId").unwrap_or_default();
+    let mut command = Command::new(&electron);
+    command
         .current_dir(root)
         .arg(&shell)
         .args(["--client-url", &url])
-        .spawn()
-    {
+        .env("WECHATVIBE_INSTANCE_ID", &instance_id)
+        // The Electron shell calls installation_gate.py via this interpreter. Without it the
+        // shell falls back to runtime/python/python.exe, which source trees do not ship, so
+        // gate registration fails and the window shows "installation is updating".
+        .env("WECHATVIBE_PYTHON", python_exe(root))
+        .env("WECHATVIBE_CLIENT_ROOT", root)
+        // WorkBuddy sets this for its own Node wrappers; inherited by this process, it makes
+        // electron.exe behave as plain Node and `require("electron").app` becomes undefined.
+        .env_remove("ELECTRON_RUN_AS_NODE");
+    if let Ok(profile) = std::env::var("WECHATVIBE_PROFILE") {
+        command.env("WECHATVIBE_PROFILE", profile);
+    }
+    let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
             println!("[fail] cannot start GUI: {error}");

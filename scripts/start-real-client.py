@@ -148,6 +148,24 @@ def listener_pid(port):
     return None
 
 
+def _is_own_bridge(pid):
+    """Whether a PID is a live chat_server.py from this installation.
+
+    `health()` has already matched version, instanceId and appVersion, so a listener running
+    our bridge script is the same service regardless of which launch spawned it. Anything we
+    cannot prove is our bridge stays rejected, preserving the foreign-listener guard.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return False
+    try:
+        command_line = " ".join(psutil.Process(pid).cmdline())
+    except (psutil.Error, OSError):
+        return False
+    return "chat_server.py" in command_line
+
+
 def selected_port(config, *, allow_fallback):
     """Resolve the saved installation port; status/stop never select or write one."""
     marker = checked_runtime_dir(config) / "selected-port.json"
@@ -454,11 +472,14 @@ def ensure_service(config, starter=start_service, *, recovery=False):
         while time.monotonic() < deadline:
             state = health(config)
             if state == "ready":
-                # A bind probe and the child's bind are separate syscalls. Health alone
-                # cannot tell a same-identity抢端口 process from the bridge we just launched,
-                # so confirm the listener belongs to our child before claiming success.
+                # `health()` already verified version, instanceId and appVersion, so a
+                # ready listener is the correct service for this installation. On Windows
+                # the TCP owner PID can differ from the child we spawned (an earlier bridge
+                # may have become ready in the same instant), so requiring `owner == child`
+                # rejects a valid start and leaves a healthy service unowned. Reject only a
+                # listener we can prove is not one of our own bridge scripts.
                 owner = listener_pid(config.port)
-                if owner not in (None, os.getpid(), process.pid):
+                if owner not in (None, os.getpid(), process.pid) and not _is_own_bridge(owner):
                     abort(f"Port {config.port} is owned by PID {owner}, not the bridge just "
                           f"started (PID {process.pid}); log: {log_path}")
                 if recovery and config.no_auto_recovery_marker.exists():
