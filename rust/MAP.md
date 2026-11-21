@@ -32,8 +32,8 @@
 | 8 | `wr/discovery.py`（路径/配置部分） | Python | ~240 | `rust/wr-discovery-rs` | **done** 26/26 差分；进程扫描与内存扫描未移植 |
 | 8b | `wr/discovery.py`（进程/内存扫描） | Python | ~248 | — | open —— ctypes/Win32，依赖活进程 |
 | 9 | `wr/window.py` 几何部分 + Win32 进程发现 | Python | ~500 | `rust/wr-win32-rs` | **done** 6 项单元测试；Win32 读取活状态，无法差分（ADR-017） |
-| 9b | `window_capture.py` / `window_uia.py` 模型 | Python | ~500 | `rust/wr-win32-rs` | partial —— GDI 截图 + 有界 UIA 树模型已实现；COM 树遍历未接，显式 `uia-unavailable` |
-| 10d | `NativeService` live 连接 | Python | ~180 | `rust/wr-native-rs` | partial —— 进程内存密钥候选 + 分片解密可用，无等价证明 |
+| 9b | `window_capture.py` / `window_uia.py` 模型 | Python | ~500 | `rust/wr-win32-rs` | **done** —— GDI 截图 + UIA COM 遍历（有界），无等价证明；控制类型报数字 id 而非名字 |
+| 10d | `NativeService` live 连接 | Python | ~180 | `rust/wr-native-rs` | **done** —— 进程内存密钥候选 + 分片解密 + store 构建，无等价证明 |
 | 10 | `wr/service.py`（解密热循环 + 自由函数） | Python | ~140 | `rust/wr-service-core-rs` | **done** 22/22 差分；`NativeService` 类仍留在 Python |
 | 10b | `wr/service.py` → `NativeService`（fixture 模式） | Python | ~350 | `rust/wr-native-rs` | **done** 21/21 差分（含 read_incremental）；live 模式未移植 |
 | 10c | `wr/service.py` → `NativeService`（live 模式） | Python | ~313 | — | open —— 依赖活进程与窗口 |

@@ -953,8 +953,19 @@ impl NativeService {
         if windows.is_empty() {
             return json!({ "ok": false, "reason": "no-window" });
         }
-        let _ = params;
-        json!({ "ok": false, "reason": "uia-unavailable" })
+        let primary = wr_win32::primary_window(&windows).expect("non-empty");
+        let max_nodes = params
+            .get("maxNodes")
+            .and_then(Value::as_u64)
+            .unwrap_or(1000)
+            .min(1000) as usize;
+        let max_depth = params
+            .get("maxDepth")
+            .and_then(Value::as_u64)
+            .unwrap_or(12)
+            .min(12) as usize;
+        wr_win32::win32::probe_uia(primary.hwnd, max_nodes, max_depth)
+            .unwrap_or_else(|| json!({ "ok": false, "reason": "uia-unavailable" }))
     }
 }
 
@@ -1009,9 +1020,10 @@ impl NativeService {
         for process in &self.processes {
             for (_origin, hex) in wr_win32::win32::scan_key_candidates(process.pid) {
                 if let Some(pair) = parse_key_candidate(&hex)
-                    && !candidates.contains(&pair) {
-                        candidates.push(pair);
-                    }
+                    && !candidates.contains(&pair)
+                {
+                    candidates.push(pair);
+                }
             }
         }
         if candidates.is_empty() {
@@ -1049,18 +1061,18 @@ impl NativeService {
                     wal.as_ref().map(|w| json!({ "$bytes": w })).as_ref(),
                     &json!({ "$bytes": raw_key }),
                     &json!({ "$bytes": salt }),
-                )
-                    && let Some(bytes) = decrypted.get("$bytes").and_then(Value::as_array) {
-                        let image_bytes: Vec<u8> = bytes
-                            .iter()
-                            .filter_map(|b| b.as_u64())
-                            .map(|b| b as u8)
-                            .collect();
-                        if image_bytes.starts_with(b"SQLite format 3\x00") {
-                            image = Some(image_bytes);
-                            break;
-                        }
+                ) && let Some(bytes) = decrypted.get("$bytes").and_then(Value::as_array)
+                {
+                    let image_bytes: Vec<u8> = bytes
+                        .iter()
+                        .filter_map(|b| b.as_u64())
+                        .map(|b| b as u8)
+                        .collect();
+                    if image_bytes.starts_with(b"SQLite format 3\x00") {
+                        image = Some(image_bytes);
+                        break;
                     }
+                }
             }
             let image =
                 image.ok_or_else(|| protocol_error("read_error", "shard decrypt failed"))?;

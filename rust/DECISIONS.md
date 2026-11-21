@@ -297,3 +297,17 @@ Decision:
   用 SQLite 头验证候选正确性，构建 `ContactStore`。无等价证明。
 
 Consequences: 没有再以"等价"名义交付的 Win32 代码。真正未实现的是 UIA COM 树遍历。
+
+## ADR-019: UIA COM 已接通，控制类型保留数字 id
+
+Status: accepted (2026-11-21)
+
+Context: `windows` crate 0.58 的 UIA 在 `Win32_UI_Accessibility`，不是 `UI_UIAutomation`；
+`CUIAutomation` 是 GUID 常量，要用 `CoCreateInstance` 取 `IUIAutomation`。
+
+Decision: `probe_uia` 用 `CoInitializeEx` + `CoCreateInstance` + `ElementFromHandle` +
+`FindAll(TreeScope_Descendants, TrueCondition)`，逐元素读 CurrentName / AutomationId /
+IsEnabled / IsOffscreen / BoundingRectangle / ControlType，节点数受 maxNodes 上限约束。
+控制类型返回 UIA 数字 id，未映射到 Python 的名字字符串 —— 这是明确的行为差异。
+
+Consequences: UIA 树遍历不再是 stub。仍无等价证明：三次差异全部来自活桌面状态。

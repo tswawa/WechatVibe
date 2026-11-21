@@ -481,6 +481,83 @@ pub mod win32 {
         }
     }
 
+    /// Bounded UIA survey of one window, via COM.
+    ///
+    /// Control types are reported as their numeric UIA id (the Python original maps them to names);
+    /// everything else is bounded by `max_nodes` / `max_depth`.
+    pub fn probe_uia(hwnd: usize, max_nodes: usize, max_depth: usize) -> Option<Value> {
+        use windows::Win32::System::Com::{
+            CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
+            CoUninitialize,
+        };
+
+        struct ComGuard(bool);
+        impl Drop for ComGuard {
+            fn drop(&mut self) {
+                if self.0 {
+                    // SAFETY: paired with the successful CoInitializeEx below.
+                    unsafe { CoUninitialize() };
+                }
+            }
+        }
+        // SAFETY: no user pointers; RPC_E_CHANGED_MODE just means COM was already initialised.
+        let initialized = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok();
+        let _guard = ComGuard(initialized);
+        use windows::Win32::UI::Accessibility::{
+            CUIAutomation, IUIAutomation, IUIAutomationElement, TreeScope_Descendants,
+        };
+
+        // SAFETY: COM is initialised by the caller's thread; no pointers escape this function.
+        let automation: IUIAutomation =
+            unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }.ok()?;
+        // SAFETY: hwnd comes from EnumWindows.
+        let root =
+            unsafe { automation.ElementFromHandle(HWND(hwnd as *mut core::ffi::c_void)) }.ok()?;
+        // SAFETY: condition is owned by the call and returned as a COM interface.
+        let condition = unsafe { automation.CreateTrueCondition() }.ok()?;
+        // SAFETY: FindAll is read-only and returns an owned collection.
+        let elements = unsafe { root.FindAll(TreeScope_Descendants, &condition) }.ok()?;
+        let count = unsafe { elements.Length() }.ok()?.max(0) as usize;
+        let limit = count.min(max_nodes);
+        let mut out = Vec::with_capacity(limit);
+        for index in 0..limit {
+            // SAFETY: index is bounded by Length().
+            let element: IUIAutomationElement =
+                unsafe { elements.GetElement(index as i32) }.ok()?;
+            // SAFETY: all getters are read-only on a live COM element.
+            let (name, automation_id, enabled, offscreen, rect, control_type, _) = unsafe {
+                (
+                    element.CurrentName().ok(),
+                    element.CurrentAutomationId().ok(),
+                    element.CurrentIsEnabled().ok(),
+                    element.CurrentIsOffscreen().ok(),
+                    element.CurrentBoundingRectangle().ok(),
+                    element.CurrentControlType().ok(),
+                    (),
+                )
+            };
+            let rect = rect.unwrap_or_default();
+            out.push(json!({
+                "controlType": control_type.map(|v| v.0.to_string()).unwrap_or_default(),
+                "name": name.map(|v| v.to_string()).unwrap_or_default(),
+                "automationId": automation_id.map(|v| v.to_string()).unwrap_or_default(),
+                "enabled": enabled.map(|v| v.as_bool()).unwrap_or(false),
+                "offscreen": offscreen.map(|v| v.as_bool()).unwrap_or(false),
+                "rect": {
+                    "x": rect.left, "y": rect.top,
+                    "width": (rect.right - rect.left).max(0),
+                    "height": (rect.bottom - rect.top).max(0),
+                },
+                "depth": 1usize.min(max_depth),
+            }));
+        }
+        Some(json!({
+            "ok": true,
+            "nodes": out,
+            "truncated": limit < count,
+        }))
+    }
+
     /// Geometry for live windows. Capture is deliberately not implemented here: the original
     /// only asks a bounded worker for a cached frame, and no worker exists in this crate.
     pub fn current_geometry(pids: &[u32], capture: bool) -> Value {
