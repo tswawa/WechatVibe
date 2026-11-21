@@ -17,7 +17,7 @@
 
 ## 单元状态
 
-`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 6 个独立 crate（201 条金标准 + 30 项双目录差分 + 26 项 discovery 差分 + 22 项解密差分 + 21 项服务层差分）全绿。
+`native-reader/wr/` 下面按文件拆成了独立 crate，逐个证明。合计 6 个 bridge crate（4,062 条录制用例）+ 8 个独立 crate（201 金标准 + 30 双目录差分 + 26 discovery 差分 + 22 解密差分 + 21 服务层差分 + 9 单元测试）全绿。
 
 | # | 单元 | 语言 | 行数 | crate | 状态 |
 | ---: | --- | --- | ---: | --- | --- |
@@ -31,7 +31,8 @@
 | 7b | `wr/database.py` → `SqliteShard` + `ContactStore` | Python | 495 | `rust/wr-query-rs` | **done** 201/201 金标准操作，`cargo test` 固化 |
 | 8 | `wr/discovery.py`（路径/配置部分） | Python | ~240 | `rust/wr-discovery-rs` | **done** 26/26 差分；进程扫描与内存扫描未移植 |
 | 8b | `wr/discovery.py`（进程/内存扫描） | Python | ~248 | — | open —— ctypes/Win32，依赖活进程 |
-| 9 | `wr/window.py` / `window_uia.py` / `window_capture.py` | Python | 755 | — | open —— Win32 + UIA |
+| 9 | `wr/window.py` 几何部分 + Win32 进程发现 | Python | ~500 | `rust/wr-win32-rs` | **done** 6 项单元测试；Win32 读取活状态，无法差分（ADR-017） |
+| 9b | `window_uia.py` / `window_capture.py` | Python | ~500 | — | partial —— UIA 树遍历与截图未实现，显式返回 `uia-unavailable` |
 | 10 | `wr/service.py`（解密热循环 + 自由函数） | Python | ~140 | `rust/wr-service-core-rs` | **done** 22/22 差分；`NativeService` 类仍留在 Python |
 | 10b | `wr/service.py` → `NativeService`（fixture 模式） | Python | ~350 | `rust/wr-native-rs` | **done** 21/21 差分（含 read_incremental）；live 模式未移植 |
 | 10c | `wr/service.py` → `NativeService`（live 模式） | Python | ~313 | — | open —— 依赖活进程与窗口 |

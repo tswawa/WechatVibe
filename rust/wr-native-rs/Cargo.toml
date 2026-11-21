@@ -15,6 +15,8 @@ name = "wr-native"
 path = "src/main.rs"
 
 [dependencies]
+wr-win32 = { path = "../wr-win32-rs" }
+encoding_rs = "0.8"
 serde_json = { version = "1", features = ["preserve_order"] }
 indexmap = "2"
 aes = "0.8"

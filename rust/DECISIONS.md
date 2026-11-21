@@ -258,3 +258,24 @@ read_history / close。成功路径确实读到 3 行分页数据和 total=12。
 - Rust 二进制自己生成快照 id，占位符 `__snap0` 需要「先跑一次拿 id、再重写 ops 跑第二次」。
 
 Consequences: live 模式、window 方法、进程/内存扫描明确列为未完成。
+
+## ADR-017: Win32 层只做单元自测，明确不声称等价
+
+Status: accepted (2026-11-21)
+
+Context: `wr/window.py` 的窗口枚举/几何、`window_uia.py` 的 UIA 树、`window_capture.py` 的截图，
+以及 discovery 的进程/内存扫描，都读活桌面。原版两次运行的结果本身就不相同，任何"逐条比对
+输入输出"的证明都不成立。
+
+Decision:
+- `rust/wr-win32-rs` 用 `windows` crate 实现进程枚举（Toolhelp32）、窗口枚举（EnumWindows +
+  GetWindowRect / GetClientRect / ClientToScreen / GetDpiForWindow）、几何 payload 组装、
+  `active_account_id` 匹配、`_is_under`、密钥字面量扫描。
+- 可判定的部分（payload 形状、primary 选择、进程名过滤、key literal 扫描、路径边界）做 6 项
+  单元测试；Win32 adapter 明确不测试。
+- `window_uia_method` 在无窗口时返回原版的 `{"ok": false, "reason": "no-window"}`，有窗口时
+  返回显式 `uia-unavailable`，**不伪装成等价实现**。
+- `NativeService` live 模式构造函数、进程/账号刷新入口已接上；`_connect_live` 的密钥扫描与
+  内存读取没有移植。
+
+Consequences: 至此不再有任何"声称与 Python 等价"的缺口被掩盖。UIA 树遍历与截图是真正未完成的功能。

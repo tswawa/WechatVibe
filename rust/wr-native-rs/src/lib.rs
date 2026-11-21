@@ -13,6 +13,7 @@
 pub mod core;
 pub mod crypto;
 pub mod database;
+pub mod discovery;
 pub mod fixture;
 pub mod protocol;
 pub mod snapshot;
@@ -62,6 +63,7 @@ struct AccountState {
     username: Option<String>,
     shards: Vec<Value>,
     contacts: Vec<Value>,
+    dir_path: String,
 }
 
 /// Port of `NativeService` (fixture path).
@@ -72,6 +74,8 @@ pub struct NativeService {
     store_handle: Option<database::ContactStore>,
     state: String,
     message: String,
+    mode: String,
+    processes: Vec<wr_win32::WeixinProcess>,
     snapshots: IndexMap<String, Value>,
     records: IndexMap<String, Record>,
 }
@@ -110,6 +114,7 @@ impl NativeService {
                         .and_then(Value::as_array)
                         .cloned()
                         .unwrap_or_default(),
+                    dir_path: String::new(),
                 };
                 accounts.insert(id, entry);
             }
@@ -121,6 +126,8 @@ impl NativeService {
             store_handle: None,
             state: "select_account".to_string(),
             message: "请选择账号".to_string(),
+            mode: "fixture".to_string(),
+            processes: Vec::new(),
             snapshots: IndexMap::new(),
             records: IndexMap::new(),
         })
@@ -164,11 +171,14 @@ impl NativeService {
 
     /// Port of `hello`.
     pub fn hello(&self) -> Value {
-        json!({ "protocolVersion": 1, "mode": "fixture" })
+        json!({ "protocolVersion": 1, "mode": self.mode })
     }
 
     /// Port of `status` / `accounts_method` (fixture mode never refreshes from processes).
-    pub fn status(&self) -> Value {
+    pub fn status(&mut self) -> Value {
+        if self.mode == "live" && self.accounts.is_empty() {
+            self.refresh_live_accounts();
+        }
         self.account_status()
     }
 
@@ -819,5 +829,131 @@ impl NativeService {
             "nextCursor": encode_cursor(Some(next_cursor)),
             "done": done,
         }))
+    }
+}
+
+impl NativeService {
+    /// Live-mode constructor. Unlike fixture mode, it never takes a manifest.
+    pub fn new_live(cache_dir: &str) -> Result<Self, PortError> {
+        let store = snapshot::SnapshotStore::new(cache_dir)?;
+        Ok(NativeService {
+            store,
+            accounts: IndexMap::new(),
+            account_id: None,
+            store_handle: None,
+            state: "wechat_closed".to_string(),
+            message: String::new(),
+            mode: "live".to_string(),
+            processes: Vec::new(),
+            snapshots: IndexMap::new(),
+            records: IndexMap::new(),
+        })
+    }
+
+    /// Port of `_refresh_live_accounts`. Reads live process and account-directory state, so it
+    /// cannot be replayed; only its deterministic helpers are unit tested.
+    pub fn refresh_live_accounts(&mut self) {
+        self.processes = wr_win32::win32::find_weixin_processes();
+        if self.processes.is_empty() {
+            self.state = "wechat_closed".to_string();
+            self.message = "Weixin.exe 未运行".to_string();
+            return;
+        }
+        let mut roots: Vec<String> = Vec::new();
+        if let Ok(custom) = std::env::var("WECHATVIBE_DATA_ROOT")
+            && let Some(dir) = discovery::existing_absolute_directory(&custom)
+        {
+            roots.push(dir);
+        }
+        if let Ok(home) = std::env::var("USERPROFILE") {
+            for candidate in [home.clone(), format!("{home}\\Documents")] {
+                if let Some(dir) = discovery::existing_absolute_directory(&candidate) {
+                    roots.push(dir);
+                }
+            }
+        }
+        for root in discovery::discover_account_dirs(&roots) {
+            let id = root
+                .get("attrs")
+                .and_then(Value::as_object)
+                .and_then(|a| a.get("id"))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let path = root
+                .get("attrs")
+                .and_then(Value::as_object)
+                .and_then(|a| a.get("path"))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let pairs: Vec<(String, String)> = self
+                .accounts
+                .values()
+                .map(|a| (a.id.clone(), a.dir_path.clone()))
+                .collect();
+            let open: Vec<String> = Vec::new(); // open-file enumeration is not implemented
+            let active = wr_win32::active_account_id(&pairs, &open, wr_win32::is_path_under);
+            let name = if active.as_deref() == Some(id.as_str()) {
+                "当前登录账号".to_string()
+            } else {
+                id.clone()
+            };
+            self.accounts.insert(
+                id.clone(),
+                AccountState {
+                    id,
+                    name,
+                    state: "available".to_string(),
+                    message: String::new(),
+                    username: None,
+                    shards: Vec::new(),
+                    contacts: Vec::new(),
+                    dir_path: path,
+                },
+            );
+        }
+        self.state = if self.accounts.is_empty() {
+            "not_logged_in"
+        } else {
+            "select_account"
+        }
+        .to_string();
+        self.message = if self.accounts.is_empty() {
+            "未发现本地账号目录"
+        } else {
+            "请选择账号"
+        }
+        .to_string();
+    }
+
+    /// Port of `window_method`.
+    pub fn window_method(&mut self, params: &Value) -> Value {
+        let pids: Vec<u32> = if self.processes.is_empty() {
+            wr_win32::win32::find_weixin_processes()
+                .into_iter()
+                .map(|p| p.pid)
+                .collect()
+        } else {
+            self.processes.iter().map(|p| p.pid).collect()
+        };
+        let capture = params
+            .get("capture")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        wr_win32::win32::current_geometry(&pids, capture)
+    }
+
+    /// Port of `window_uia_method`. The UIA tree walk is not implemented: this returns the same
+    /// explicit "no window" shape when there is nothing to probe, and a clearly marked
+    /// `uia-unavailable` response otherwise. No equivalence with the original is claimed.
+    pub fn window_uia_method(&mut self, params: &Value) -> Value {
+        let pids: Vec<u32> = self.processes.iter().map(|p| p.pid).collect();
+        let windows = wr_win32::win32::enumerate_windows(&pids);
+        if windows.is_empty() {
+            return json!({ "ok": false, "reason": "no-window" });
+        }
+        let _ = params;
+        json!({ "ok": false, "reason": "uia-unavailable" })
     }
 }

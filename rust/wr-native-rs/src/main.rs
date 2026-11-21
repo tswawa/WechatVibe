@@ -38,6 +38,8 @@ fn main() {
             "open_history" => service.open_history(&params(&op)),
             "read_history" => service.read_history(&params(&op)),
             "read_incremental" => service.read_incremental(&params(&op)),
+            "window_method" => Ok(service.window_method(&params(&op))),
+            "window_uia_method" => Ok(service.window_uia_method(&params(&op))),
             "close" => Ok(service.close()),
             other => Ok(json!({"error": format!("unknown op {other}")})),
         };
