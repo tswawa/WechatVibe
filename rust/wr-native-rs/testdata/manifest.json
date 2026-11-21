@@ -1,0 +1,1 @@
+{"version": 1, "accounts": [{"id": "acct-1", "name": "测试账号", "username": "wxid_me", "contacts": [{"id": "c_a", "username": "wxid_a", "name": "阿甲", "kind": "friend"}, {"id": "c_b", "username": "wxid_b", "name": "乙", "kind": "chatroom"}], "shards": [{"id": "shard-1", "path": "D:\\project\\weixinAnalyzer\\rust\\wr-native-rs\\testdata\\fixture.db"}]}]}

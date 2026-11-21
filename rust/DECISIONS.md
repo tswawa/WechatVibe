@@ -239,3 +239,22 @@ commit_pages=2，最终镜像 8192 字节且带 SQLite 头。
 2. crypto 的 port 已经把错误编码成 `ProtocolError(code): msg`，外层再包一次会变成双前缀。
 
 Consequences: 22/22 一致，`cargo test` 3/3。`NativeService` 仍是 Python，它依赖活进程与窗口状态。
+
+## ADR-016: 服务层用 fixture 模式证明，live 模式不假装有证明
+
+Status: accepted (2026-11-21)
+
+Context: `NativeService` 的 live 路径要扫活进程、活窗口；fixture 模式则读 manifest 里的明文 DB，
+但两者共用同一套 contacts / keyset 分页 / 快照冻结 / 增量读取逻辑。
+
+Decision: `rust/wr-native-rs` 只移植 fixture 路径，把已经证明的 crypto / wal / database / snapshot /
+fixture / protocol 模块组合进一个自包含 crate（避免 pyo3 extension-module 的链接问题）。
+18 个操作与原版逐条一致：hello / status / accounts / connect / contacts / latest / open_history /
+read_history / close。成功路径确实读到 3 行分页数据和 total=12。
+
+踩到的坑：
+- 快照里 `datasetId` 指向的 dataset meta 才含 `shards`，不能从 snapshot meta 直接读；
+- `create_snapshot` 的随机 uuid 要归一化，否则只差 id 就会被误判为不等价；
+- Rust 二进制自己生成快照 id，占位符 `__snap0` 需要「先跑一次拿 id、再重写 ops 跑第二次」。
+
+Consequences: live 模式、window 方法、进程/内存扫描明确列为未完成。

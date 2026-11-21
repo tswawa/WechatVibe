@@ -1,0 +1,4 @@
+target/
+testdata/ops.json
+testdata/cache/
+testdata/fixture.db

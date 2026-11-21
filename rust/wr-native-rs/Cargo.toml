@@ -1,0 +1,36 @@
+[package]
+name = "wr-native"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+description = "Rust port of wr/service.py NativeService (fixture mode)"
+
+[lib]
+name = "wr_native"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wr-native"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = "2"
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+hmac = "0.12"
+sha2 = "0.10"
+pbkdf2 = "0.12"
+subtle = "2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+zstd = "0.13"
+md-5 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+
+[profile.release]
+lto = true
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+too_many_arguments = "allow"
