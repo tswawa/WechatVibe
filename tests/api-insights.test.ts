@@ -33,6 +33,26 @@ function fake(text: string, capture?: (request: GenerationRequest) => void) {
   };
 }
 
+it("forwards reasoning deltas on their own channel without feeding the parser", async () => {
+  let captured: GenerationRequest | undefined;
+  const reasoning: string[] = [];
+  const result = await analyzeApiInsights(config, input,
+    async (_config, request) => {
+      captured = request;
+      // Simulate a thinking model: reasoning first, then the JSON answer.
+      request.onReasoningDelta?.("先想想这条消息");
+      for (const character of JSON.stringify({ items: [legacyOk("b", "委婉", "婉拒"),
+        legacyOk("d", "疲惫", "说明近况")] })) request.onTextDelta?.(character);
+      return { text: JSON.stringify({ items: [legacyOk("b", "委婉", "婉拒"),
+        legacyOk("d", "疲惫", "说明近况")] }) };
+    },
+    undefined, delta => reasoning.push(delta));
+  assert.deepEqual(reasoning, ["先想想这条消息"]);
+  assert.deepEqual(result.insights.map((item) => item.id), ["b", "d"]);
+  assert.equal(result.insights[0]?.status, "ok");
+  assert.equal(typeof captured?.onReasoningDelta, "function");
+});
+
 it("passes bounded chat data and returns one simple label pair in target order", async () => {
   let request: GenerationRequest | undefined;
   const result = await analyzeApiInsights(config, input, fake(JSON.stringify({ items: [

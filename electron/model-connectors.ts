@@ -43,6 +43,12 @@ export interface GenerationRequest {
   /** Consume provider SSE chunks when available and expose firstBodyMs. */
   stream?: boolean;
   onTextDelta?: (delta: string) => void;
+  /**
+   * Reasoning/thinking deltas arrive before any answer text on thinking models.
+   * Kept separate from onTextDelta: the latter feeds a JSON parser, and reasoning
+   * text must never be mixed into that stream.
+   */
+  onReasoningDelta?: (delta: string) => void;
   signal?: AbortSignal;
   /** A bounded per-request timeout; larger portrait batches may need longer than a probe. */
   timeoutMs?: number;
@@ -140,6 +146,29 @@ export function validateModelConfig(config: ModelConfig, requireModel = true): S
     model: config.model.trim(),
     apiKey: config.apiKey?.trim() ?? "",
   };
+}
+
+/**
+ * Thinking models stream reasoning before any answer text. Providers differ on the
+ * wire: Responses uses `response.reasoning_text.delta` (and sometimes
+ * `response.reasoning.delta`), while chat-completions-compatible gateways put it in
+ * `choices[].delta.reasoning_content` / `.reasoning` / `.thinking`.
+ *
+ * Returns only the reasoning increment. Callers keep it out of `onTextDelta` because
+ * that callback feeds a strict JSON parser; reasoning is surfaced via its own channel.
+ */
+function reasoningDelta(event: any): string {
+  if (!event || typeof event !== "object") return "";
+  const type = typeof event.type === "string" ? event.type : "";
+  if (/^response\.(reasoning|thinking)/iu.test(type) && typeof event.delta === "string")
+    return event.delta;
+  const delta = event.choices?.[0]?.delta;
+  if (!delta || typeof delta !== "object") return "";
+  for (const key of ["reasoning_content", "reasoning", "thinking"]) {
+    const value = delta[key];
+    if (typeof value === "string" && value) return value;
+  }
+  return "";
 }
 
 function checkedSignal(requestSignal?: AbortSignal, callerSignal?: AbortSignal,
@@ -480,9 +509,19 @@ export async function generateStructured(
             const stream = await client.responses.create({ ...requestBody, stream: true },
               { signal: request.signal });
             let text = "";
+            let sawReasoning = false;
             let responseId: string | undefined;
             let responseUsage: any;
             for await (const event of stream as AsyncIterable<any>) {
+              // Reasoning streams first on thinking models. It is real model activity:
+              // mark it as a first body so the caller sees progress, but never merge it
+              // into `text` — that string is parsed as strict JSON downstream.
+              const reasoning = reasoningDelta(event);
+              if (reasoning) {
+                sawReasoning = true;
+                markFirstBody();
+                request.onReasoningDelta?.(reasoning);
+              }
               if (event?.type === "response.output_text.delta" && typeof event.delta === "string") {
                 markFirstBody();
                 text += event.delta;
@@ -497,7 +536,13 @@ export async function generateStructured(
               }
               if (event?.type === "error") throw new Error(String(event.message || "provider stream error"));
             }
-            if (!text.trim()) throw streamFormatFailure();
+            if (!text.trim()) {
+              // If reasoning arrived but the cap ended the stream before any answer,
+              // this is an output-cap problem, not an SSE-format problem. A non-stream
+              // retry would spend the same cap again and just time out.
+              if (sawReasoning) outputTruncated();
+              throw streamFormatFailure();
+            }
             response = { output_text: text, id: responseId, usage: responseUsage };
           }
         } catch (error) {
@@ -542,13 +587,22 @@ export async function generateStructured(
             const stream = await client.chat.completions.create({ ...requestBody, stream: true },
               { signal: request.signal });
             let text = "";
+            let sawReasoning = false;
             for await (const chunk of stream as AsyncIterable<any>) {
+              const reasoning = reasoningDelta(chunk);
+              if (reasoning) {
+                sawReasoning = true;
+                markFirstBody(); request.onReasoningDelta?.(reasoning);
+              }
               const delta = chunk?.choices?.[0]?.delta?.content;
               if (typeof delta === "string") {
                 markFirstBody(); text += delta; request.onTextDelta?.(delta);
               }
             }
-            if (!text.trim()) throw streamFormatFailure();
+            if (!text.trim()) {
+              if (sawReasoning) outputTruncated();
+              throw streamFormatFailure();
+            }
             response = { choices: [{ message: { content: text } }] };
           }
         } catch (error) {

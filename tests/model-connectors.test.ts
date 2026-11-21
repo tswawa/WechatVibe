@@ -439,6 +439,55 @@ for (const protocol of ["responses", "chat_completions"] as const) {
   });
 }
 
+it("streams reasoning deltas separately without polluting the parsed text", async () => {
+  const encoder = new TextEncoder();
+  const sse = (payload: unknown, event?: string) =>
+    (event ? `event: ${event}\n` : "") + `data: ${JSON.stringify(payload)}\n\n`;
+  const chunks = [
+    sse({ type: "response.reasoning_text.delta", delta: "让我想想" }, "response.reasoning_text.delta"),
+    sse({ type: "response.reasoning_text.delta", delta: "..." }, "response.reasoning_text.delta"),
+    sse({ type: "response.output_text.delta", delta: '{"ok":' }, "response.output_text.delta"),
+    sse({ type: "response.output_text.delta", delta: "true}" }, "response.output_text.delta"),
+    sse({ type: "response.completed", response: { id: "resp_thinking", usage: {
+      input_tokens: 2, output_tokens: 5, total_tokens: 7 } } }, "response.completed"),
+  ];
+  await withMockFetch(() => new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  }), { headers: { "content-type": "text/event-stream" } }), async () => {
+    const reasoning: string[] = [];
+    const text: string[] = [];
+    const result = await generateStructured(configs.responses, {
+      system: "", prompt: "synthetic prompt", stream: true,
+      onReasoningDelta: delta => reasoning.push(delta),
+      onTextDelta: delta => text.push(delta),
+    });
+    assert.equal(reasoning.join(""), "让我想想...");
+    assert.equal(text.join(""), '{"ok":true}');
+    assert.equal(result.text, '{"ok":true}');
+    assert.equal(result.responseId, "resp_thinking");
+    assert.ok(typeof result.timings?.firstBodyMs === "number");
+  });
+});
+
+it("reports output truncation when reasoning ends the stream with no answer text", async () => {
+  const encoder = new TextEncoder();
+  await withMockFetch(() => new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode('data: {"choices":[{"index":0,"delta":{"reasoning_content":"thinking hard"}}]}\n\n'));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  }), { headers: { "content-type": "text/event-stream" } }), async () => {
+    await assert.rejects(() => generateStructured(configs.chat_completions, {
+      system: "", prompt: "synthetic prompt", stream: true,
+    }), (error: unknown) => error instanceof ModelConnectorError &&
+      error.code === "output-truncated");
+  });
+});
+
 it("delivers a healthy SSE delta before the provider closes its response", async () => {
   let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
   let firstDelta!: () => void;

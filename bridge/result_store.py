@@ -30,6 +30,10 @@ from payload_crypto import PayloadCipher, PayloadUnreadable, default_cipher
 from process_lock import ProcessLock, checked_path, sqlite_open_lock
 from guidance_contracts import valid_guidance_payload
 
+# Reasoning is diagnostic text, not a transcript: cap it so one verbose model
+# cannot bloat the encrypted column or the panel that renders it.
+MAX_REASONING_CHARS = 20_000
+
 
 def _valid_source_id(source_id):
     """A local scope, or a stored API source id (hex32 with an optional stream suffix)."""
@@ -151,6 +155,11 @@ class ResultStore:
             conn.execute("CREATE TABLE IF NOT EXISTS api_source_meta_v1 (account TEXT NOT NULL, "
                          "source_id TEXT NOT NULL, protocol TEXT NOT NULL, model TEXT NOT NULL, "
                          "PRIMARY KEY(account,source_id))")
+            # Model reasoning for one analysis batch. Stored sealed: the text is the
+            # user's own local model reading their own chat, but it is still private.
+            conn.execute("CREATE TABLE IF NOT EXISTS api_reasoning_v1 (account TEXT NOT NULL, "
+                         "session TEXT NOT NULL, source_id TEXT NOT NULL, payload TEXT NOT NULL, "
+                         "updated_at INTEGER NOT NULL, PRIMARY KEY(account,session,source_id))")
             conn.execute("CREATE TABLE IF NOT EXISTS api_guidance_v1 (account TEXT NOT NULL, "
                          "session TEXT NOT NULL, source_id TEXT NOT NULL, subject TEXT NOT NULL, "
                          "revision TEXT NOT NULL, scenario TEXT NOT NULL, analyze_self INTEGER NOT NULL, "
@@ -611,6 +620,28 @@ class ResultStore:
                              "ON CONFLICT(account,session,source_id,id) DO UPDATE SET result=excluded.result",
                               (account, user, source_id, message["id"], seq, shard, local_id,
                                json.dumps(insight, ensure_ascii=False)))
+
+    def save_api_reasoning(self, account, user, source_id, text):
+        """Seal one batch's reasoning text before it reaches SQLite."""
+        if not isinstance(text, str) or not text.strip():
+            return
+        payload = self.cipher.dumps({"text": text[:MAX_REASONING_CHARS]})
+        with self.connect() as conn:
+            conn.execute("INSERT INTO api_reasoning_v1 VALUES (?,?,?,?,?) "
+                         "ON CONFLICT(account,session,source_id) DO UPDATE SET "
+                         "payload=excluded.payload, updated_at=excluded.updated_at",
+                         (account, user, source_id, payload, int(time.time() * 1000)))
+
+    def api_reasoning(self, account, user, source_id):
+        """Return decrypted reasoning for display. Damaged ciphertext is an explicit error."""
+        with self.connect() as conn:
+            row = conn.execute("SELECT payload FROM api_reasoning_v1 WHERE account=? AND session=? AND source_id=?",
+                               (account, user, source_id)).fetchone()
+        if not row:
+            return ""
+        value = self.cipher.loads(row[0])
+        text = value.get("text") if isinstance(value, dict) else ""
+        return text if isinstance(text, str) else ""
 
     def register_api_source(self, account, source_id, protocol, model):
         with self.connect() as conn:

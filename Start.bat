@@ -113,6 +113,13 @@ goto :finish
 
 rem ================================================= 路径 B：Electron + Python
 :node_checks
+rem ------------------------------------------------------------ Node 24 first
+set "NODE24_DIR=D:\program\nodejs"
+if exist "%NODE24_DIR%\node.exe" (
+  set "PATH=%NODE24_DIR%;%PATH%"
+  echo [Node] use %NODE24_DIR%\node.exe
+)
+
 rem 一次 node 调用同时取版本号和主版本号，省掉 node -v 与两次 where 的启动开销。
 set "NODE_VERSION="
 set "NODE_MAJOR_RAW="

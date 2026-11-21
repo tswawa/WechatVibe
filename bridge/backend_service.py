@@ -51,6 +51,7 @@ from guidance_contracts import (GUIDANCE_CONTEXT_CHARACTERS, GUIDANCE_DRAFT_MAX,
                                 REPLY_OPTIONS_REVISION, normalize_guidance, normalize_reply_options)
 from history_browser import browse as browse_history, saved_results as saved_history_results, search as search_history
 from message_results import validate_fine_result, validate_portrait_result
+from payload_crypto import PayloadUnreadable
 from model_source import (LOCAL_SOURCE_ID, ModelSourceStore, ModelSourceUnavailable,
                           connection_values, profile_name)
 from node_analysis import NodeAnalysis
@@ -1578,6 +1579,21 @@ class Backend:
         return {"account": account, "sourceId": source_id, "results": results, "job": job,
                 "suspended": suspended}
 
+    def model_reasoning(self, user):
+        """Thinking text from the last analysis batch, decrypted for local display only."""
+        account, workdir, store = self._scoped_identity()
+        with self.api_lock:
+            mode, source_id = self.active_model_source_mode, self.active_model_source_id
+        text = ""
+        if mode == "api":
+            try:
+                text = store.api_reasoning(account, user, api_insight_scope(source_id))
+            except PayloadUnreadable:
+                # Damaged/foreign key: surface an explicit code rather than plaintext.
+                return {"account": account, "text": "", "error": "reasoning-unreadable"}
+        self._assert_scope((account, workdir))
+        return {"account": account, "text": text}
+
     def start_model_insights(self, requested_account, user, limit, target_ids=None, around=None, *,
                              force=False, background=False):
         started = time.perf_counter()
@@ -1874,6 +1890,15 @@ class Backend:
                                             [(message, by_id[message["id"]]) for message in pending
                                              if self.api_insight_writers.get(
                                                  (*job_key[:3], message["id"])) == job["id"]])
+                    # The model's reasoning is sealed by the store before it reaches disk.
+                    # A failed write never blocks the validated insight results above.
+                    reasoning_text = response.get("reasoning") if isinstance(response, dict) else None
+                    if isinstance(reasoning_text, str) and reasoning_text.strip():
+                        try:
+                            store.save_api_reasoning(job_key[0], job_key[1],
+                                                     api_insight_scope(job_key[2]), reasoning_text)
+                        except Exception:
+                            pass
                     job.setdefault("timings", {})["saveMs"] = round(
                         (time.perf_counter() - save_started) * 1000, 3)
                 job["processed"] = job["total"]

@@ -328,8 +328,10 @@ class NodeAnalysis:
         insights = response.get("insights")
         if not isinstance(insights, list) or len(insights) != len(target_ids):
             raise RuntimeError("invalid-insights")
+        reasoning = response.get("reasoning")
         return {"insights": insights, "usage": response.get("usage"),
-                "responseId": response.get("responseId"), "timings": response.get("timings")}
+                "responseId": response.get("responseId"), "timings": response.get("timings"),
+                **({"reasoning": reasoning} if isinstance(reasoning, str) and reasoning else {})}
 
     def model_guidance(self, protocol, base_url, api_key, model, messages, target_ids,
                        scenario, analyze_self, context_tokens, other_portrait=None,

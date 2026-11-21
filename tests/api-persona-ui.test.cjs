@@ -128,7 +128,10 @@ function personaHarness(apiImpl, storage) {
     setStripStatus: value => { byId("stripStatusText").textContent = value; },
     modelSourceRequestError: () => "连接失败",
     svgIcon: () => node("svg"), isMbtiUnlocked: () => false, unlockMbti: () => {},
-    api: apiImpl,
+    // Reasoning panel is a separate read; keep these portrait-focused tests
+    // from counting it as a profile request.
+    api: (url, ...rest) => typeof url === "string" && url.startsWith("/api/reasoning")
+      ? Promise.resolve({ text: "" }) : apiImpl(url, ...rest),
     profileCacheKey: (...args) => JSON.stringify(args),
     sessionCacheKey: (...args) => JSON.stringify(args),
     TextEncoder,

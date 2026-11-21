@@ -316,6 +316,8 @@ def make_handler(backend, accounts=None, control_token=None, profile=None):
                     # away from the conversation the user is looking at.
                     return self.send(200, backend.analysis(user_value(query.get("user")),
                                                            focus=query.get("focus") != "0"))
+                if parsed.path == "/api/reasoning":
+                    return self.send(200, backend.model_reasoning(user_value(query.get("user"))))
                 if parsed.path == "/api/profile":
                     member = query.get("member")
                     return self.send(200, backend.profile(user_value(query.get("user")),

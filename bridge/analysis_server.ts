@@ -140,11 +140,21 @@ async function handleApiGeneration(id: unknown, cmd: ApiGenerationCommand,
       emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, error: "invalid-request" });
       return;
     }
+    // Thinking deltas are accumulated for the local reasoning panel. They stay on
+    // this machine and are sealed before storage; the same text also counts as
+    // progress so a thinking model never looks stalled to the waiting UI.
+    let reasoningText = "";
     const result = await analyzeApiInsights(connectorConfig(req, true), {
       messages: req.messages as ApiInsightMessage[],
       targetIds: req.targetIds as string[],
-    }, undefined, (delta) => emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, streamDelta: delta }));
-    emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result });
+    }, undefined,
+      (delta) => emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, streamDelta: delta }),
+      (delta) => {
+        reasoningText += delta;
+        emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, streamDelta: delta });
+      });
+    emit({ id, cmd, analysisVersion: ANALYSIS_VERSION, ...result,
+      ...(reasoningText ? { reasoning: reasoningText } : {}) });
     return;
   }
   if (cmd === "model:portrait") {

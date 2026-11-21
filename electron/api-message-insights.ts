@@ -350,6 +350,7 @@ export async function analyzeApiInsights(
   input: ApiInsightInput,
   generate: Generator = generateStructured,
   onTextDelta?: ApiTextDeltaHandler,
+  onReasoningDelta?: ApiTextDeltaHandler,
 ): Promise<ApiInsightsResult> {
   const { messages, eligibleIds, emptyIds } = prepare(input);
   if (input.targetIds.length === 0) return { insights: [] };
@@ -390,6 +391,7 @@ export async function analyzeApiInsights(
     // (plus its stream buffer) behind while the caller retried.
     timeoutMs: 150_000,
     ...(onTextDelta ? { onTextDelta: stream.push } : {}),
+    ...(onReasoningDelta ? { onReasoningDelta } : {}),
   });
   const parseStarted = performance.now();
   const parsed = parseOutput(response, eligibleIds, resolveId);

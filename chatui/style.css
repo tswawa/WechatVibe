@@ -2364,6 +2364,30 @@ body.theme-light .pick-bar-primary:hover:not(:disabled) { color: var(--theme-acc
 .relationship-foot { margin-top: 12px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
 .relationship-empty { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 
+/* Sealed model reasoning panel */
+.reasoning-card { min-height: 260px; }
+.card-actions { display: flex; align-items: center; gap: 4px; }
+.card-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+  padding: 4px; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.card-icon-btn:hover:not(:disabled) { background: rgba(var(--theme-accent-rgb), .12); color: var(--theme-accent-strong); }
+.card-icon-btn:disabled { opacity: .4; cursor: default; }
+.card-icon-btn svg { width: 15px; height: 15px; fill: currentColor; }
+.reasoning-body { flex: 1; min-height: 0; max-height: 190px; overflow: auto; white-space: pre-wrap;
+  word-break: break-word; font-size: 12px; line-height: 1.65; color: var(--text-secondary); }
+.reasoning-empty { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.reasoning-overlay { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column;
+  background: rgba(0, 0, 0, .82); padding: 28px; }
+.reasoning-overlay[hidden] { display: none; }
+.reasoning-overlay-head { display: flex; align-items: center; justify-content: space-between;
+  color: #fff; font-size: 15px; font-weight: 600; padding: 0 4px 14px; }
+.reasoning-overlay-actions { display: flex; gap: 8px; }
+.reasoning-overlay-actions .card-icon-btn { color: #c9c9c9; width: 32px; height: 32px; }
+.reasoning-overlay-actions .card-icon-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
+.reasoning-overlay-body { flex: 1; overflow: auto; background: #1d1d1f; border: 1px solid #363639;
+  border-radius: 8px; padding: 20px 24px; color: #ddd; white-space: pre-wrap; word-break: break-word;
+  font-size: 13px; line-height: 1.8; }
+body.theme-light .reasoning-overlay-body { background: #fff; border-color: var(--border-color); color: #222; }
+
 /* MBTI Personality Lock Panel & Unlock Flow */
 .mbti-lock-panel {
   display: flex;
@@ -3324,6 +3348,9 @@ body:not(.theme-light) .btn-send.ready:hover, body:not(.theme-light) .btn-read-c
 #btnToggleIntent[data-state="done"] { color: #84bc9f; border-color: rgba(132, 188, 159, .35); background: rgba(132, 188, 159, .1); }
 #btnToggleIntent[data-state="error"] { color: #d9938a; border-color: rgba(217, 147, 138, .4); background: rgba(217, 147, 138, .1); }
 .radar-container { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+/* Row 1 holds four cards in two columns: MBTI/关系倾向 above, 互动风格/思考过程 below.
+   The reasoning card then sits directly under 关系倾向 and right of 互动风格, as specified. */
+.persona-grid:has(#reasoningCard) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .persona-grid:has(#mbtiCard[hidden]) .radar-container { flex-direction: row; justify-content: center; gap: 24px; }
 .radar-chart { width: min(100%, 360px); height: auto; }
 .radar-label { fill: var(--text-secondary); font-family: inherit; font-size: 12px; font-weight: 500; }

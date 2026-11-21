@@ -148,7 +148,9 @@ it("seeds the companion window's first paint with the current accent", () => {
 it("defaults to green, validates stored values and applies the attribute", () => {
   assert.match(app, /guidanceWindowMinutes: 1440, accent: "green"/u);
   assert.match(app, /const THEME_ACCENTS = \["green", "blue", "yellow", "red"\];/u);
-  assert.match(app, /if \(!THEME_ACCENTS\.includes\(settingsState\.settings\.accent\)\) settingsState\.settings\.accent = "green";/u);
+  // applyThemeAccent picks a valid accent locally instead of writing the fallback
+  // back into settings — same user-visible default without mutating stored state.
+  assert.match(app, /const accent = THEME_ACCENTS\.includes\(settingsState\.settings\.accent\) \? settingsState\.settings\.accent : "green";/u);
   assert.match(app, /function applyThemeAccent\(\)/u);
   assert.match(app, /document\.body\.dataset\.themeAccent = accent;/u);
   assert.match(app, /swatch\.setAttribute\("aria-checked", String\(swatch\.dataset\.accent === accent\)\)/u);

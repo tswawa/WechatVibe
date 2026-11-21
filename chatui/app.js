@@ -3779,6 +3779,7 @@ function renderProfile(profile) {
   }
   if (!tags.childNodes.length) tags.textContent = legacyApi ? "待判断" : "暂无关键词";
   renderRelationshipTendency(group);
+  void loadReasoning(chatState.currentUser);
   renderPortraitSummary(profile);
   renderApiPortraitDetails(null);
   renderMembers(profile);
@@ -3823,6 +3824,66 @@ function renderRelationshipTendency(group) {
     list.appendChild(node);
   }
   foot.textContent = `基于当前已加载的 ${summary.classified} / ${summary.windowSize} 条已分析消息 · 平均判别置信度 ${Math.round(summary.meanConfidence * 100)}% · 本地模型`;
+}
+
+// Reasoning text is sealed at rest and only decrypted for this panel by the backend.
+// It is diagnostic output from the user's own model, shown here for inspection.
+let reasoningText = "";
+async function loadReasoning(user) {
+  reasoningText = "";
+  const body = byId("reasoningBody");
+  const overlayBody = byId("reasoningOverlayBody");
+  const fullscreen = byId("btnReasoningFullscreen");
+  const copy = byId("btnReasoningCopy");
+  if (body) body.textContent = "加载中…";
+  if (copy) copy.disabled = true;
+  if (fullscreen) fullscreen.disabled = true;
+  if (!user) { if (body) body.textContent = "请先打开一个会话"; return; }
+  try {
+    const data = await api(`/api/reasoning?user=${encodeURIComponent(user)}`);
+    const text = typeof data?.text === "string" ? data.text : "";
+    reasoningText = data?.error === "reasoning-unreadable"
+      ? "本机无法解密已有思考数据，请恢复原账号的密钥备份；原始数据已保留。"
+      : text;
+  } catch (_) {
+    reasoningText = "思考过程读取失败，请稍后重试";
+  }
+  if (body) body.textContent = reasoningText || "本次分析没有产生思考过程（仅 API 模式记录）";
+  if (overlayBody) overlayBody.textContent = reasoningText || "暂无可展示的思考过程";
+  if (copy) copy.disabled = !reasoningText;
+  if (fullscreen) fullscreen.disabled = !reasoningText;
+}
+
+async function copyReasoning() {
+  if (!reasoningText) { toast("没有可复制的思考过程"); return; }
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(reasoningText);
+    else {
+      const area = document.createElement("textarea");
+      area.value = reasoningText;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      if (!ok) throw new Error("copy failed");
+    }
+    toast("思考过程已复制");
+  } catch (_) {
+    toast("复制失败，请手动选中文本复制");
+  }
+}
+
+function setReasoningOverlay(open) {
+  const overlay = byId("reasoningOverlay");
+  if (!overlay) return;
+  overlay.hidden = !open;
+  if (open) {
+    const body = byId("reasoningOverlayBody");
+    if (body) body.textContent = reasoningText || "暂无可展示的思考过程";
+    byId("btnReasoningOverlayClose")?.focus();
+  }
 }
 portraitState.apiPortraitRequest = 0;
 const API_PORTRAIT_MIN_CONTEXT = 12288;
@@ -6750,6 +6811,16 @@ byId("navPersona").addEventListener("click", () => switchView("persona"));
 byId("navAdvisor")?.addEventListener("click", () => switchView("advisor"));
 byId("btnToolbarPersona").addEventListener("click", () => switchView("persona"));
 byId("btnExportReport")?.addEventListener("click", () => { void exportCurrentReport(); });
+byId("btnReasoningFullscreen")?.addEventListener("click", () => setReasoningOverlay(true));
+byId("btnReasoningCopy")?.addEventListener("click", () => { void copyReasoning(); });
+byId("btnReasoningOverlayCopy")?.addEventListener("click", () => { void copyReasoning(); });
+byId("btnReasoningOverlayClose")?.addEventListener("click", () => setReasoningOverlay(false));
+byId("reasoningOverlay")?.addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) setReasoningOverlay(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !byId("reasoningOverlay")?.hidden) setReasoningOverlay(false);
+});
 byId("btnToolbarAdvisor")?.addEventListener("click", () => { void window.Advisor?.togglePanel(); });
 byId("btnBackToChat").addEventListener("click", () => switchView("chat"));
 let pendingAnalysisScopeReset = null;
